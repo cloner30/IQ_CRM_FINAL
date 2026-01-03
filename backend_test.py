@@ -435,7 +435,8 @@ class PassportAPITester:
                     return False
                 else:
                     print(f"✅ All new field headers found in CSV export")
-                    print(f"   CSV headers preview: {csv_content.split('\\n')[0][:200]}...")
+                    first_line = csv_content.split('\n')[0]
+                    print(f"   CSV headers preview: {first_line[:200]}...")
                 
                 return True
             else:
