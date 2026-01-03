@@ -182,7 +182,7 @@ export const GroupDetail = () => {
     
     setFormLoading(true);
     try {
-      const response = await axios.post(`${API}/groups/${groupId}/passports`, passportForm);
+      const response = await api.post(`/groups/${groupId}/passports`, passportForm);
       setPassports([...passports, response.data]);
       setShowAddPassport(false);
       resetForm();
@@ -204,7 +204,7 @@ export const GroupDetail = () => {
     
     setFormLoading(true);
     try {
-      await axios.put(`${API}/groups/${groupId}/passports/${showEditPassport.id}`, passportForm);
+      await api.put(`/groups/${groupId}/passports/${showEditPassport.id}`, passportForm);
       setShowEditPassport(null);
       resetForm();
       toast.success('Passport updated successfully');
@@ -219,7 +219,7 @@ export const GroupDetail = () => {
   const handleDeletePassport = async () => {
     if (!deletePassportId) return;
     try {
-      await axios.delete(`${API}/groups/${groupId}/passports/${deletePassportId}`);
+      await api.delete(`/groups/${groupId}/passports/${deletePassportId}`);
       setPassports(passports.filter(p => p.id !== deletePassportId));
       toast.success('Passport deleted successfully');
       fetchData();
@@ -232,7 +232,7 @@ export const GroupDetail = () => {
 
   const handleStatusUpdate = async (passportId, newStatus) => {
     try {
-      await axios.put(`${API}/passports/${passportId}/status?status=${newStatus}`);
+      await api.put(`/passports/${passportId}/status?status=${newStatus}`);
       setPassports(passports.map(p => 
         p.id === passportId 
           ? { ...p, status: newStatus, status_updated_at: newStatus === 'done' ? new Date().toISOString() : null }
