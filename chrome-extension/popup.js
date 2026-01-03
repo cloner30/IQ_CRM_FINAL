@@ -169,7 +169,7 @@ async function loadGroups() {
   showStatus('Loading groups...', 'loading');
   
   try {
-    const response = await fetch(`${apiUrl}/api/groups`);
+    const response = await apiRequest('/api/groups');
     if (!response.ok) throw new Error('Failed to fetch groups');
     
     const groups = await response.json();
@@ -185,7 +185,7 @@ async function loadGroups() {
     hideStatus();
   } catch (error) {
     console.error('Error loading groups:', error);
-    showStatus('Failed to load groups. Check API URL in settings.', 'error');
+    showStatus('Failed to load groups. Check settings.', 'error');
   }
 }
 
@@ -194,7 +194,7 @@ async function loadPassports(groupId) {
   showStatus('Loading passengers...', 'loading');
   
   try {
-    const response = await fetch(`${apiUrl}/api/groups/${groupId}/passports`);
+    const response = await apiRequest(`/api/groups/${groupId}/passports`);
     if (!response.ok) throw new Error('Failed to fetch passports');
     
     allPassports = await response.json();
