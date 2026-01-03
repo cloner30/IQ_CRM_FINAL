@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E-Visa Form Filler</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🛂 E-Visa Form Filler</h1>
+      <p class="subtitle">Iraq Electronic Visa System</p>
+    </header>
+
+    <div id="setup-required" class="section hidden">
+      <div class="warning">
+        <span class="icon">⚠️</span>
+        <p>API URL not configured. <a href="#" id="open-settings">Open Settings</a></p>
+      </div>
+    </div>
+
+    <div id="main-content" class="section">
+      <div class="form-group">
+        <label for="group-select">Select Group</label>
+        <select id="group-select">
+          <option value="">-- Select a group --</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="passport-select">Select Passenger</label>
+        <select id="passport-select" disabled>
+          <option value="">-- Select a passenger --</option>
+        </select>
+      </div>
+
+      <div id="passenger-preview" class="preview hidden">
+        <h3>Selected Passenger</h3>
+        <div class="preview-content">
+          <div class="preview-row">
+            <span class="label">Name:</span>
+            <span id="preview-name" class="value"></span>
+          </div>
+          <div class="preview-row">
+            <span class="label">Passport:</span>
+            <span id="preview-passport" class="value mono"></span>
+          </div>
+          <div class="preview-row">
+            <span class="label">Nationality:</span>
+            <span id="preview-nationality" class="value"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="fill-form-btn" class="btn btn-primary" disabled>
+          <span class="btn-icon">✏️</span>
+          Fill Form
+        </button>
+      </div>
+
+      <div id="status" class="status hidden"></div>
+    </div>
+
+    <footer>
+      <a href="#" id="settings-link">⚙️ Settings</a>
+      <span class="version">v1.0.0</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

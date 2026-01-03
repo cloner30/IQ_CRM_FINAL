@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E-Visa Form Filler - Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⚙️ Extension Settings</h1>
+      <p class="subtitle">Iraq E-Visa Form Filler</p>
+    </header>
+
+    <form id="settings-form">
+      <div class="form-group">
+        <label for="api-url">Passport Control Admin API URL</label>
+        <input type="url" id="api-url" placeholder="https://your-app-url.com" required>
+        <p class="help-text">Enter the URL of your Passport Control Admin application (without trailing slash)</p>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+        <button type="button" id="test-connection" class="btn btn-secondary">Test Connection</button>
+      </div>
+
+      <div id="status" class="status hidden"></div>
+    </form>
+
+    <section class="info-section">
+      <h2>📋 Instructions</h2>
+      <ol>
+        <li>Enter the URL of your deployed Passport Control Admin application</li>
+        <li>Click "Test Connection" to verify the API is accessible</li>
+        <li>Save your settings</li>
+        <li>Navigate to <a href="https://eservice.evisa.iq" target="_blank">eservice.evisa.iq</a></li>
+        <li>Click the extension icon and select a passenger to auto-fill the form</li>
+      </ol>
+    </section>
+
+    <section class="info-section">
+      <h2>🔒 Privacy</h2>
+      <p>This extension only communicates with your configured Passport Control Admin server. No data is sent to any third parties.</p>
+    </section>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

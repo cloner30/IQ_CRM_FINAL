@@ -1,0 +1,20 @@
+/* Content script styles for E-Visa Form Filler */
+
+/* Highlight filled fields */
+.evisa-filled {
+  background-color: #f0fdf4 !important;
+  border-color: #22c55e !important;
+  transition: background-color 0.3s ease;
+}
+
+/* Notification animation */
+@keyframes evisa-notification-slide {
+  from {
+    transform: translateX(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
