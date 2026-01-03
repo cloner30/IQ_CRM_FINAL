@@ -303,12 +303,20 @@ export const GroupDetail = () => {
     }
   };
 
-  const filteredPassports = passports.filter(p =>
-    p.passport_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.first_name_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.surname_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.nationality.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPassports = passports.filter(p => {
+    const matchesSearch = 
+      p.passport_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.first_name_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.surname_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.nationality.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = 
+      statusFilter === 'all' || 
+      (statusFilter === 'pending' && (p.status === 'pending' || !p.status)) ||
+      (statusFilter === 'done' && p.status === 'done');
+    
+    return matchesSearch && matchesStatus;
+  });
 
   if (loading) {
     return <div className="text-center py-12 text-slate-500">Loading...</div>;
