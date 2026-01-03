@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Users, Plus, Search, Trash2, Edit, ArrowRight, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import api from '../utils/api';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,8 +16,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const GroupsList = () => {
   const [groups, setGroups] = useState([]);
@@ -32,7 +30,7 @@ export const GroupsList = () => {
 
   const fetchGroups = async () => {
     try {
-      const response = await axios.get(`${API}/groups`);
+      const response = await api.get('/groups');
       setGroups(response.data);
     } catch (error) {
       console.error('Error fetching groups:', error);
@@ -45,7 +43,7 @@ export const GroupsList = () => {
   const handleDelete = async () => {
     if (!deleteGroupId) return;
     try {
-      await axios.delete(`${API}/groups/${deleteGroupId}`);
+      await api.delete(`/groups/${deleteGroupId}`);
       setGroups(groups.filter(g => g.id !== deleteGroupId));
       toast.success('Group deleted successfully');
     } catch (error) {
