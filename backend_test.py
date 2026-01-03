@@ -220,6 +220,20 @@ class PassportAPITester:
                 print(f"✅ All new fields correctly saved and returned")
         return success
 
+    def test_get_passport_by_id(self):
+        """Test getting a specific passport"""
+        if not self.group_id or not self.passport_id:
+            print("❌ Skipped - No group/passport ID available")
+            return False
+        
+        success, response = self.run_test(
+            "Get Passport by ID",
+            "GET",
+            f"groups/{self.group_id}/passports/{self.passport_id}",
+            200
+        )
+        return success
+
     def test_get_passport_with_new_fields(self):
         """Test getting a passport with new fields to verify they're returned"""
         if not self.group_id or not hasattr(self, 'new_passport_id'):
