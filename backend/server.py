@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
-import shutil
 import aiofiles
 
 ROOT_DIR = Path(__file__).parent
@@ -49,27 +48,66 @@ class Group(BaseModel):
 
 class PassportCreate(BaseModel):
     passport_no: str
-    name: str
+    passport_type: Optional[str] = "Normal"
+    first_name_en: str
+    surname_en: str
+    first_name_ar: Optional[str] = ""
+    father_name_ar: Optional[str] = ""
+    father_name_en: Optional[str] = ""
+    grandfather_name_ar: Optional[str] = ""
+    grandfather_name_en: Optional[str] = ""
+    surname_ar: Optional[str] = ""
     nationality: str
+    gender: Optional[str] = ""
+    birth_date: Optional[str] = ""
+    place_of_issue: Optional[str] = ""
+    issue_date: Optional[str] = ""
     expiry_date: str
+    profession: Optional[str] = ""
 
 class Passport(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     group_id: str
     passport_no: str
-    name: str
-    nationality: str
-    expiry_date: str
+    passport_type: str = "Normal"
+    first_name_en: str = ""
+    surname_en: str = ""
+    first_name_ar: str = ""
+    father_name_ar: str = ""
+    father_name_en: str = ""
+    grandfather_name_ar: str = ""
+    grandfather_name_en: str = ""
+    surname_ar: str = ""
+    nationality: str = ""
+    gender: str = ""
+    birth_date: str = ""
+    place_of_issue: str = ""
+    issue_date: str = ""
+    expiry_date: str = ""
+    profession: str = ""
     passport_image: Optional[str] = None
     profile_image: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class PassportUpdate(BaseModel):
     passport_no: Optional[str] = None
-    name: Optional[str] = None
+    passport_type: Optional[str] = None
+    first_name_en: Optional[str] = None
+    surname_en: Optional[str] = None
+    first_name_ar: Optional[str] = None
+    father_name_ar: Optional[str] = None
+    father_name_en: Optional[str] = None
+    grandfather_name_ar: Optional[str] = None
+    grandfather_name_en: Optional[str] = None
+    surname_ar: Optional[str] = None
     nationality: Optional[str] = None
+    gender: Optional[str] = None
+    birth_date: Optional[str] = None
+    place_of_issue: Optional[str] = None
+    issue_date: Optional[str] = None
     expiry_date: Optional[str] = None
+    profession: Optional[str] = None
 
 def validate_file_extension(filename: str) -> bool:
     ext = Path(filename).suffix.lower()
@@ -112,7 +150,6 @@ async def update_group(group_id: str, group_data: GroupCreate):
 
 @api_router.delete("/groups/{group_id}")
 async def delete_group(group_id: str):
-    # Delete all passports in the group
     await db.passports.delete_many({"group_id": group_id})
     result = await db.groups.delete_one({"id": group_id})
     if result.deleted_count == 0:
@@ -127,12 +164,10 @@ async def get_passports(group_id: str):
 
 @api_router.post("/groups/{group_id}/passports", response_model=Passport)
 async def create_passport(group_id: str, passport_data: PassportCreate):
-    # Verify group exists
     group = await db.groups.find_one({"id": group_id})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    # Check if passport number already exists in this group
     existing = await db.passports.find_one({
         "group_id": group_id,
         "passport_no": passport_data.passport_no.upper()
@@ -140,15 +175,11 @@ async def create_passport(group_id: str, passport_data: PassportCreate):
     if existing:
         raise HTTPException(status_code=400, detail="Passport number already exists in this group")
     
-    passport = Passport(
-        group_id=group_id,
-        passport_no=passport_data.passport_no.upper(),
-        name=passport_data.name,
-        nationality=passport_data.nationality,
-        expiry_date=passport_data.expiry_date
-    )
+    passport_dict = passport_data.model_dump()
+    passport_dict["passport_no"] = passport_dict["passport_no"].upper()
+    passport = Passport(group_id=group_id, **passport_dict)
     
-    # Check if images already exist for this passport number
+    # Check if images already exist
     passport_img = PASSPORT_UPLOADS / group_id / f"{passport.passport_no}.jpg"
     photo_img = PHOTO_UPLOADS / group_id / f"{passport.passport_no}.jpg"
     
@@ -160,12 +191,18 @@ async def create_passport(group_id: str, passport_data: PassportCreate):
     doc = passport.model_dump()
     await db.passports.insert_one(doc)
     
-    # Update group passport count
     await db.groups.update_one(
         {"id": group_id},
         {"$inc": {"passport_count": 1}}
     )
     
+    return passport
+
+@api_router.get("/groups/{group_id}/passports/{passport_id}", response_model=Passport)
+async def get_passport(group_id: str, passport_id: str):
+    passport = await db.passports.find_one({"id": passport_id, "group_id": group_id}, {"_id": 0})
+    if not passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
     return passport
 
 @api_router.put("/groups/{group_id}/passports/{passport_id}", response_model=Passport)
@@ -189,7 +226,6 @@ async def delete_passport(group_id: str, passport_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Passport not found")
     
-    # Update group passport count
     await db.groups.update_one(
         {"id": group_id},
         {"$inc": {"passport_count": -1}}
@@ -200,7 +236,6 @@ async def delete_passport(group_id: str, passport_id: str):
 # Bulk upload endpoints
 @api_router.post("/groups/{group_id}/upload/passports")
 async def bulk_upload_passports(group_id: str, files: List[UploadFile] = File(...)):
-    # Verify group exists
     group = await db.groups.find_one({"id": group_id})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -225,7 +260,6 @@ async def bulk_upload_passports(group_id: str, files: List[UploadFile] = File(..
             
             results["success"].append({"filename": file.filename, "passport_no": passport_no})
             
-            # Update passport record if exists
             update_result = await db.passports.update_one(
                 {"group_id": group_id, "passport_no": passport_no},
                 {"$set": {"passport_image": f"/api/uploads/passports/{group_id}/{passport_no}.jpg"}}
@@ -240,7 +274,6 @@ async def bulk_upload_passports(group_id: str, files: List[UploadFile] = File(..
 
 @api_router.post("/groups/{group_id}/upload/photos")
 async def bulk_upload_photos(group_id: str, files: List[UploadFile] = File(...)):
-    # Verify group exists
     group = await db.groups.find_one({"id": group_id})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -265,7 +298,6 @@ async def bulk_upload_photos(group_id: str, files: List[UploadFile] = File(...))
             
             results["success"].append({"filename": file.filename, "passport_no": passport_no})
             
-            # Update passport record if exists
             update_result = await db.passports.update_one(
                 {"group_id": group_id, "passport_no": passport_no},
                 {"$set": {"profile_image": f"/api/uploads/photos/{group_id}/{passport_no}.jpg"}}
@@ -293,7 +325,6 @@ async def get_photo_image(group_id: str, filename: str):
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(file_path, media_type="image/jpeg")
 
-# Health check
 @api_router.get("/")
 async def root():
     return {"message": "Passport Control Admin API"}
