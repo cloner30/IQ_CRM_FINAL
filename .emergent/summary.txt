@@ -12,56 +12,62 @@
   - **Data Export**: Implement CSV export for passport data within a group.
   - **Data Editing**: Allow editing of existing passport records.
   - **Chrome Extension**: Create a Chrome browser extension to automatically fill an external e-visa form () with the passport data stored in this application. The form is filled one passenger at a time.
+  - **Cloud Storage**: Use AWS S3 for storing uploaded images.
+  - **Status Tracking**: Implement a system to track which passengers' e-visa forms have been processed.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application with a FastAPI backend and a React frontend has been successfully built. The application uses MongoDB as its database. It features an AdminLTE-style theme and implements group and passport management. Key completed features include group creation, adding/editing detailed passport information, bulk image upload, bulk import from Excel, and CSV data export. The core application is functional and has been tested.
+A full-stack application (FastAPI, React, MongoDB) with an AdminLTE theme is in place. The core features are fully implemented: group and passport management, bulk image/Excel uploads, CSV export, and data editing.
 
-**Last working item**: 
-- **Last item agent was working**: The agent was planning the development of a Chrome extension to autofill an external e-visa form. After analyzing the provided HTML of the target form, the agent created a data-mapping plan and asked the user for clarification on API configuration, image handling, and date formatting before proceeding with implementation.
-- **Status**: BLOCKED
-- **Agent Testing Done**: N
-- **Which testing method agent to use?**: The Chrome extension will require manual testing once developed, as the agent's automated tools cannot test browser extensions.
+Key additions in this session include:
+1.  **AWS S3 Integration**: All passport and profile images are now uploaded to a private S3 bucket, and the application serves them via pre-signed URLs.
+2.  **Chrome Extension (v1.1.0)**: A comprehensive Chrome extension has been built. It can:
+    *   Auto-fill all text fields and dropdowns on the target e-visa form.
+    *   Automate the upload of passport and profile pictures from S3 to the e-visa form.
+    *   A download link for the extension is available at .
+3.  **Passenger Status Tracking**: A system to track e-visa submission status has been added. Users can now Mark as Done a passenger, filter by Pending or Done, and see a progress bar for the group. This is implemented in both the web app and the Chrome extension popup.
+
+**Last working item**:
+- **Last item agent was working**: Implementing a passenger status tracking system. This involved adding  and  fields to the backend, creating an API endpoint to update the status, and integrating UI elements (filters, progress bar, Mark as Done button) into both the React frontend and the Chrome extension.
+- **Status**: USER VERIFICATION PENDING
+- **Agent Testing Done**: Y (Agent performed manual tests and component-level verification via screenshots after implementation, but a full testing agent cycle was not run on this specific feature.)
+- **Which testing method agent to use?**: both (To verify the new API endpoint and the frontend UI changes for status tracking.)
 - **User Testing Done**: N
 
-**All Pending/In progress Issue list**: 
-There are no pending bugs or issues. The agent is waiting for user feedback to start a new task.
+**All Pending/In progress Issue list**:
+There are no known bugs or issues. The agent is waiting for the user to verify the newly implemented status tracking feature.
 
 **In progress Task List**:
-- **Task 1: Chrome Extension Development (P0)**
-  - **Description**: Build a Chrome extension to autofill the Iraq e-visa form (URL: ) with data from the Passport Control Admin app. The extension should allow the user to select a group and a passenger, and then populate the web form with that passenger's data.
-  - **Where to resume**: The agent is waiting for the user's response to the following questions before starting implementation:
-    1.  **API URL**: Should the extension use a hardcoded deployed URL or allow the user to configure it?
-    2.  **Image Upload**: Should the extension also handle uploading passport/profile images to the form?
-    3.  **Date Format**: Confirm automatic conversion of dates to the required  format.
-  - **What will be achieved with this?**: This will fulfill a key user requirement to streamline the visa application process by automating data entry on the external site.
-  - **Status**: BLOCKED
-  - **Should Test frontend/backend/both after fix?**: Manual testing of the Chrome extension will be required.
-  - **Blocked on something**: User response to clarifying questions.
+There are no tasks currently in progress.
 
 **Upcoming and Future Tasks**
+
 **Upcoming Tasks:**
-- **P0: Implement Chrome Extension**: Based on user feedback on the clarifying questions.
-  - Create manifest.json, popup.html, popup.js, and a content script.
-  - The popup should fetch groups and passports from the app's API.
-  - The content script will fill the form fields on the e-visa website based on the mapping already identified.
+- **P0: User Verification of Status Tracking**: The user needs to test the Mark as Done functionality, status filters (Pending/Done), and progress bar in both the main web application and the Chrome extension to confirm it meets their needs for tracking hundreds of passengers.
 
 **Future Tasks:**
 - **P1: User Authentication**: Implement a secure login system (e.g., JWT) to protect the passport data.
 - **P2: OCR/MRZ Reading**: Integrate a library to automatically extract passport data from uploaded scans to reduce manual data entry.
 
 **Completed work in this session**
-- **Passport Management App (MVP)**:
-  - Backend API () for managing groups and passports.
-  - Frontend UI () for dashboard, group details, and uploads with an AdminLTE theme.
-  - Bulk image upload for passport scans and profile pictures.
-- **Additional Features (Phase 2)**:
-  - Edit passport functionality ().
-  - CSV export for group passport data ().
-  - Bulk import of passport data from an Excel file ().
-- **Documentation**:
-  - Created and updated  with project details and backlog.
+- **New Passport Fields**: Added , , , , , and  to the passport schema and integrated them across the full stack (backend, frontend, import/export).
+- **Chrome Extension (v1.1.0)**:
+    - Created the complete extension structure (, , ).
+    - Implemented form filling for all text and dropdown fields.
+    - Implemented automated image upload (fetches from S3 via pre-signed URL and injects into file inputs).
+    - Created a backend endpoint () to serve the packaged  file.
+- **AWS S3 Integration**:
+    - Migrated all image storage from the local  directory to a private AWS S3 bucket.
+    - Updated upload endpoints to push files to S3.
+    - Updated GET endpoints to return temporary, pre-signed URLs for secure image access.
+    - Added user-provided AWS credentials to .
+- **Passenger Status Tracking**:
+    - Added  and  to the passport model.
+    - Created a  endpoint.
+    - Added a progress bar, status filter (Pending/Done), status badges, and a Mark as Done button to the  page.
+    - Integrated status display and the Mark as Done button into the Chrome extension's popup.
+- **Dropdown Value Synchronization**: Ensured all relevant dropdowns in the web app (e.g., Nationality, Passport Type, Profession) use the exact same values as the target e-visa website for seamless extension functionality.
 
 **Earlier issues found/mentioned but not fixed**
 None.
@@ -73,74 +79,77 @@ None.
 
 
 **Key Technical Concepts**
-- **Frameworks**: FastAPI (Python) for the backend, React (JavaScript) for the frontend.
-- **Database**: MongoDB for data storage.
-- **Styling**: TailwindCSS for an AdminLTE-style theme.
-- **File Handling**:  for uploads,  for Excel parsing, and Python's  module for exports.
-- **API**: RESTful API for CRUD operations on groups and passports.
+- **Frameworks**: FastAPI (Python), React (JavaScript).
+- **Database**: MongoDB.
+- **Cloud Storage**: **AWS S3** for image storage using the  library.
+- **Security**: Using **pre-signed URLs** to provide temporary, secure access to private S3 objects.
+- **Browser Extension**: Chrome extension development, including , content scripts for DOM manipulation, popup scripts, and inter-script messaging.
+- **File Handling**:  for Excel,  module for export,  for uploads.
 
 **key DB schema**
 - **groups**: 
 - **passports**: 
 
 **changes in tech stack**
--  was added to the backend to support Excel file imports.
+- Added  to  for AWS S3 integration.
 
 **All files of reference**
-- : Contains the entire backend logic, including all API endpoints for groups, passports, uploads, and exports.
-- : The main user interface for viewing, editing, and exporting passport data for a specific group.
-- : The UI for handling bulk image and Excel file uploads.
-- : Contains the problem statement, completed tasks, and future backlog.
+- : Heavily modified to add S3 logic, new passport fields, status tracking endpoint, and extension download endpoint.
+- : Heavily modified to add new form fields, status filters/UI, progress bar, and Mark as Done functionality.
+- : The entire directory containing the source code for the Chrome browser extension.
+- : Updated to include , , , and .
+- : The packaged extension file ready for distribution.
+
+**Areas that need refactoring**:
+-  is now over 800 lines long. It should be refactored into smaller, more focused modules (e.g., , , ) to improve maintainability.
 
 **key api endpoints**
-- : Fetch all groups.
-- : Create a new group.
-- : Fetch details for a specific group.
-- : Update an existing passport record.
-- : Bulk import passport records from an Excel file.
-- : Export passport data of a group to a CSV file.
-- : Endpoint for bulk uploading passport images.
-- : Endpoint for bulk uploading profile photos.
+- : **(NEW)** Updates the visa processing status of a passport.
+- : **(NEW)** Allows downloading of the packaged Chrome extension ZIP file.
+- : **(NEW)** Checks the status of the S3 integration.
+- : **(Updated)** Now uploads files to S3 instead of local storage.
+- : **(Updated)** Now uploads files to S3 instead of local storage.
+- : **(Updated)** Now returns S3 pre-signed URLs for  and .
 
 **Critical Info for New Agent**
-- The immediate and highest priority task is to **build a Chrome extension**.
-- You are **blocked** and must wait for the user to answer the three clarifying questions posed in the last agent message before starting implementation.
-- The HTML structure of the target e-visa form has been provided by the user and analyzed. The field mapping is ready and can be found in the last agent message. This is crucial for the content script of the extension.
+- The user's AWS credentials have been received and are configured in . The S3 integration is live.
+- The highest priority is to support the user in verifying the new passenger status tracking feature. Be prepared to debug or make adjustments based on their feedback.
+- The Chrome extension () is now feature-complete based on user requests, including automated image uploads and status tracking. The user may have further feedback after testing it.
+- A download endpoint for the extension exists. You can provide the user with the download link and installation instructions if they ask for the file again.
 
 **documents and test reports created in this job**
-- 
-- 
-- 
+-  (Updated)
+-  (Updated)
+-  (Created and updated multiple times)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (Request):** Asked for a Chrome extension to fill the e-visa form, provided the HTML, and requested a plan. (Status: Addressed, Plan provided, awaiting feedback).
-2.  **Agent (Finish):** Completed adding Edit, CSV Export, and Excel import features. (Status: Completed).
-3.  **User (Request):** Requested edit passport, CSV export, and Excel bulk upload features. (Status: Completed).
-4.  **Agent (Finish):** Completed the MVP of the application. (Status: Completed).
-5.  **User (Instruction):** Add edit passport functionality, Implement CSV export for group passport data, And also need bulk upload option for name list excel file (Status: Completed).
-6.  **Agent (Finish):** Finished the first version of the app. (Status: Completed).
-7.  **User (Instruction):** Please continue (Status: Handled).
-8.  **User (Ambiguous Reply):** M (Status: Handled, agent proceeded with defaults).
-9.  **Agent (ask_human):** Asked initial clarifying questions. (Status: Handled).
-10. **User (Instruction):** Start the task now!! (Status: Handled).
-
-**Pending User Message**: The agent has asked for clarification on the Chrome extension's API URL, image upload capability, and date format. A response from the user is required to proceed.
+1.  **User (Request):** Asked for a way to track which of the 100+ passengers in a group have been processed. (Status: Addressed)
+2.  **Agent (ask_human):** Proposed two options for the tracking system: manual marking or automatic detection. (Status: Addressed)
+3.  **User (Decision):** Chose manual Mark as Done with a timestamp. (Status: Addressed)
+4.  **User (Question):** Asked how the extension will help with uploading passport/profile pictures. (Status: Addressed)
+5.  **Agent (ask_human):** Explained the challenges and asked if the user wanted to automate image uploads, with a warning about potential fragility. (Status: Addressed)
+6.  **User (Confirmation):** Confirmed they want the automated image upload feature. (Status: Addressed)
+7.  **User (Request):** Provided AWS credentials and asked to integrate S3 for image uploads. (Status: Addressed)
+8.  **Agent (ask_human):** Asked for clarification on S3 bucket creation and access policy. (Status: Addressed)
+9.  **User (Decision):** Confirmed agent should create a new private bucket and use pre-signed URLs. (Status: Addressed)
+10. **User (Request):** Asked for the final dropdown values in the app to exactly match the e-visa form's values. (Status: Addressed)
 
 **Project Health Check:**
 - **Broken**: None
 - **Mocked**: None
 
 **3rd Party Integrations**
-None currently, but a Chrome extension is planned.
+- **AWS S3**: Used for all image storage.  SDK is installed. Requires , , and  in the environment.
 
 **Testing status**
-- **Testing agent used after significant changes**: YES
+- **Testing agent used after significant changes**: YES (Used after initial feature completion, but not after the final status tracking was added.)
 - **Troubleshoot agent used after agent stuck in loop**: NO
-- **Test files created**: Yes, the testing agent created temporary files for uploads, including .
+- **Test files created**: 
 - **Known regressions**: None
 
 **Credentials to test flow:**
-No authentication is implemented. The application is directly accessible.
+- No application login is required.
+- AWS credentials are set in .
 
 **What agent forgot to execute**
-The agent has successfully executed all user requests so far. The next step (Chrome Extension) is planned and pending user feedback.</analysis>
+The agent successfully executed all user requests. However, after implementing the final feature (status tracking), it would have been best practice to run the  testing subagent to ensure full regression testing before handing off for user verification.</analysis>
