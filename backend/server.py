@@ -425,13 +425,28 @@ async def get_group(group_id: str):
 
 @api_router.put("/groups/{group_id}", response_model=Group)
 async def update_group(group_id: str, group_data: GroupCreate):
+    # Validate client_id if provided
+    if group_data.client_id:
+        client = await db.clients.find_one({"id": group_data.client_id})
+        if not client:
+            raise HTTPException(status_code=400, detail="Client not found")
+    
     result = await db.groups.update_one(
         {"id": group_id},
         {"$set": group_data.model_dump()}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Group not found")
+    
     group = await db.groups.find_one({"id": group_id}, {"_id": 0})
+    
+    # Add client name
+    if group.get("client_id"):
+        client = await db.clients.find_one({"id": group["client_id"]}, {"_id": 0, "name": 1})
+        group["client_name"] = client["name"] if client else "Unknown"
+    else:
+        group["client_name"] = None
+    
     return group
 
 @api_router.delete("/groups/{group_id}")
