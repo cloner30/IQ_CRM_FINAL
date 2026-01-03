@@ -5,9 +5,9 @@ import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { ArrowLeft, Upload, FileText, Image, CheckCircle, AlertCircle, X, File, Download, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import api from '../utils/api';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const UploadZone = ({ type, onUpload, uploading, accept, icon: Icon, title, subtitle, note }) => {
   const [dragOver, setDragOver] = useState(false);
