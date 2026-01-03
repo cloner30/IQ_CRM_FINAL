@@ -330,3 +330,74 @@ function hideStatus() {
   const status = document.getElementById('status');
   status.classList.add('hidden');
 }
+
+async function markAsDone() {
+  if (!selectedPassport) {
+    showStatus('Please select a passenger first.', 'error');
+    return;
+  }
+  
+  if (selectedPassport.visa_status === 'Done') {
+    showStatus('This passenger is already marked as done.', 'error');
+    return;
+  }
+  
+  showStatus('Marking as done...', 'loading');
+  
+  try {
+    const response = await fetch(`${apiUrl}/api/passports/${selectedPassport.id}/status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'Done' })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to update status');
+    }
+    
+    // Update local data
+    selectedPassport.visa_status = 'Done';
+    selectedPassport.visa_status_updated_at = new Date().toISOString();
+    
+    // Update in allPassports array
+    const index = allPassports.findIndex(p => p.id === selectedPassport.id);
+    if (index !== -1) {
+      allPassports[index].visa_status = 'Done';
+      allPassports[index].visa_status_updated_at = selectedPassport.visa_status_updated_at;
+    }
+    
+    // Update progress bar
+    updateProgressBar();
+    
+    // Update the button state
+    const markDoneBtn = document.getElementById('mark-done-btn');
+    markDoneBtn.disabled = true;
+    markDoneBtn.innerHTML = '<span class="btn-icon">✓</span> Already Done';
+    
+    // Update preview status
+    document.getElementById('preview-status').textContent = '✅ Done';
+    
+    // Update the option in dropdown to show done status
+    const passportSelect = document.getElementById('passport-select');
+    const selectedOption = passportSelect.options[passportSelect.selectedIndex];
+    if (selectedOption) {
+      selectedOption.textContent = `✅ ${selectedPassport.first_name_en} ${selectedPassport.surname_en} (${selectedPassport.passport_no})`;
+      selectedOption.className = 'option-done';
+      selectedOption.dataset.passport = JSON.stringify(selectedPassport);
+    }
+    
+    showStatus('✓ Marked as Done!', 'success');
+    
+    // Auto-hide success message after 2 seconds
+    setTimeout(() => {
+      hideStatus();
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error marking as done:', error);
+    showStatus(`Failed to mark as done: ${error.message}`, 'error');
+  }
+}
