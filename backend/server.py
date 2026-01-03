@@ -215,6 +215,8 @@ class Passport(BaseModel):
     applicant_type: str = ""
     passport_image: Optional[str] = None
     profile_image: Optional[str] = None
+    status: str = "pending"  # pending, done
+    status_updated_at: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class PassportUpdate(BaseModel):
