@@ -651,7 +651,7 @@ async def bulk_upload_passports(group_id: str, files: List[UploadFile] = File(..
         content = await file.read()
         
         try:
-            if s3_client:
+            if s3_enabled and s3_client:
                 # Upload to S3
                 s3_key = f"passports/{group_id}/{passport_no}.jpg"
                 uploaded = await upload_to_s3(content, s3_key, 'image/jpeg')
