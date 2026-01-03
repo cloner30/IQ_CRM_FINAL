@@ -10,9 +10,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ScrollArea } from '../components/ui/scroll-area';
 import { ArrowLeft, Plus, Upload, FileText, User, Trash2, Edit, Search, CheckCircle, AlertCircle, Image, Eye, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import api from '../utils/api';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 // Exact nationality values from e-visa form (https://eservice.evisa.iq/)
 const NATIONALITIES = [
