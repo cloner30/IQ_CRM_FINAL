@@ -830,6 +830,22 @@ export const GroupDetail = () => {
                   <p className="text-slate-900" dir="rtl">{showViewPassport.first_name_ar} {showViewPassport.surname_ar}</p>
                 </div>
                 <div>
+                  <Label className="text-slate-500">Father Name</Label>
+                  <p className="text-slate-900">{showViewPassport.father_name_en || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-slate-500">Grandfather Name</Label>
+                  <p className="text-slate-900">{showViewPassport.grandfather_name_en || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-slate-500">Mother Name (English)</Label>
+                  <p className="text-slate-900">{showViewPassport.mother_name_en || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-slate-500">Mother's Father Name</Label>
+                  <p className="text-slate-900">{showViewPassport.mother_father_name_en || '-'}</p>
+                </div>
+                <div>
                   <Label className="text-slate-500">Nationality</Label>
                   <p className="text-slate-900">{showViewPassport.nationality}</p>
                 </div>
@@ -856,6 +872,10 @@ export const GroupDetail = () => {
                 <div>
                   <Label className="text-slate-500">Place of Issue</Label>
                   <p className="text-slate-900">{showViewPassport.place_of_issue || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-slate-500">Country of Residence</Label>
+                  <p className="text-slate-900">{showViewPassport.country_of_residence || '-'}</p>
                 </div>
               </div>
             </div>
