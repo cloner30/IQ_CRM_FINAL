@@ -2,6 +2,8 @@
 
 let selectedPassport = null;
 let apiUrl = '';
+let allPassports = []; // Store all passports for filtering
+let currentGroupId = null;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', async () => {
