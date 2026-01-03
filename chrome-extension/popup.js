@@ -62,15 +62,20 @@ async function apiRequest(endpoint, options = {}) {
 }
 
 function setupEventListeners() {
-  // Settings links
-  document.getElementById('open-settings').addEventListener('click', (e) => {
+  // Settings links - use direct URL for better compatibility
+  const openSettings = () => {
+    const optionsUrl = chrome.runtime.getURL('options.html');
+    chrome.tabs.create({ url: optionsUrl });
+  };
+  
+  document.getElementById('open-settings')?.addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.runtime.openOptionsPage();
+    openSettings();
   });
   
   document.getElementById('settings-link').addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.runtime.openOptionsPage();
+    openSettings();
   });
   
   // Group selection
