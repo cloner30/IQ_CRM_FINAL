@@ -59,10 +59,12 @@ function setupEventListeners() {
     const passportId = e.target.value;
     const preview = document.getElementById('passenger-preview');
     const fillBtn = document.getElementById('fill-form-btn');
+    const uploadBtn = document.getElementById('upload-images-btn');
     
     if (!passportId) {
       preview.classList.add('hidden');
       fillBtn.disabled = true;
+      uploadBtn.disabled = true;
       selectedPassport = null;
       return;
     }
@@ -80,6 +82,8 @@ function setupEventListeners() {
     
     preview.classList.remove('hidden');
     fillBtn.disabled = false;
+    // Enable upload button only if images exist
+    uploadBtn.disabled = !(selectedPassport.passport_image || selectedPassport.profile_image);
   });
   
   // Fill form button
