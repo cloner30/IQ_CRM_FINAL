@@ -28,9 +28,25 @@ const NATIONALITIES = [
   "Uruguayan", "Uzbek", "Venezuelan", "Vietnamese", "Yemeni"
 ];
 
+const COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+  "Bahrain", "Bangladesh", "Belgium", "Bolivia", "Brazil", "Bulgaria", "Cambodia", "Cameroon",
+  "Canada", "Chile", "China", "Colombia", "Croatia", "Czech Republic", "Denmark", "Egypt",
+  "Estonia", "Ethiopia", "Finland", "France", "Georgia", "Germany", "Greece", "Hungary",
+  "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Japan", "Jordan",
+  "Kazakhstan", "Kenya", "Korea", "Kuwait", "Latvia", "Lebanon", "Libya", "Lithuania",
+  "Malaysia", "Mexico", "Morocco", "Netherlands", "New Zealand", "Nigeria", "Norway", "Oman",
+  "Pakistan", "Palestine", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania",
+  "Russia", "Saudi Arabia", "Serbia", "Singapore", "Slovakia", "Slovenia", "South Africa",
+  "Spain", "Sri Lanka", "Sudan", "Sweden", "Switzerland", "Syria", "Taiwan", "Thailand",
+  "Tunisia", "Turkey", "Ukraine", "United Arab Emirates", "United Kingdom", "United States",
+  "Uruguay", "Uzbekistan", "Venezuela", "Vietnam", "Yemen"
+];
+
 const PASSPORT_TYPES = ["Normal", "Temporary", "Diplomatic", "Special", "Travel Doc", "UN", "Passage"];
 const GENDERS = ["Male", "Female"];
 const PROFESSIONS = ["Physician", "Engineer", "Teacher", "Business", "Student", "Government", "Other"];
+const APPLICANT_TYPES = ["", "Son", "Daughter"];
 
 const emptyForm = {
   passport_no: '',
@@ -43,13 +59,19 @@ const emptyForm = {
   grandfather_name_ar: '',
   grandfather_name_en: '',
   surname_ar: '',
+  mother_name_ar: '',
+  mother_name_en: '',
+  mother_father_name_ar: '',
+  mother_father_name_en: '',
   nationality: '',
   gender: '',
   birth_date: '',
   place_of_issue: '',
   issue_date: '',
   expiry_date: '',
-  profession: ''
+  profession: '',
+  country_of_residence: '',
+  applicant_type: ''
 };
 
 export const GroupDetail = () => {
@@ -161,13 +183,19 @@ export const GroupDetail = () => {
       grandfather_name_ar: passport.grandfather_name_ar || '',
       grandfather_name_en: passport.grandfather_name_en || '',
       surname_ar: passport.surname_ar || '',
+      mother_name_ar: passport.mother_name_ar || '',
+      mother_name_en: passport.mother_name_en || '',
+      mother_father_name_ar: passport.mother_father_name_ar || '',
+      mother_father_name_en: passport.mother_father_name_en || '',
       nationality: passport.nationality || '',
       gender: passport.gender || '',
       birth_date: passport.birth_date || '',
       place_of_issue: passport.place_of_issue || '',
       issue_date: passport.issue_date || '',
       expiry_date: passport.expiry_date || '',
-      profession: passport.profession || ''
+      profession: passport.profession || '',
+      country_of_residence: passport.country_of_residence || '',
+      applicant_type: passport.applicant_type || ''
     });
     setShowEditPassport(passport);
   };
