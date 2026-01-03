@@ -165,6 +165,18 @@ backend:
         agent: "testing"
         comment: "✅ COMPREHENSIVE S3 TESTING COMPLETED: All 7 S3 integration tests passed successfully. S3 Status Check: ✅ Returns enabled=true, bucket=passport-control-uploads-1767469373, region=us-east-1. Upload Passport Images: ✅ Successfully uploads JPG files to S3 with correct S3 keys (s3://passports/{group_id}/{passport_no}.jpg). Upload Profile Photos: ✅ Successfully uploads JPG files to S3 with correct S3 keys (s3://photos/{group_id}/{passport_no}.jpg). Presigned URL Verification: ✅ GET /api/groups/{group_id}/passports returns passport_image and profile_image as valid S3 presigned URLs containing amazonaws.com. URLs are accessible (HTTP 200). S3 Presigned URL Endpoint: ✅ GET /api/s3/presigned-url generates valid presigned URLs for any S3 key. All S3 functionality working perfectly with real AWS S3 bucket."
 
+  - task: "Passport status update functionality"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ PASSPORT STATUS UPDATE TESTING COMPLETE: All 7 status update tests passed successfully. PUT /api/passports/{passport_id}/status endpoint working correctly: (1) Updates status to 'done' and sets status_updated_at timestamp (2) Updates status to 'pending' and sets status_updated_at to null (3) Returns 400 error for invalid status values (4) Returns 404 error for non-existent passport IDs. GET /api/groups/{group_id}/passports endpoint correctly returns status and status_updated_at fields for all passports. Tested with existing ACF12 group (e9f6d89a-e21f-4ace-8343-376a34dd8cb7) which contains 2 passports, both showing correct status fields. Status functionality is production-ready."
+
 frontend:
   - task: "Add Mother's Information section to passport form"
     implemented: true
