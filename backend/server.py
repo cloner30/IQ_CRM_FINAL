@@ -472,7 +472,8 @@ async def export_passports_csv(group_id: str):
         'father_name_ar', 'grandfather_name_ar', 'mother_name_ar', 'mother_name_en',
         'mother_father_name_ar', 'mother_father_name_en', 'nationality', 'gender',
         'birth_date', 'place_of_issue', 'issue_date', 'expiry_date', 'profession',
-        'country_of_residence', 'applicant_type', 'passport_image', 'profile_image'
+        'country_of_residence', 'applicant_type', 'status', 'status_updated_at',
+        'passport_image', 'profile_image'
     ]
     
     writer = csv.DictWriter(output, fieldnames=fieldnames)
