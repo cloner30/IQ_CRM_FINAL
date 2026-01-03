@@ -282,7 +282,7 @@ export const GroupDetail = () => {
   const handleExportCSV = async () => {
     setExporting(true);
     try {
-      const response = await axios.get(`${API}/groups/${groupId}/export/csv`, {
+      const response = await api.get(`/groups/${groupId}/export/csv`, {
         responseType: 'blob'
       });
       
