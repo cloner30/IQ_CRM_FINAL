@@ -594,9 +594,6 @@ async def bulk_upload_passports(group_id: str, files: List[UploadFile] = File(..
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    group_dir = PASSPORT_UPLOADS / group_id
-    group_dir.mkdir(parents=True, exist_ok=True)
-    
     results = {"success": [], "failed": [], "mapped": []}
     
     for file in files:
@@ -605,21 +602,38 @@ async def bulk_upload_passports(group_id: str, files: List[UploadFile] = File(..
             continue
         
         passport_no = extract_passport_number(file.filename)
-        file_path = group_dir / f"{passport_no}.jpg"
+        content = await file.read()
         
         try:
-            async with aiofiles.open(file_path, 'wb') as out_file:
-                content = await file.read()
-                await out_file.write(content)
-            
-            results["success"].append({"filename": file.filename, "passport_no": passport_no})
-            
-            update_result = await db.passports.update_one(
-                {"group_id": group_id, "passport_no": passport_no},
-                {"$set": {"passport_image": f"/api/uploads/passports/{group_id}/{passport_no}.jpg"}}
-            )
-            if update_result.matched_count > 0:
-                results["mapped"].append(passport_no)
+            if s3_client:
+                # Upload to S3
+                s3_key = f"passports/{group_id}/{passport_no}.jpg"
+                uploaded = await upload_to_s3(content, s3_key, 'image/jpeg')
+                if uploaded:
+                    results["success"].append({"filename": file.filename, "passport_no": passport_no})
+                    # Store S3 key in database (not full URL - we generate presigned URLs on demand)
+                    update_result = await db.passports.update_one(
+                        {"group_id": group_id, "passport_no": passport_no},
+                        {"$set": {"passport_image": f"s3://{s3_key}"}}
+                    )
+                    if update_result.matched_count > 0:
+                        results["mapped"].append(passport_no)
+                else:
+                    results["failed"].append({"filename": file.filename, "reason": "S3 upload failed"})
+            else:
+                # Fallback to local storage
+                group_dir = PASSPORT_UPLOADS / group_id
+                group_dir.mkdir(parents=True, exist_ok=True)
+                file_path = group_dir / f"{passport_no}.jpg"
+                async with aiofiles.open(file_path, 'wb') as out_file:
+                    await out_file.write(content)
+                results["success"].append({"filename": file.filename, "passport_no": passport_no})
+                update_result = await db.passports.update_one(
+                    {"group_id": group_id, "passport_no": passport_no},
+                    {"$set": {"passport_image": f"/api/uploads/passports/{group_id}/{passport_no}.jpg"}}
+                )
+                if update_result.matched_count > 0:
+                    results["mapped"].append(passport_no)
                 
         except Exception as e:
             results["failed"].append({"filename": file.filename, "reason": str(e)})
@@ -632,9 +646,6 @@ async def bulk_upload_photos(group_id: str, files: List[UploadFile] = File(...))
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    group_dir = PHOTO_UPLOADS / group_id
-    group_dir.mkdir(parents=True, exist_ok=True)
-    
     results = {"success": [], "failed": [], "mapped": []}
     
     for file in files:
@@ -643,28 +654,45 @@ async def bulk_upload_photos(group_id: str, files: List[UploadFile] = File(...))
             continue
         
         passport_no = extract_passport_number(file.filename)
-        file_path = group_dir / f"{passport_no}.jpg"
+        content = await file.read()
         
         try:
-            async with aiofiles.open(file_path, 'wb') as out_file:
-                content = await file.read()
-                await out_file.write(content)
-            
-            results["success"].append({"filename": file.filename, "passport_no": passport_no})
-            
-            update_result = await db.passports.update_one(
-                {"group_id": group_id, "passport_no": passport_no},
-                {"$set": {"profile_image": f"/api/uploads/photos/{group_id}/{passport_no}.jpg"}}
-            )
-            if update_result.matched_count > 0:
-                results["mapped"].append(passport_no)
+            if s3_client:
+                # Upload to S3
+                s3_key = f"photos/{group_id}/{passport_no}.jpg"
+                uploaded = await upload_to_s3(content, s3_key, 'image/jpeg')
+                if uploaded:
+                    results["success"].append({"filename": file.filename, "passport_no": passport_no})
+                    # Store S3 key in database
+                    update_result = await db.passports.update_one(
+                        {"group_id": group_id, "passport_no": passport_no},
+                        {"$set": {"profile_image": f"s3://{s3_key}"}}
+                    )
+                    if update_result.matched_count > 0:
+                        results["mapped"].append(passport_no)
+                else:
+                    results["failed"].append({"filename": file.filename, "reason": "S3 upload failed"})
+            else:
+                # Fallback to local storage
+                group_dir = PHOTO_UPLOADS / group_id
+                group_dir.mkdir(parents=True, exist_ok=True)
+                file_path = group_dir / f"{passport_no}.jpg"
+                async with aiofiles.open(file_path, 'wb') as out_file:
+                    await out_file.write(content)
+                results["success"].append({"filename": file.filename, "passport_no": passport_no})
+                update_result = await db.passports.update_one(
+                    {"group_id": group_id, "passport_no": passport_no},
+                    {"$set": {"profile_image": f"/api/uploads/photos/{group_id}/{passport_no}.jpg"}}
+                )
+                if update_result.matched_count > 0:
+                    results["mapped"].append(passport_no)
                 
         except Exception as e:
             results["failed"].append({"filename": file.filename, "reason": str(e)})
     
     return results
 
-# Serve uploaded files
+# Serve uploaded files (local fallback or redirect to S3 presigned URL)
 @api_router.get("/uploads/passports/{group_id}/{filename}")
 async def get_passport_image(group_id: str, filename: str):
     file_path = PASSPORT_UPLOADS / group_id / filename
@@ -678,6 +706,18 @@ async def get_photo_image(group_id: str, filename: str):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(file_path, media_type="image/jpeg")
+
+# New endpoint to get presigned URLs for S3 images
+@api_router.get("/s3/presigned-url")
+async def get_s3_presigned_url(key: str):
+    """Generate a presigned URL for an S3 object"""
+    if not s3_client:
+        raise HTTPException(status_code=503, detail="S3 not configured")
+    
+    url = generate_presigned_url(key, expiration=3600)  # 1 hour expiration
+    if url:
+        return {"url": url}
+    raise HTTPException(status_code=404, detail="Could not generate URL")
 
 @api_router.get("/")
 async def root():
