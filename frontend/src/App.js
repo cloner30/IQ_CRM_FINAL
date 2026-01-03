@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
 import { GroupsList } from "./pages/GroupsList";
 import { CreateGroup } from "./pages/CreateGroup";
+import { EditGroup } from "./pages/EditGroup";
 import { GroupDetail } from "./pages/GroupDetail";
 import { BulkUpload } from "./pages/BulkUpload";
 import { Login } from "./pages/Login";
