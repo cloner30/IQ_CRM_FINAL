@@ -6,9 +6,11 @@ This Chrome extension automatically fills the Iraq e-visa application form (http
 
 - **Group Selection**: Browse and select from your passenger groups
 - **Passenger Selection**: Choose a specific passenger to fill the form
-- **Auto-Fill**: One-click form filling with all passport data
+- **Auto-Fill Form**: One-click form filling with all passport data
+- **Auto-Upload Images**: Upload passport scans and profile photos to the e-visa form
 - **Date Conversion**: Automatically converts dates to the required m/d/yyyy format
 - **Smart Mapping**: Maps your data to the correct form fields
+- **S3 Integration**: Works with AWS S3-stored images via presigned URLs
 
 ## Installation
 
@@ -38,6 +40,7 @@ This Chrome extension automatically fills the Iraq e-visa application form (http
 
 ## Usage
 
+### Fill Form Data
 1. Navigate to https://eservice.evisa.iq/
 2. Start a new visa application and reach the "Beneficiary Data" form
 3. Click the extension icon
@@ -45,6 +48,14 @@ This Chrome extension automatically fills the Iraq e-visa application form (http
 5. Select a passenger
 6. Click "Fill Form"
 7. The form will be automatically populated with the passenger's data
+
+### Upload Images
+1. After filling the form, click "Upload Images" button
+2. The extension will:
+   - Navigate to the "Personal Attachment" tab
+   - Download images from S3 (using presigned URLs)
+   - Attempt to auto-upload to the form
+   - If auto-upload fails, download files for manual upload
 
 ## Field Mapping
 
