@@ -7,6 +7,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fillVisaForm(request.data);
     sendResponse({ success: true });
   }
+  if (request.action === 'uploadImages') {
+    uploadImages(request.data);
+    sendResponse({ success: true });
+  }
   return true;
 });
 
