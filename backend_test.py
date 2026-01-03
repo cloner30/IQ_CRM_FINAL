@@ -2,6 +2,9 @@ import requests
 import sys
 import json
 from datetime import datetime
+from PIL import Image
+import io
+import os
 
 class PassportAPITester:
     def __init__(self, base_url="https://passport-manager-1.preview.emergentagent.com/api"):
