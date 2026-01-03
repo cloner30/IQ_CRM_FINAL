@@ -243,6 +243,7 @@ class PassportUpdate(BaseModel):
     profession: Optional[str] = None
     country_of_residence: Optional[str] = None
     applicant_type: Optional[str] = None
+    status: Optional[str] = None
 
 def validate_file_extension(filename: str) -> bool:
     ext = Path(filename).suffix.lower()
