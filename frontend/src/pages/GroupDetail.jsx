@@ -14,39 +14,94 @@ import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Exact nationality values from e-visa form (https://eservice.evisa.iq/)
 const NATIONALITIES = [
   "Afghan", "Albanian", "Algerian", "American", "Argentine", "Armenian", "Australian", "Austrian",
-  "Azerbaijani", "Bahraini", "Bangladeshi", "Belgian", "Bolivian", "Brazilian", "British", "Bulgarian",
-  "Canadian", "Chilean", "Chinese", "Colombian", "Croatian", "Czech", "Danish", "Dutch", "Egyptian",
-  "Emirati", "Estonian", "Ethiopian", "Filipino", "Finnish", "French", "Georgian", "German", "Greek",
-  "Hungarian", "Indian", "Indonesian", "Iranian", "Iraqi", "Irish", "Israeli", "Italian", "Japanese",
-  "Jordanian", "Kazakh", "Kenyan", "Korean", "Kuwaiti", "Latvian", "Lebanese", "Libyan", "Lithuanian",
-  "Malaysian", "Mexican", "Moroccan", "Dutch", "New Zealand", "Nigerian", "Norwegian", "Omani",
-  "Pakistani", "Palestinian", "Peruvian", "Polish", "Portuguese", "Qatari", "Romanian", "Russian",
-  "Saudi", "Serbian", "Singaporean", "Slovak", "Slovenian", "South African", "Spanish", "Sri Lankan",
-  "Sudanese", "Swedish", "Swiss", "Syrian", "Taiwanese", "Thai", "Tunisian", "Turkish", "Ukrainian",
-  "Uruguayan", "Uzbek", "Venezuelan", "Vietnamese", "Yemeni"
+  "Azerbaijani", "Bahraini", "Bangladeshi", "Barbadians", "Belarusians", "Belgian", "Belizeans",
+  "Beninese", "Bermudian", "Bhutanese", "Bolivian", "Bosnian", "Batswana", "Brazilian", "British",
+  "Bruneian", "Bulgarian", "Burkinabe", "Burundian", "Cambodian", "Cameroonian", "Canadian",
+  "Cape Verde", "Chadian", "Chilean", "Chinese", "Colombian", "Comorian", "Congolese", "Costa Rican",
+  "Croatian", "Cuban", "Cypriot", "Czech", "Danish", "Djiboutians", "Dominican", "Dutch",
+  "Ecuadorian", "Egyptian", "Emirati", "Eritrean", "Estonian", "Ethiopian", "Fijian", "Filipino",
+  "Finnish", "French", "Gabonese", "Gambian", "Georgian", "German", "Ghanaian", "Greek",
+  "Greenland", "Grenadian", "Guatemalan", "Guinean", "Guyanese", "Haitian", "Honduran", "Hungarian",
+  "Icelandic", "Indian", "Indonesian", "Iranian", "Iraqi", "Irish", "Italian", "Jamaican",
+  "Japanese", "Jordanian", "Kazakh", "Kenyan", "Kiribati", "Korean", "Kosovoi", "Kuwaiti",
+  "Kyrgyz", "Lao", "Latvian", "Lebanese", "Lesotho", "Liberian", "Libyan", "Liechtensteiners",
+  "Lithuanian", "Luxembourgish", "Macedonians", "Malagasy", "Malawian", "Malaysian", "Maldivian",
+  "Malian", "Maltese", "Mauritanian", "Mauritian", "Mexican", "Micronesia", "Moldavians",
+  "Monegasque", "Mongolian", "Montenegrin", "Moroccan", "Mozambican", "Myanmar", "Namibian",
+  "Naurun", "Nepalese", "New Zealand", "Nicaraguan", "Niger", "Nigerian", "Norwegian", "Omani",
+  "Pakistani", "Palau", "Palestinian", "Panamanian", "Papua New Guinea", "Paraguayan", "Peruvian",
+  "Philippine", "Polish", "Portuguese", "Puerto Rico", "Qatari", "Romanian", "Russian", "Rwandan",
+  "Saint Lucia", "Samoa", "San Marino", "Sao Tome", "Saudi", "Senegalese", "Serbian", "Seychelles",
+  "Sierra Leonean", "Singaporean", "Slovak", "Slovenia", "Solomon Islands", "Somalian",
+  "South African", "Spanish", "Sri Lankan", "Sudanese", "Suriname", "Swazi", "Swedish", "Swiss",
+  "Syrian", "Tajikistani", "Tanzanian", "Thai", "Timor Leste", "Togolese", "Tokelau", "Tongan",
+  "Trinidad and Tobago", "Tunisian", "Turkish", "Turkmen", "Tuvalu", "Ugandan", "Ukrainian",
+  "Uruguayan", "Uzbekistani", "Vanuatu", "Venezuelan", "Vietnamese", "Yemeni", "Zambian", "Zimbabwean"
 ];
 
+// Exact country values from e-visa form place of issue / country of residence dropdowns
 const COUNTRIES = [
-  "Afghanistan", "Albania", "Algeria", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
-  "Bahrain", "Bangladesh", "Belgium", "Bolivia", "Brazil", "Bulgaria", "Cambodia", "Cameroon",
-  "Canada", "Chile", "China", "Colombia", "Croatia", "Czech Republic", "Denmark", "Egypt",
-  "Estonia", "Ethiopia", "Finland", "France", "Georgia", "Germany", "Greece", "Hungary",
-  "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Japan", "Jordan",
-  "Kazakhstan", "Kenya", "Korea", "Kuwait", "Latvia", "Lebanon", "Libya", "Lithuania",
-  "Malaysia", "Mexico", "Morocco", "Netherlands", "New Zealand", "Nigeria", "Norway", "Oman",
-  "Pakistan", "Palestine", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania",
-  "Russia", "Saudi Arabia", "Serbia", "Singapore", "Slovakia", "Slovenia", "South Africa",
-  "Spain", "Sri Lanka", "Sudan", "Sweden", "Switzerland", "Syria", "Taiwan", "Thailand",
-  "Tunisia", "Turkey", "Ukraine", "United Arab Emirates", "United Kingdom", "United States",
-  "Uruguay", "Uzbekistan", "Venezuela", "Vietnam", "Yemen"
+  "Afghanistan", "Aland Islands", "Albania", "Algeria", "American Samoa", "Andorra", "Angola",
+  "Anguilla", "Antigua and Barbuda", "Antilles", "Argentina", "Armenia", "Aruba", "Australia",
+  "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium",
+  "Belize", "Benin", "Bermuda", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil",
+  "British Virgin Islands", "Brunei Darussalam", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia",
+  "Cameroon", "Canada", "Cape Verde", "Cayman Islands", "Central African Republic", "Chad", "Chile",
+  "China", "Colombia", "Comoros", "Congo", "Cook Islands", "Costa Rica", "Cote dIvoire", "Croatia",
+  "Cuba", "Cyprus", "Czech Republic", "Democratic Peoples Republic of Korea",
+  "Democratic Republic of the Congo", "Denmark", "Djibouti", "Dominica", "Dominican Republic",
+  "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia",
+  "Faeroe Islands", "Falkland Islands Malvinas", "Fiji", "Finland", "France", "French Guiana",
+  "French Polynesia", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Gibraltar", "Greece",
+  "Greenland", "Grenada", "Guadeloupe", "Guam", "Guatemala", "Guernsey", "Guinea", "Guinea Bissau",
+  "Guyana", "Haiti", "Holy See", "Honduras", "Hong Kong", "Hungary", "Iceland", "India", "Indonesia",
+  "Iran Islamic Republic of", "Iraq", "Ireland", "Isle of Man", "Italy", "Jamaica", "Japan",
+  "Jersey", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan",
+  "Lao Peoples Democratic Republic", "Latvia", "Lebanon", "Lesotho", "Liberia",
+  "Libyan Arab Jamahiriya", "Liechtenstein", "Lithuania", "Luxembourg", "Macao", "Madagascar",
+  "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Mariana Islands", "Marshall Islands",
+  "Martinique", "Mauritania", "Mauritius", "Mayotte", "Mexico", "Micronesia", "Moldova", "Monaco",
+  "Mongolia", "Montenegro", "Montserrat", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru",
+  "Nepal", "Netherlands", "New Caledonia", "New Zealand", "Nicaragua", "Niger", "Nigeria", "Niue",
+  "Norfolk Island", "Norway", "Oman", "Pakistan", "Palau", "Palestinian", "Panama",
+  "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Pitcairn", "Poland", "Portugal",
+  "Puerto Rico", "Qatar", "Republic of Korea", "Republic of Macedonia", "Romania", "Runion",
+  "Russian Federation", "Rwanda", "Saint Barthelemy", "Saint Helena", "Saint Kitts", "Saint Lucia",
+  "Saint Martin", "Saint Pierre and Miquelon", "Saint Vincent", "Samoa", "San Marino", "Sao Tome",
+  "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leonean", "Singapore", "Slovakia",
+  "Slovenia", "Solomon Islands", "Somalia", "South Africa", "Spain", "Sri Lanka", "Sudan",
+  "Suriname", "Svalbard Islands", "Swaziland", "Sweden", "Switzerland", "Syrian Arab Republic",
+  "Tajikistan", "Thailand", "Timor Leste", "Togo", "Tokelau", "Tonga", "Trinidad and Tobago",
+  "Tunisia", "Turkey", "Turkmenistan", "Turks Islands", "Tuvalu", "Uganda", "Ukraine",
+  "United Arab Emirates", "United Kingdom of Great Britain", "United Republic of Tanzania",
+  "United States of America", "Uruguay", "Uzbekistan", "Vanuatu", "Venezuela Bolivarian Republic",
+  "Viet Nam", "Virgin Islands", "Wallis Islands", "Western Sahara", "Yemen", "Zambia", "Zimbabwe"
 ];
 
+// Exact passport type values from e-visa form
 const PASSPORT_TYPES = ["Normal", "Temporary", "Diplomatic", "Special", "TravelDoc", "UN", "passage"];
+
+// Exact gender values from e-visa form
 const GENDERS = ["Male", "Female"];
-const PROFESSIONS = ["Physician", "Engineer", "Other"];
+
+// Exact profession values from e-visa form
+const PROFESSIONS = ["Physician", "Engineer", "other"];
+
+// Exact applicant type values from e-visa form
 const APPLICANT_TYPES = ["Son", "Daughter"];
+
+// Exact accommodation types from e-visa form (for future use)
+const ACCOMMODATION_TYPES = ["Hotel", "Villa", "Appartment", "Home", "CompanyHeadquarter"];
+
+// Iraq governorates from e-visa form (for future use)
+const IRAQ_GOVERNORATES = [
+  "Baghdad province", "Wasit province", "Kirkuk", "Karbala", "Salahuddin province",
+  "Dhi Qar", "Diyala province", "Maysan", "Babil province", "Najaf", "Muthanna",
+  "Diwaniya", "Basra", "Anbar province", "AlMosul", "Al - Sulaimaniya", "Erbil", "Duhouk"
+];
 
 const emptyForm = {
   passport_no: '',
