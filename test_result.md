@@ -165,6 +165,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Added Mother's Information section with 4 fields (mother name en/ar, mother's father name en/ar)"
+      - working: true
+        agent: "testing"
+        comment: "✅ COMPREHENSIVE FRONTEND TESTING COMPLETED: Mother's Information section fully functional. All 4 fields present in both Add and Edit forms: Mother Name - English (data-testid='input-mother-name-en'), Mother Name - Arabic (data-testid='input-mother-name-ar'), Mother's Father Name - English (data-testid='input-mother-father-name-en'), Mother's Father Name - Arabic (data-testid='input-mother-father-name-ar'). Fields properly labeled and accessible."
 
   - task: "Add Country of Residence and Applicant Type fields"
     implemented: true
@@ -177,6 +180,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Added Country of Residence dropdown with countries list and Applicant Type dropdown"
+      - working: true
+        agent: "testing"
+        comment: "✅ ADDITIONAL INFORMATION FIELDS VERIFIED: Country of Residence dropdown (data-testid='select-country-of-residence') and Applicant Type dropdown (data-testid='select-applicant-type') both present and functional in Add and Edit forms. Dropdowns properly populated with options. Located in Additional Information section as expected."
 
   - task: "Update View Passport dialog with new fields"
     implemented: true
@@ -189,6 +195,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Updated passport details view to show new fields"
+      - working: true
+        agent: "testing"
+        comment: "✅ VIEW PASSPORT DIALOG VERIFIED: All new fields properly displayed in view dialog. Mother Name (English), Mother's Father Name, and Country of Residence labels present and correctly positioned. View dialog successfully shows passport details with new field information when clicking eye icon on passport rows."
 
 chrome_extension:
   - task: "Chrome extension for e-visa form autofill"
