@@ -964,6 +964,201 @@ async def download_chrome_extension():
         media_type="application/zip"
     )
 
+# ============ AUTHENTICATION ENDPOINTS ============
+
+@api_router.post("/auth/login", response_model=Token)
+async def login(credentials: UserLogin):
+    """Authenticate user and return JWT token"""
+    user = await db.users.find_one({"email": credentials.email})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    if not verify_password(credentials.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    access_token = create_access_token(data={"sub": user["id"]})
+    user_response = {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "role": user["role"]
+    }
+    return Token(access_token=access_token, user=user_response)
+
+@api_router.get("/auth/me")
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """Get current authenticated user"""
+    return current_user
+
+@api_router.post("/auth/init-admin")
+async def init_admin():
+    """Initialize default admin user if no users exist"""
+    user_count = await db.users.count_documents({})
+    if user_count > 0:
+        return {"message": "Users already exist", "created": False}
+    
+    # Create default admin user
+    admin_user = {
+        "id": str(uuid.uuid4()),
+        "email": "admin@admin.com",
+        "password_hash": get_password_hash("admin123"),
+        "name": "Administrator",
+        "role": "admin",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(admin_user)
+    return {"message": "Default admin created", "created": True, "email": "admin@admin.com"}
+
+# ============ USER MANAGEMENT ENDPOINTS (Admin Only) ============
+
+@api_router.get("/users", response_model=List[User])
+async def get_users(current_user: dict = Depends(get_admin_user)):
+    """Get all users (admin only)"""
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    return users
+
+@api_router.post("/users", response_model=User)
+async def create_user(user_data: UserCreate, current_user: dict = Depends(get_admin_user)):
+    """Create a new user (admin only)"""
+    # Check if email already exists
+    existing = await db.users.find_one({"email": user_data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Validate role
+    if user_data.role not in ["admin", "staff"]:
+        raise HTTPException(status_code=400, detail="Invalid role. Use 'admin' or 'staff'")
+    
+    user = {
+        "id": str(uuid.uuid4()),
+        "email": user_data.email,
+        "password_hash": get_password_hash(user_data.password),
+        "name": user_data.name,
+        "role": user_data.role,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(user)
+    
+    # Return user without password_hash
+    del user["password_hash"]
+    if "_id" in user:
+        del user["_id"]
+    return user
+
+@api_router.get("/users/{user_id}", response_model=User)
+async def get_user(user_id: str, current_user: dict = Depends(get_admin_user)):
+    """Get a specific user (admin only)"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@api_router.put("/users/{user_id}", response_model=User)
+async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = Depends(get_admin_user)):
+    """Update a user (admin only)"""
+    update_data = {k: v for k, v in user_data.model_dump().items() if v is not None}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No data to update")
+    
+    # If email is being updated, check for duplicates
+    if "email" in update_data:
+        existing = await db.users.find_one({"email": update_data["email"], "id": {"$ne": user_id}})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # If password is being updated, hash it
+    if "password" in update_data:
+        update_data["password_hash"] = get_password_hash(update_data.pop("password"))
+    
+    # Validate role if being updated
+    if "role" in update_data and update_data["role"] not in ["admin", "staff"]:
+        raise HTTPException(status_code=400, detail="Invalid role. Use 'admin' or 'staff'")
+    
+    result = await db.users.update_one({"id": user_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return user
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, current_user: dict = Depends(get_admin_user)):
+    """Delete a user (admin only)"""
+    # Prevent deleting yourself
+    if current_user["id"] == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": "User deleted successfully"}
+
+# ============ CLIENT MANAGEMENT ENDPOINTS (Admin Only) ============
+
+@api_router.get("/clients", response_model=List[Client])
+async def get_clients(current_user: dict = Depends(get_admin_user)):
+    """Get all clients (admin only)"""
+    clients = await db.clients.find({}, {"_id": 0}).to_list(1000)
+    
+    # Add group count for each client
+    for client in clients:
+        group_count = await db.groups.count_documents({"client_id": client["id"]})
+        client["group_count"] = group_count
+    
+    return clients
+
+@api_router.post("/clients", response_model=Client)
+async def create_client(client_data: ClientCreate, current_user: dict = Depends(get_admin_user)):
+    """Create a new client (admin only)"""
+    client = Client(**client_data.model_dump())
+    client_dict = client.model_dump()
+    await db.clients.insert_one(client_dict)
+    return client
+
+@api_router.get("/clients/{client_id}", response_model=Client)
+async def get_client(client_id: str, current_user: dict = Depends(get_admin_user)):
+    """Get a specific client (admin only)"""
+    client = await db.clients.find_one({"id": client_id}, {"_id": 0})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Add group count
+    group_count = await db.groups.count_documents({"client_id": client_id})
+    client["group_count"] = group_count
+    
+    return client
+
+@api_router.put("/clients/{client_id}", response_model=Client)
+async def update_client(client_id: str, client_data: ClientUpdate, current_user: dict = Depends(get_admin_user)):
+    """Update a client (admin only)"""
+    update_data = {k: v for k, v in client_data.model_dump().items() if v is not None}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No data to update")
+    
+    result = await db.clients.update_one({"id": client_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    client = await db.clients.find_one({"id": client_id}, {"_id": 0})
+    return client
+
+@api_router.delete("/clients/{client_id}")
+async def delete_client(client_id: str, current_user: dict = Depends(get_admin_user)):
+    """Delete a client (admin only)"""
+    # Check if client has groups
+    group_count = await db.groups.count_documents({"client_id": client_id})
+    if group_count > 0:
+        raise HTTPException(status_code=400, detail=f"Cannot delete client with {group_count} linked groups. Reassign or delete groups first.")
+    
+    result = await db.clients.delete_one({"id": client_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    return {"message": "Client deleted successfully"}
+
 @api_router.get("/")
 async def root():
     return {"message": "Passport Control Admin API"}
