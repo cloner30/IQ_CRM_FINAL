@@ -136,6 +136,7 @@ export const GroupDetail = () => {
   const [passports, setPassports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // all, pending, done
   const [showAddPassport, setShowAddPassport] = useState(false);
   const [showEditPassport, setShowEditPassport] = useState(null);
   const [showViewPassport, setShowViewPassport] = useState(null);
@@ -143,11 +144,18 @@ export const GroupDetail = () => {
   const [passportForm, setPassportForm] = useState({ ...emptyForm });
   const [formLoading, setFormLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [groupStats, setGroupStats] = useState({ total: 0, done: 0, pending: 0, progress_percent: 0 });
 
   const fetchData = useCallback(async () => {
     try {
-      const [groupRes, passportsRes] = await Promise.all([
+      const [groupRes, passportsRes, statsRes] = await Promise.all([
         axios.get(`${API}/groups/${groupId}`),
+        axios.get(`${API}/groups/${groupId}/passports`),
+        axios.get(`${API}/groups/${groupId}/stats`)
+      ]);
+      setGroup(groupRes.data);
+      setPassports(passportsRes.data);
+      setGroupStats(statsRes.data);
         axios.get(`${API}/groups/${groupId}/passports`)
       ]);
       setGroup(groupRes.data);
