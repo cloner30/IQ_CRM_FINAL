@@ -204,12 +204,14 @@ def delete_from_s3(s3_key: str) -> bool:
 class GroupCreate(BaseModel):
     name: str
     description: Optional[str] = ""
+    client_id: Optional[str] = None  # Link to client
 
 class Group(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     description: str = ""
+    client_id: Optional[str] = None  # Link to client
     passport_count: int = 0
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
