@@ -182,12 +182,18 @@ function updateProgressBar() {
   const progressText = document.getElementById('progress-text');
   
   const total = allPassports.length;
-  const done = allPassports.filter(p => p.visa_status === 'Done').length;
+  // Check both 'status' and 'visa_status' fields for compatibility
+  const done = allPassports.filter(p => p.status === 'done' || p.visa_status === 'Done').length;
   const percentage = total > 0 ? (done / total) * 100 : 0;
   
   progressText.textContent = `${done}/${total} Done`;
   progressFill.style.width = `${percentage}%`;
   progressBar.classList.remove('hidden');
+}
+
+// Helper function to check if passport is done
+function isPassportDone(passport) {
+  return passport.status === 'done' || passport.visa_status === 'Done';
 }
 
 function filterAndDisplayPassports() {
@@ -197,9 +203,9 @@ function filterAndDisplayPassports() {
   let filteredPassports = allPassports;
   
   if (statusFilter === 'pending') {
-    filteredPassports = allPassports.filter(p => p.visa_status !== 'Done');
+    filteredPassports = allPassports.filter(p => !isPassportDone(p));
   } else if (statusFilter === 'done') {
-    filteredPassports = allPassports.filter(p => p.visa_status === 'Done');
+    filteredPassports = allPassports.filter(p => isPassportDone(p));
   }
   
   passportSelect.innerHTML = '<option value="">-- Select a passenger --</option>';
@@ -209,12 +215,13 @@ function filterAndDisplayPassports() {
     option.value = passport.id;
     
     // Add visual status indicator to the option text
-    const statusIcon = passport.visa_status === 'Done' ? '✅' : '⏳';
+    const isDone = isPassportDone(passport);
+    const statusIcon = isDone ? '✅' : '⏳';
     option.textContent = `${statusIcon} ${passport.first_name_en} ${passport.surname_en} (${passport.passport_no})`;
     option.dataset.passport = JSON.stringify(passport);
     
     // Add class for styling
-    if (passport.visa_status === 'Done') {
+    if (isDone) {
       option.className = 'option-done';
     } else {
       option.className = 'option-pending';
