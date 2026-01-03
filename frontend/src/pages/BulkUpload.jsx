@@ -169,7 +169,7 @@ export const BulkUpload = () => {
   useEffect(() => {
     const fetchGroup = async () => {
       try {
-        const response = await axios.get(`${API}/groups/${groupId}`);
+        const response = await api.get(`/groups/${groupId}`);
         setGroup(response.data);
       } catch (error) {
         toast.error('Failed to load group');
@@ -193,8 +193,8 @@ export const BulkUpload = () => {
 
     try {
       const endpoint = type === 'passports' ? 'passports' : 'photos';
-      const response = await axios.post(
-        `${API}/groups/${groupId}/upload/${endpoint}`,
+      const response = await api.post(
+        `/groups/${groupId}/upload/${endpoint}`,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' }
