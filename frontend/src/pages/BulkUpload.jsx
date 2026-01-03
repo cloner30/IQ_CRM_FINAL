@@ -1,16 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Progress } from '../components/ui/progress';
-import { ArrowLeft, Upload, FileText, Image, CheckCircle, AlertCircle, X, File } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Image, CheckCircle, AlertCircle, X, File, Download, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const UploadZone = ({ type, onUpload, uploading }) => {
+const UploadZone = ({ type, onUpload, uploading, accept, icon: Icon, title, subtitle, note }) => {
   const [dragOver, setDragOver] = useState(false);
   const [files, setFiles] = useState([]);
   const fileInputRef = useRef(null);
@@ -32,40 +31,18 @@ const UploadZone = ({ type, onUpload, uploading }) => {
     setDragOver(false);
   };
 
-  const validateFiles = (fileList) => {
-    const validFiles = [];
-    const invalidFiles = [];
-    
-    for (const file of fileList) {
-      const ext = file.name.split('.').pop().toLowerCase();
-      if (['jpg', 'jpeg'].includes(ext)) {
-        validFiles.push(file);
-      } else {
-        invalidFiles.push(file.name);
-      }
-    }
-    
-    if (invalidFiles.length > 0) {
-      toast.error(`Invalid files skipped: ${invalidFiles.join(', ')}. Only JPG/JPEG allowed.`);
-    }
-    
-    return validFiles;
-  };
-
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
     
     const droppedFiles = Array.from(e.dataTransfer.files);
-    const validFiles = validateFiles(droppedFiles);
-    setFiles(prev => [...prev, ...validFiles]);
+    setFiles(prev => [...prev, ...droppedFiles]);
   };
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
-    const validFiles = validateFiles(selectedFiles);
-    setFiles(prev => [...prev, ...validFiles]);
+    setFiles(prev => [...prev, ...selectedFiles]);
   };
 
   const removeFile = (index) => {
@@ -84,9 +61,6 @@ const UploadZone = ({ type, onUpload, uploading }) => {
     }
   };
 
-  const icon = type === 'passports' ? FileText : Image;
-  const Icon = icon;
-
   return (
     <div className="space-y-4">
       <div
@@ -101,8 +75,8 @@ const UploadZone = ({ type, onUpload, uploading }) => {
         <input
           ref={fileInputRef}
           type="file"
-          multiple
-          accept=".jpg,.jpeg"
+          multiple={type !== 'excel'}
+          accept={accept}
           onChange={handleFileSelect}
           className="hidden"
           data-testid={`file-input-${type}`}
@@ -111,15 +85,11 @@ const UploadZone = ({ type, onUpload, uploading }) => {
           <Icon className="w-8 h-8 text-indigo-600" />
         </div>
         <div>
-          <p className="text-lg font-manrope font-semibold text-slate-900">
-            Drop {type === 'passports' ? 'passport scans' : 'profile photos'} here
-          </p>
-          <p className="text-sm text-slate-500 mt-1">
-            or click to browse. Only JPG/JPEG files allowed.
-          </p>
-          <p className="text-xs text-indigo-600 mt-2 font-medium">
-            File names should be passport numbers (e.g., AB1234567.jpg)
-          </p>
+          <p className="text-lg font-manrope font-semibold text-slate-900">{title}</p>
+          <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+          {note && (
+            <p className="text-xs text-indigo-600 mt-2 font-medium">{note}</p>
+          )}
         </div>
       </div>
 
@@ -155,7 +125,7 @@ const UploadZone = ({ type, onUpload, uploading }) => {
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
-                  onClick={() => removeFile(index)}
+                  onClick={(e) => { e.stopPropagation(); removeFile(index); }}
                   data-testid={`remove-file-${index}`}
                 >
                   <X className="w-4 h-4" />
@@ -194,6 +164,7 @@ export const BulkUpload = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadResults, setUploadResults] = useState(null);
+  const [importResults, setImportResults] = useState(null);
 
   useEffect(() => {
     const fetchGroup = async () => {
@@ -210,9 +181,10 @@ export const BulkUpload = () => {
     fetchGroup();
   }, [groupId, navigate]);
 
-  const handleUpload = async (files, type) => {
+  const handleImageUpload = async (files, type) => {
     setUploading(true);
     setUploadResults(null);
+    setImportResults(null);
     
     const formData = new FormData();
     files.forEach(file => {
@@ -251,6 +223,74 @@ export const BulkUpload = () => {
     }
   };
 
+  const handleExcelUpload = async (files, type) => {
+    if (files.length !== 1) {
+      toast.error('Please select only one Excel/CSV file');
+      return false;
+    }
+    
+    setUploading(true);
+    setUploadResults(null);
+    setImportResults(null);
+    
+    const formData = new FormData();
+    formData.append('file', files[0]);
+
+    try {
+      const response = await axios.post(
+        `${API}/groups/${groupId}/import/excel`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        }
+      );
+      
+      setImportResults(response.data);
+      
+      const successCount = response.data.success?.length || 0;
+      const failedCount = response.data.failed?.length || 0;
+      const skippedCount = response.data.skipped?.length || 0;
+      
+      if (successCount > 0) {
+        toast.success(`Imported ${successCount} passport records successfully.`);
+      }
+      if (skippedCount > 0) {
+        toast.warning(`${skippedCount} records skipped (already exist).`);
+      }
+      if (failedCount > 0) {
+        toast.error(`${failedCount} records failed to import.`);
+      }
+      
+      return true;
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Import failed. Please check your file format.');
+      return false;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await axios.get(`${API}/templates/passport-import`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'passport_import_template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Template downloaded');
+    } catch (error) {
+      toast.error('Failed to download template');
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-12 text-slate-500">Loading...</div>;
   }
@@ -272,7 +312,7 @@ export const BulkUpload = () => {
           Bulk Upload
         </h1>
         <p className="text-slate-600 mt-1">
-          Upload passport scans and profile photos for <span className="font-medium">{group?.name}</span>
+          Upload passport data and images for <span className="font-medium">{group?.name}</span>
         </p>
       </div>
 
@@ -286,10 +326,10 @@ export const BulkUpload = () => {
             <div>
               <h3 className="font-manrope font-semibold text-indigo-900">How file mapping works</h3>
               <ul className="mt-2 space-y-1 text-sm text-indigo-800">
-                <li>• Name files with the passport number (e.g., <span className="font-mono bg-indigo-100 px-1 rounded">AB1234567.jpg</span>)</li>
-                <li>• System will automatically map images to matching passport records</li>
-                <li>• Only JPG and JPEG formats are accepted</li>
-                <li>• You can upload files before or after creating passport records</li>
+                <li>• Name image files with passport number (e.g., <span className="font-mono bg-indigo-100 px-1 rounded">AB1234567.jpg</span>)</li>
+                <li>• System automatically maps images to matching passport records</li>
+                <li>• Only JPG and JPEG formats accepted for images</li>
+                <li>• Excel/CSV import supports bulk data entry</li>
               </ul>
             </div>
           </div>
@@ -297,8 +337,12 @@ export const BulkUpload = () => {
       </Card>
 
       {/* Upload Tabs */}
-      <Tabs defaultValue="passports" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+      <Tabs defaultValue="excel" className="space-y-6">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
+          <TabsTrigger value="excel" data-testid="tab-excel">
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Excel Import
+          </TabsTrigger>
           <TabsTrigger value="passports" data-testid="tab-passports">
             <FileText className="w-4 h-4 mr-2" />
             Passport Scans
@@ -309,13 +353,73 @@ export const BulkUpload = () => {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="excel">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="font-manrope">Import from Excel/CSV</CardTitle>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleDownloadTemplate}
+                  data-testid="download-template-btn"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Template
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <UploadZone 
+                type="excel" 
+                onUpload={handleExcelUpload} 
+                uploading={uploading}
+                accept=".xlsx,.xls,.csv"
+                icon={FileSpreadsheet}
+                title="Drop Excel or CSV file here"
+                subtitle="or click to browse. Supports .xlsx, .xls, .csv files."
+                note="Required column: passport_no. Other columns are auto-mapped."
+              />
+              
+              {/* Column Mapping Info */}
+              <div className="mt-6 p-4 bg-slate-50 rounded-lg">
+                <h4 className="font-medium text-slate-900 mb-3">Supported Column Names</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                  <div><span className="font-mono text-indigo-600">passport_no</span> *</div>
+                  <div><span className="font-mono text-slate-600">first_name_en</span></div>
+                  <div><span className="font-mono text-slate-600">surname_en</span></div>
+                  <div><span className="font-mono text-slate-600">nationality</span></div>
+                  <div><span className="font-mono text-slate-600">gender</span></div>
+                  <div><span className="font-mono text-slate-600">birth_date</span></div>
+                  <div><span className="font-mono text-slate-600">expiry_date</span></div>
+                  <div><span className="font-mono text-slate-600">issue_date</span></div>
+                  <div><span className="font-mono text-slate-600">passport_type</span></div>
+                  <div><span className="font-mono text-slate-600">place_of_issue</span></div>
+                  <div><span className="font-mono text-slate-600">profession</span></div>
+                  <div><span className="font-mono text-slate-600">father_name_en</span></div>
+                </div>
+                <p className="text-xs text-slate-500 mt-3">* Required field. Other column names like "name", "firstname", "surname" are also auto-detected.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="passports">
           <Card>
             <CardHeader>
               <CardTitle className="font-manrope">Upload Passport Scans</CardTitle>
             </CardHeader>
             <CardContent>
-              <UploadZone type="passports" onUpload={handleUpload} uploading={uploading} />
+              <UploadZone 
+                type="passports" 
+                onUpload={handleImageUpload} 
+                uploading={uploading}
+                accept=".jpg,.jpeg"
+                icon={FileText}
+                title="Drop passport scans here"
+                subtitle="or click to browse. Only JPG/JPEG files allowed."
+                note="File names should be passport numbers (e.g., AB1234567.jpg)"
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -326,13 +430,22 @@ export const BulkUpload = () => {
               <CardTitle className="font-manrope">Upload Profile Photos</CardTitle>
             </CardHeader>
             <CardContent>
-              <UploadZone type="photos" onUpload={handleUpload} uploading={uploading} />
+              <UploadZone 
+                type="photos" 
+                onUpload={handleImageUpload} 
+                uploading={uploading}
+                accept=".jpg,.jpeg"
+                icon={Image}
+                title="Drop profile photos here"
+                subtitle="or click to browse. Only JPG/JPEG files allowed."
+                note="File names should be passport numbers (e.g., AB1234567.jpg)"
+              />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Upload Results */}
+      {/* Image Upload Results */}
       {uploadResults && (
         <Card className="mt-6" data-testid="upload-results">
           <CardHeader>
@@ -382,6 +495,67 @@ export const BulkUpload = () => {
                     {uploadResults.failed.map((item, idx) => (
                       <div key={idx} className="text-sm text-rose-600">
                         {item.filename}: {item.reason}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Excel Import Results */}
+      {importResults && (
+        <Card className="mt-6" data-testid="import-results">
+          <CardHeader>
+            <CardTitle className="font-manrope">Import Results</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {importResults.success?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    <span className="font-medium text-emerald-700">Successfully Imported ({importResults.success.length})</span>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {importResults.success.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm">
+                        <span className="passport-number">{item.passport_no}</span>
+                        <span className="text-slate-600">{item.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importResults.skipped?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <span className="font-medium text-amber-700">Skipped ({importResults.skipped.length})</span>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {importResults.skipped.map((item, idx) => (
+                      <div key={idx} className="text-sm text-amber-600">
+                        Row {item.row}: {item.passport_no} - {item.reason}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importResults.failed?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                    <span className="font-medium text-rose-700">Failed ({importResults.failed.length})</span>
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {importResults.failed.map((item, idx) => (
+                      <div key={idx} className="text-sm text-rose-600">
+                        Row {item.row}: {item.reason}
                       </div>
                     ))}
                   </div>
