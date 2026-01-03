@@ -928,6 +928,253 @@ IM7654321,Omar,Ali,Iraqi,2032-06-30,Maryam,مريم,Saeed,سعيد,Sweden,Husban
             print(f"❌ Failed - Error: {str(e)}")
             return False
 
+    def test_passport_status_update_done(self):
+        """Test updating passport status to 'done'"""
+        if not self.passport_id:
+            print("❌ Skipped - No passport ID available")
+            return False
+        
+        print(f"\n🔍 Testing Passport Status Update to 'done'...")
+        url = f"{self.base_url}/passports/{self.passport_id}/status?status=done"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.put(url)
+            success = response.status_code == 200
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                try:
+                    response_data = response.json()
+                    
+                    # Verify status is 'done'
+                    if response_data.get('status') != 'done':
+                        print(f"❌ Expected status 'done', got '{response_data.get('status')}'")
+                        return False
+                    
+                    # Verify status_updated_at is set
+                    if not response_data.get('status_updated_at'):
+                        print(f"❌ status_updated_at should be set when status is 'done'")
+                        return False
+                    
+                    print(f"✅ Status correctly updated to 'done' with timestamp: {response_data.get('status_updated_at')}")
+                    return True
+                    
+                except Exception as e:
+                    print(f"❌ Could not parse response JSON: {str(e)}")
+                    return False
+                    
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Error: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
+    def test_passport_status_update_pending(self):
+        """Test updating passport status to 'pending'"""
+        if not self.passport_id:
+            print("❌ Skipped - No passport ID available")
+            return False
+        
+        print(f"\n🔍 Testing Passport Status Update to 'pending'...")
+        url = f"{self.base_url}/passports/{self.passport_id}/status?status=pending"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.put(url)
+            success = response.status_code == 200
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                try:
+                    response_data = response.json()
+                    
+                    # Verify status is 'pending'
+                    if response_data.get('status') != 'pending':
+                        print(f"❌ Expected status 'pending', got '{response_data.get('status')}'")
+                        return False
+                    
+                    # Verify status_updated_at is null
+                    if response_data.get('status_updated_at') is not None:
+                        print(f"❌ status_updated_at should be null when status is 'pending', got: {response_data.get('status_updated_at')}")
+                        return False
+                    
+                    print(f"✅ Status correctly updated to 'pending' with status_updated_at=null")
+                    return True
+                    
+                except Exception as e:
+                    print(f"❌ Could not parse response JSON: {str(e)}")
+                    return False
+                    
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Error: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
+    def test_passport_status_update_invalid(self):
+        """Test updating passport status with invalid value"""
+        if not self.passport_id:
+            print("❌ Skipped - No passport ID available")
+            return False
+        
+        print(f"\n🔍 Testing Passport Status Update with Invalid Value...")
+        url = f"{self.base_url}/passports/{self.passport_id}/status?status=invalid"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.put(url)
+            success = response.status_code == 400
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                try:
+                    error_data = response.json()
+                    print(f"   Expected error response: {error_data}")
+                    return True
+                except:
+                    print(f"   Error response: {response.text}")
+                    return True
+                    
+            else:
+                print(f"❌ Failed - Expected 400, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Error: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
+    def test_passport_status_update_nonexistent(self):
+        """Test updating status for non-existent passport"""
+        print(f"\n🔍 Testing Passport Status Update for Non-existent Passport...")
+        url = f"{self.base_url}/passports/nonexistent-id/status?status=done"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.put(url)
+            success = response.status_code == 404
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                try:
+                    error_data = response.json()
+                    print(f"   Expected error response: {error_data}")
+                    return True
+                except:
+                    print(f"   Error response: {response.text}")
+                    return True
+                    
+            else:
+                print(f"❌ Failed - Expected 404, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Error: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
+    def test_acf12_group_passports_status_fields(self):
+        """Test GET /api/groups/{group_id}/passports returns status fields for ACF12 group"""
+        acf12_group_id = "e9f6d89a-e21f-4ace-8343-376a34dd8cb7"
+        
+        print(f"\n🔍 Testing ACF12 Group Passports Status Fields...")
+        url = f"{self.base_url}/groups/{acf12_group_id}/passports"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.get(url)
+            success = response.status_code == 200
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                try:
+                    passports = response.json()
+                    
+                    if not passports:
+                        print(f"⚠️  No passports found in ACF12 group")
+                        return True
+                    
+                    print(f"   Found {len(passports)} passports in ACF12 group")
+                    
+                    # Check each passport has status and status_updated_at fields
+                    missing_fields = []
+                    for i, passport in enumerate(passports):
+                        passport_no = passport.get('passport_no', f'passport_{i}')
+                        
+                        if 'status' not in passport:
+                            missing_fields.append(f"{passport_no}: missing 'status' field")
+                        elif passport['status'] not in ['pending', 'done']:
+                            missing_fields.append(f"{passport_no}: invalid status '{passport['status']}'")
+                        
+                        if 'status_updated_at' not in passport:
+                            missing_fields.append(f"{passport_no}: missing 'status_updated_at' field")
+                        
+                        print(f"   Passport {passport_no}: status='{passport.get('status')}', status_updated_at={passport.get('status_updated_at')}")
+                    
+                    if missing_fields:
+                        print(f"❌ Missing or invalid status fields:")
+                        for issue in missing_fields:
+                            print(f"     - {issue}")
+                        return False
+                    else:
+                        print(f"✅ All passports have correct status and status_updated_at fields")
+                        return True
+                    
+                except Exception as e:
+                    print(f"❌ Could not parse response JSON: {str(e)}")
+                    return False
+                    
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Error: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
 def run_s3_tests():
     """Run S3-specific tests"""
     print("🚀 Starting AWS S3 Integration Tests")
