@@ -1,0 +1,44 @@
+<!-- Open this file in a browser to generate icons -->
+<html>
+<body>
+<canvas id="c16" width="16" height="16"></canvas>
+<canvas id="c32" width="32" height="32"></canvas>
+<canvas id="c48" width="48" height="48"></canvas>
+<canvas id="c128" width="128" height="128"></canvas>
+<script>
+function drawIcon(size) {
+  const canvas = document.getElementById('c' + size);
+  const ctx = canvas.getContext('2d');
+  
+  // Background
+  ctx.fillStyle = '#6366f1';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, size * 0.15);
+  ctx.fill();
+  
+  // Passport icon
+  ctx.fillStyle = 'white';
+  const margin = size * 0.2;
+  const w = size - margin * 2;
+  const h = size - margin * 2;
+  ctx.fillRect(margin, margin, w, h);
+  
+  // Lines
+  ctx.fillStyle = '#6366f1';
+  const lineH = size * 0.08;
+  ctx.fillRect(margin + w*0.1, margin + h*0.3, w*0.8, lineH);
+  ctx.fillRect(margin + w*0.1, margin + h*0.5, w*0.6, lineH);
+  ctx.fillRect(margin + w*0.1, margin + h*0.7, w*0.4, lineH);
+  
+  // Download link
+  const link = document.createElement('a');
+  link.download = 'icon' + size + '.png';
+  link.href = canvas.toDataURL();
+  link.textContent = 'Download ' + size + 'x' + size;
+  document.body.appendChild(link);
+  document.body.appendChild(document.createElement('br'));
+}
+[16, 32, 48, 128].forEach(drawIcon);
+</script>
+</body>
+</html>
