@@ -1006,4 +1006,8 @@ def main():
         return 1
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Check if S3 tests are requested
+    if len(sys.argv) > 1 and sys.argv[1] == "s3":
+        sys.exit(run_s3_tests())
+    else:
+        sys.exit(main())
