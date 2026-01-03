@@ -922,6 +922,39 @@ IM7654321,Omar,Ali,Iraqi,2032-06-30,Maryam,مريم,Saeed,سعيد,Sweden,Husban
             print(f"❌ Failed - Error: {str(e)}")
             return False
 
+def run_s3_tests():
+    """Run S3-specific tests"""
+    print("🚀 Starting AWS S3 Integration Tests")
+    print("=" * 60)
+    
+    tester = PassportAPITester()
+    
+    # S3 test sequence
+    s3_tests = [
+        tester.test_s3_status,
+        tester.test_create_group,  # Need a group for uploads
+        tester.test_create_passport,  # Need a passport for image mapping
+        tester.test_upload_passport_image_s3,
+        tester.test_upload_profile_photo_s3,
+        tester.test_presigned_url_verification,
+        tester.test_s3_presigned_url_endpoint,
+    ]
+    
+    # Run S3 tests
+    for test in s3_tests:
+        test()
+    
+    # Print results
+    print("\n" + "=" * 60)
+    print(f"📊 S3 Test Results: {tester.tests_passed}/{tester.tests_run} passed")
+    
+    if tester.tests_passed == tester.tests_run:
+        print("🎉 All S3 tests passed!")
+        return 0
+    else:
+        print(f"❌ {tester.tests_run - tester.tests_passed} S3 tests failed")
+        return 1
+
 def main():
     print("🚀 Starting Passport Control Admin API Tests")
     print("=" * 60)
