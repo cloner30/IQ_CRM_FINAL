@@ -29,6 +29,25 @@
       </div>
 
       <div class="form-group">
+        <label for="status-filter">Filter by Status</label>
+        <select id="status-filter">
+          <option value="all">All Passengers</option>
+          <option value="pending">🔴 Pending Only</option>
+          <option value="done">🟢 Done Only</option>
+        </select>
+      </div>
+
+      <div id="group-progress" class="progress-bar hidden">
+        <div class="progress-label">
+          <span>Progress:</span>
+          <span id="progress-text">0/0</span>
+        </div>
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
         <label for="passport-select">Select Passenger</label>
         <select id="passport-select" disabled>
           <option value="">-- Select a passenger --</option>
