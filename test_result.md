@@ -232,7 +232,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Frontend form with new fields"
+    - "AWS S3 integration for file uploads"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
