@@ -43,9 +43,9 @@ const COUNTRIES = [
   "Uruguay", "Uzbekistan", "Venezuela", "Vietnam", "Yemen"
 ];
 
-const PASSPORT_TYPES = ["Normal", "Temporary", "Diplomatic", "Special", "Travel Doc", "UN", "Passage"];
+const PASSPORT_TYPES = ["Normal", "Temporary", "Diplomatic", "Special", "TravelDoc", "UN", "passage"];
 const GENDERS = ["Male", "Female"];
-const PROFESSIONS = ["Physician", "Engineer", "Teacher", "Business", "Student", "Government", "Other"];
+const PROFESSIONS = ["Physician", "Engineer", "Other"];
 const APPLICANT_TYPES = ["Son", "Daughter"];
 
 const emptyForm = {
