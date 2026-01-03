@@ -106,7 +106,7 @@ api_router = APIRouter(prefix="/api")
 # S3 Helper Functions
 async def upload_to_s3(file_content: bytes, s3_key: str, content_type: str = 'image/jpeg') -> bool:
     """Upload file to S3 bucket"""
-    if not s3_client:
+    if not s3_enabled or not s3_client:
         return False
     try:
         s3_client.put_object(
@@ -123,7 +123,7 @@ async def upload_to_s3(file_content: bytes, s3_key: str, content_type: str = 'im
 
 def generate_presigned_url(s3_key: str, expiration: int = 3600) -> str:
     """Generate a pre-signed URL for S3 object (valid for 1 hour by default)"""
-    if not s3_client or not s3_key:
+    if not s3_enabled or not s3_client or not s3_key:
         return None
     try:
         url = s3_client.generate_presigned_url(
@@ -138,7 +138,7 @@ def generate_presigned_url(s3_key: str, expiration: int = 3600) -> str:
 
 def delete_from_s3(s3_key: str) -> bool:
     """Delete file from S3 bucket"""
-    if not s3_client or not s3_key:
+    if not s3_enabled or not s3_client or not s3_key:
         return False
     try:
         s3_client.delete_object(Bucket=S3_BUCKET_NAME, Key=s3_key)
