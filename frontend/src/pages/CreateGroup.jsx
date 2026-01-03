@@ -14,14 +14,12 @@ import {
 } from '../components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const CreateGroup = () => {
   const navigate = useNavigate();
-  const { token, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState([]);
   const [formData, setFormData] = useState({
@@ -39,9 +37,7 @@ export const CreateGroup = () => {
 
   const fetchClients = async () => {
     try {
-      const response = await axios.get(`${API}/clients`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/clients');
       setClients(response.data);
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -62,7 +58,7 @@ export const CreateGroup = () => {
         description: formData.description,
         client_id: formData.client_id || null
       };
-      const response = await axios.post(`${API}/groups`, payload);
+      const response = await api.post('/groups', payload);
       toast.success('Group created successfully');
       navigate(`/groups/${response.data.id}`);
     } catch (error) {
