@@ -474,14 +474,14 @@ def process_passport_images(passport: dict) -> dict:
 
 # Passport endpoints
 @api_router.get("/groups/{group_id}/passports", response_model=List[Passport])
-async def get_passports(group_id: str):
+async def get_passports(group_id: str, current_user: dict = Depends(get_current_user)):
     passports = await db.passports.find({"group_id": group_id}, {"_id": 0}).to_list(1000)
     # Process S3 images to presigned URLs
     processed_passports = [process_passport_images(p) for p in passports]
     return processed_passports
 
 @api_router.post("/groups/{group_id}/passports", response_model=Passport)
-async def create_passport(group_id: str, passport_data: PassportCreate):
+async def create_passport(group_id: str, passport_data: PassportCreate, current_user: dict = Depends(get_current_user)):
     group = await db.groups.find_one({"id": group_id})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -517,7 +517,7 @@ async def create_passport(group_id: str, passport_data: PassportCreate):
     return passport
 
 @api_router.get("/groups/{group_id}/passports/{passport_id}", response_model=Passport)
-async def get_passport(group_id: str, passport_id: str):
+async def get_passport(group_id: str, passport_id: str, current_user: dict = Depends(get_current_user)):
     passport = await db.passports.find_one({"id": passport_id, "group_id": group_id}, {"_id": 0})
     if not passport:
         raise HTTPException(status_code=404, detail="Passport not found")
@@ -525,7 +525,7 @@ async def get_passport(group_id: str, passport_id: str):
     return process_passport_images(passport)
 
 @api_router.put("/groups/{group_id}/passports/{passport_id}", response_model=Passport)
-async def update_passport(group_id: str, passport_id: str, passport_data: PassportUpdate):
+async def update_passport(group_id: str, passport_id: str, passport_data: PassportUpdate, current_user: dict = Depends(get_current_user)):
     update_data = {k: v for k, v in passport_data.model_dump().items() if v is not None}
     if "passport_no" in update_data:
         update_data["passport_no"] = update_data["passport_no"].upper()
@@ -544,7 +544,7 @@ async def update_passport(group_id: str, passport_id: str, passport_data: Passpo
     return process_passport_images(passport)
 
 @api_router.delete("/groups/{group_id}/passports/{passport_id}")
-async def delete_passport(group_id: str, passport_id: str):
+async def delete_passport(group_id: str, passport_id: str, current_user: dict = Depends(get_current_user)):
     result = await db.passports.delete_one({"id": passport_id, "group_id": group_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Passport not found")
