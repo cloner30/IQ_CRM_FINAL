@@ -80,6 +80,14 @@ function setupEventListeners() {
     document.getElementById('preview-passport').textContent = selectedPassport.passport_no;
     document.getElementById('preview-nationality').textContent = selectedPassport.nationality;
     
+    // Show image status
+    const hasPassportImage = !!selectedPassport.passport_image;
+    const hasProfileImage = !!selectedPassport.profile_image;
+    let imageStatus = [];
+    if (hasProfileImage) imageStatus.push('📷 Photo');
+    if (hasPassportImage) imageStatus.push('🛂 Passport');
+    document.getElementById('preview-images').textContent = imageStatus.length > 0 ? imageStatus.join(', ') : 'None';
+    
     preview.classList.remove('hidden');
     fillBtn.disabled = false;
     // Enable upload button only if images exist
