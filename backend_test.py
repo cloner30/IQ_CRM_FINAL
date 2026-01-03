@@ -72,7 +72,380 @@ class PassportAPITester:
             print(f"❌ Failed - Error: {str(e)}")
             return False, {}
 
-    def test_root_endpoint(self):
+    # ============ AUTHENTICATION TESTS ============
+    
+    def test_init_admin(self):
+        """Test initializing default admin user"""
+        success, response = self.run_test(
+            "Initialize Admin User",
+            "POST",
+            "auth/init-admin",
+            200
+        )
+        if success:
+            print(f"   Admin initialization: {response.get('message', 'Unknown')}")
+        return success
+
+    def test_login_valid_credentials(self):
+        """Test login with valid admin credentials"""
+        login_data = {
+            "email": "admin@admin.com",
+            "password": "admin123"
+        }
+        success, response = self.run_test(
+            "Login with Valid Credentials",
+            "POST",
+            "auth/login",
+            200,
+            data=login_data
+        )
+        if success and 'access_token' in response:
+            self.auth_token = response['access_token']
+            self.admin_user_id = response.get('user', {}).get('id')
+            print(f"   Logged in successfully, token obtained")
+            print(f"   User: {response.get('user', {}).get('name')} ({response.get('user', {}).get('role')})")
+        return success
+
+    def test_login_invalid_credentials(self):
+        """Test login with invalid credentials"""
+        login_data = {
+            "email": "admin@admin.com",
+            "password": "wrongpassword"
+        }
+        success, response = self.run_test(
+            "Login with Invalid Credentials",
+            "POST",
+            "auth/login",
+            401,
+            data=login_data
+        )
+        return success
+
+    def test_get_current_user_with_token(self):
+        """Test getting current user info with valid token"""
+        if not self.auth_token:
+            print("❌ Skipped - No auth token available")
+            return False
+        
+        success, response = self.run_test(
+            "Get Current User with Token",
+            "GET",
+            "auth/me",
+            200,
+            auth_required=True
+        )
+        if success:
+            print(f"   Current user: {response.get('name')} ({response.get('email')})")
+        return success
+
+    def test_get_current_user_without_token(self):
+        """Test getting current user info without token"""
+        success, response = self.run_test(
+            "Get Current User without Token",
+            "GET",
+            "auth/me",
+            401
+        )
+        return success
+
+    # ============ USER MANAGEMENT TESTS ============
+    
+    def test_get_users(self):
+        """Test getting all users (admin only)"""
+        if not self.auth_token:
+            print("❌ Skipped - No auth token available")
+            return False
+        
+        success, response = self.run_test(
+            "Get All Users",
+            "GET",
+            "users",
+            200,
+            auth_required=True
+        )
+        if success:
+            print(f"   Found {len(response)} users")
+        return success
+
+    def test_create_staff_user(self):
+        """Test creating a new staff user"""
+        if not self.auth_token:
+            print("❌ Skipped - No auth token available")
+            return False
+        
+        user_data = {
+            "email": "staff@test.com",
+            "password": "staff123",
+            "name": "Test Staff",
+            "role": "staff"
+        }
+        success, response = self.run_test(
+            "Create Staff User",
+            "POST",
+            "users",
+            200,
+            data=user_data,
+            auth_required=True
+        )
+        if success and 'id' in response:
+            self.staff_user_id = response['id']
+            print(f"   Created staff user with ID: {self.staff_user_id}")
+        return success
+
+    def test_get_user_by_id(self):
+        """Test getting a specific user by ID"""
+        if not self.auth_token or not self.staff_user_id:
+            print("❌ Skipped - No auth token or staff user ID available")
+            return False
+        
+        success, response = self.run_test(
+            "Get User by ID",
+            "GET",
+            f"users/{self.staff_user_id}",
+            200,
+            auth_required=True
+        )
+        return success
+
+    def test_update_user(self):
+        """Test updating a user"""
+        if not self.auth_token or not self.staff_user_id:
+            print("❌ Skipped - No auth token or staff user ID available")
+            return False
+        
+        update_data = {
+            "name": "Updated Test Staff"
+        }
+        success, response = self.run_test(
+            "Update User",
+            "PUT",
+            f"users/{self.staff_user_id}",
+            200,
+            data=update_data,
+            auth_required=True
+        )
+        if success:
+            print(f"   Updated user name to: {response.get('name')}")
+        return success
+
+    def test_delete_user(self):
+        """Test deleting a user"""
+        if not self.auth_token or not self.staff_user_id:
+            print("❌ Skipped - No auth token or staff user ID available")
+            return False
+        
+        success, response = self.run_test(
+            "Delete User",
+            "DELETE",
+            f"users/{self.staff_user_id}",
+            200,
+            auth_required=True
+        )
+        return success
+
+    # ============ CLIENT MANAGEMENT TESTS ============
+    
+    def test_get_clients_empty(self):
+        """Test getting clients when empty"""
+        if not self.auth_token:
+            print("❌ Skipped - No auth token available")
+            return False
+        
+        success, response = self.run_test(
+            "Get Clients (Empty)",
+            "GET",
+            "clients",
+            200,
+            auth_required=True
+        )
+        return success
+
+    def test_create_client(self):
+        """Test creating a new client"""
+        if not self.auth_token:
+            print("❌ Skipped - No auth token available")
+            return False
+        
+        client_data = {
+            "name": "Test Client Company",
+            "company_name": "Test Corp Ltd",
+            "contact_person_name": "John Smith",
+            "contact_person_no": "+1234567890",
+            "email": "contact@testcorp.com",
+            "mobile_no": "+0987654321",
+            "address": "123 Business Street, City, Country",
+            "country": "United States"
+        }
+        success, response = self.run_test(
+            "Create Client",
+            "POST",
+            "clients",
+            200,
+            data=client_data,
+            auth_required=True
+        )
+        if success and 'id' in response:
+            self.client_id = response['id']
+            print(f"   Created client with ID: {self.client_id}")
+        return success
+
+    def test_get_client_by_id(self):
+        """Test getting a specific client by ID"""
+        if not self.auth_token or not self.client_id:
+            print("❌ Skipped - No auth token or client ID available")
+            return False
+        
+        success, response = self.run_test(
+            "Get Client by ID",
+            "GET",
+            f"clients/{self.client_id}",
+            200,
+            auth_required=True
+        )
+        return success
+
+    def test_get_clients_with_data(self):
+        """Test getting clients when data exists"""
+        if not self.auth_token:
+            print("❌ Skipped - No auth token available")
+            return False
+        
+        success, response = self.run_test(
+            "Get Clients (With Data)",
+            "GET",
+            "clients",
+            200,
+            auth_required=True
+        )
+        if success:
+            print(f"   Found {len(response)} clients")
+        return success
+
+    def test_update_client(self):
+        """Test updating a client"""
+        if not self.auth_token or not self.client_id:
+            print("❌ Skipped - No auth token or client ID available")
+            return False
+        
+        update_data = {
+            "name": "Updated Test Client Company",
+            "contact_person_name": "Jane Doe"
+        }
+        success, response = self.run_test(
+            "Update Client",
+            "PUT",
+            f"clients/{self.client_id}",
+            200,
+            data=update_data,
+            auth_required=True
+        )
+        if success:
+            print(f"   Updated client name to: {response.get('name')}")
+        return success
+
+    def test_delete_client(self):
+        """Test deleting a client"""
+        if not self.auth_token or not self.client_id:
+            print("❌ Skipped - No auth token or client ID available")
+            return False
+        
+        success, response = self.run_test(
+            "Delete Client",
+            "DELETE",
+            f"clients/{self.client_id}",
+            200,
+            auth_required=True
+        )
+        return success
+
+    # ============ GROUP-CLIENT LINKING TESTS ============
+    
+    def test_create_group_with_client(self):
+        """Test creating a group linked to a client"""
+        if not self.auth_token:
+            print("❌ Skipped - No auth token available")
+            return False
+        
+        # First create a client for linking
+        client_data = {
+            "name": "Group Test Client",
+            "company_name": "Group Test Corp",
+            "contact_person_name": "Alice Johnson",
+            "email": "alice@grouptestcorp.com"
+        }
+        client_success, client_response = self.run_test(
+            "Create Client for Group Linking",
+            "POST",
+            "clients",
+            200,
+            data=client_data,
+            auth_required=True
+        )
+        
+        if not client_success or 'id' not in client_response:
+            print("❌ Failed to create client for group linking")
+            return False
+        
+        link_client_id = client_response['id']
+        
+        # Now create group with client_id
+        group_data = {
+            "name": "Client-Linked Group",
+            "description": "Group linked to a client",
+            "client_id": link_client_id
+        }
+        success, response = self.run_test(
+            "Create Group with Client Link",
+            "POST",
+            "groups",
+            200,
+            data=group_data
+        )
+        if success and 'id' in response:
+            self.group_id = response['id']
+            print(f"   Created group with ID: {self.group_id}, linked to client: {link_client_id}")
+        return success
+
+    def test_get_groups_with_client_names(self):
+        """Test that GET /groups returns client_name for linked groups"""
+        success, response = self.run_test(
+            "Get Groups with Client Names",
+            "GET",
+            "groups",
+            200
+        )
+        if success:
+            for group in response:
+                if group.get('client_id'):
+                    if 'client_name' in group:
+                        print(f"   Group '{group['name']}' linked to client '{group['client_name']}'")
+                    else:
+                        print(f"❌ Group '{group['name']}' has client_id but missing client_name")
+                        return False
+        return success
+
+    def test_get_group_by_id_with_client_name(self):
+        """Test that GET /groups/{id} includes client_name"""
+        if not self.group_id:
+            print("❌ Skipped - No group ID available")
+            return False
+        
+        success, response = self.run_test(
+            "Get Group by ID with Client Name",
+            "GET",
+            f"groups/{self.group_id}",
+            200
+        )
+        if success:
+            if response.get('client_id'):
+                if 'client_name' in response:
+                    print(f"   Group linked to client: {response['client_name']}")
+                else:
+                    print(f"❌ Group has client_id but missing client_name")
+                    return False
+        return success
+
+    # ============ EXISTING PASSPORT TESTS ============
         """Test root API endpoint"""
         success, response = self.run_test(
             "Root API Endpoint",
