@@ -290,6 +290,45 @@ class PassportAPITester:
         )
         return success
 
+    def test_update_passport_new_fields(self):
+        """Test updating a passport with new fields"""
+        if not self.group_id or not hasattr(self, 'new_passport_id'):
+            print("❌ Skipped - No group/new passport ID available")
+            return False
+        
+        update_data = {
+            "mother_name_en": "Amina",
+            "mother_name_ar": "أمينة",
+            "mother_father_name_en": "Omar",
+            "mother_father_name_ar": "عمر",
+            "country_of_residence": "Canada",
+            "applicant_type": "Son"
+        }
+        success, response = self.run_test(
+            "Update Passport New Fields",
+            "PUT",
+            f"groups/{self.group_id}/passports/{self.new_passport_id}",
+            200,
+            data=update_data
+        )
+        
+        if success:
+            # Verify updated fields are correct in response
+            missing_or_wrong = []
+            for field, expected_value in update_data.items():
+                if field not in response or response[field] != expected_value:
+                    missing_or_wrong.append(f"{field}: expected '{expected_value}', got '{response.get(field, 'MISSING')}'")
+            
+            if missing_or_wrong:
+                print(f"❌ Issues with updated new fields:")
+                for issue in missing_or_wrong:
+                    print(f"   - {issue}")
+                return False
+            else:
+                print(f"✅ All new fields correctly updated")
+        
+        return success
+
     def test_create_duplicate_passport(self):
         """Test creating a duplicate passport (should fail)"""
         if not self.group_id:
