@@ -61,6 +61,10 @@ class PassportCreate(BaseModel):
     grandfather_name_ar: Optional[str] = ""
     grandfather_name_en: Optional[str] = ""
     surname_ar: Optional[str] = ""
+    mother_name_ar: Optional[str] = ""
+    mother_name_en: Optional[str] = ""
+    mother_father_name_ar: Optional[str] = ""
+    mother_father_name_en: Optional[str] = ""
     nationality: str
     gender: Optional[str] = ""
     birth_date: Optional[str] = ""
@@ -68,6 +72,8 @@ class PassportCreate(BaseModel):
     issue_date: Optional[str] = ""
     expiry_date: str
     profession: Optional[str] = ""
+    country_of_residence: Optional[str] = ""
+    applicant_type: Optional[str] = ""
 
 class Passport(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -83,6 +89,10 @@ class Passport(BaseModel):
     grandfather_name_ar: str = ""
     grandfather_name_en: str = ""
     surname_ar: str = ""
+    mother_name_ar: str = ""
+    mother_name_en: str = ""
+    mother_father_name_ar: str = ""
+    mother_father_name_en: str = ""
     nationality: str = ""
     gender: str = ""
     birth_date: str = ""
@@ -90,6 +100,8 @@ class Passport(BaseModel):
     issue_date: str = ""
     expiry_date: str = ""
     profession: str = ""
+    country_of_residence: str = ""
+    applicant_type: str = ""
     passport_image: Optional[str] = None
     profile_image: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -105,6 +117,10 @@ class PassportUpdate(BaseModel):
     grandfather_name_ar: Optional[str] = None
     grandfather_name_en: Optional[str] = None
     surname_ar: Optional[str] = None
+    mother_name_ar: Optional[str] = None
+    mother_name_en: Optional[str] = None
+    mother_father_name_ar: Optional[str] = None
+    mother_father_name_en: Optional[str] = None
     nationality: Optional[str] = None
     gender: Optional[str] = None
     birth_date: Optional[str] = None
@@ -112,6 +128,8 @@ class PassportUpdate(BaseModel):
     issue_date: Optional[str] = None
     expiry_date: Optional[str] = None
     profession: Optional[str] = None
+    country_of_residence: Optional[str] = None
+    applicant_type: Optional[str] = None
 
 def validate_file_extension(filename: str) -> bool:
     ext = Path(filename).suffix.lower()
