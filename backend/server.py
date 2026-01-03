@@ -265,11 +265,28 @@ async def delete_group(group_id: str):
         raise HTTPException(status_code=404, detail="Group not found")
     return {"message": "Group deleted successfully"}
 
+# Helper function to process passport images (convert S3 keys to presigned URLs)
+def process_passport_images(passport: dict) -> dict:
+    """Convert S3 keys to presigned URLs for passport images"""
+    if passport.get('passport_image') and passport['passport_image'].startswith('s3://'):
+        s3_key = passport['passport_image'][5:]  # Remove 's3://' prefix
+        presigned_url = generate_presigned_url(s3_key)
+        passport['passport_image'] = presigned_url or passport['passport_image']
+    
+    if passport.get('profile_image') and passport['profile_image'].startswith('s3://'):
+        s3_key = passport['profile_image'][5:]  # Remove 's3://' prefix
+        presigned_url = generate_presigned_url(s3_key)
+        passport['profile_image'] = presigned_url or passport['profile_image']
+    
+    return passport
+
 # Passport endpoints
 @api_router.get("/groups/{group_id}/passports", response_model=List[Passport])
 async def get_passports(group_id: str):
     passports = await db.passports.find({"group_id": group_id}, {"_id": 0}).to_list(1000)
-    return passports
+    # Process S3 images to presigned URLs
+    processed_passports = [process_passport_images(p) for p in passports]
+    return processed_passports
 
 @api_router.post("/groups/{group_id}/passports", response_model=Passport)
 async def create_passport(group_id: str, passport_data: PassportCreate):
