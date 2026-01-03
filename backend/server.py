@@ -14,6 +14,8 @@ import aiofiles
 import pandas as pd
 from io import BytesIO, StringIO
 import csv
+import boto3
+from botocore.exceptions import ClientError
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -23,7 +25,43 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create uploads directory
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'passport-control-uploads')
+
+# Initialize S3 client
+s3_client = None
+if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
+    s3_client = boto3.client(
+        's3',
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION
+    )
+    # Create bucket if it doesn't exist
+    try:
+        s3_client.head_bucket(Bucket=S3_BUCKET_NAME)
+        logging.info(f"S3 bucket {S3_BUCKET_NAME} exists")
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code', '')
+        if error_code == '404':
+            try:
+                if AWS_REGION == 'us-east-1':
+                    s3_client.create_bucket(Bucket=S3_BUCKET_NAME)
+                else:
+                    s3_client.create_bucket(
+                        Bucket=S3_BUCKET_NAME,
+                        CreateBucketConfiguration={'LocationConstraint': AWS_REGION}
+                    )
+                logging.info(f"Created S3 bucket {S3_BUCKET_NAME}")
+            except Exception as create_err:
+                logging.error(f"Failed to create bucket: {create_err}")
+        else:
+            logging.error(f"Error checking bucket: {e}")
+
+# Create local uploads directory (fallback)
 UPLOADS_DIR = ROOT_DIR / 'uploads'
 PASSPORT_UPLOADS = UPLOADS_DIR / 'passports'
 PHOTO_UPLOADS = UPLOADS_DIR / 'photos'
