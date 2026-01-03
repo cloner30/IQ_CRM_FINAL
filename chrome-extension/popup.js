@@ -2,6 +2,8 @@
 
 let selectedPassport = null;
 let apiUrl = '';
+let authToken = '';
+let currentUser = null;
 let allPassports = []; // Store all passports for filtering
 let currentGroupId = null;
 
@@ -12,17 +14,51 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadSettings() {
-  const result = await chrome.storage.sync.get(['apiUrl']);
+  const result = await chrome.storage.sync.get(['apiUrl', 'authToken', 'user']);
   apiUrl = result.apiUrl || '';
+  authToken = result.authToken || '';
+  currentUser = result.user || null;
   
   if (!apiUrl) {
     document.getElementById('setup-required').classList.remove('hidden');
     document.getElementById('main-content').classList.add('hidden');
+    document.querySelector('#setup-required p').textContent = 'API URL not configured.';
+  } else if (!authToken) {
+    document.getElementById('setup-required').classList.remove('hidden');
+    document.getElementById('main-content').classList.add('hidden');
+    document.querySelector('#setup-required p').innerHTML = 'Not logged in. <a href="#" id="open-settings">Open Settings</a> to login.';
+    // Re-attach event listener for the new link
+    document.getElementById('open-settings')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.runtime.openOptionsPage();
+    });
   } else {
     document.getElementById('setup-required').classList.add('hidden');
     document.getElementById('main-content').classList.remove('hidden');
     await loadGroups();
   }
+}
+
+// Helper function to make authenticated API requests
+async function apiRequest(endpoint, options = {}) {
+  const headers = {
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${authToken}`,
+    ...options.headers
+  };
+  
+  const response = await fetch(`${apiUrl}${endpoint}`, {
+    ...options,
+    headers
+  });
+  
+  if (response.status === 401 || response.status === 403) {
+    // Token expired or invalid
+    showStatus('Session expired. Please login again in Settings.', 'error');
+    throw new Error('Authentication failed');
+  }
+  
+  return response;
 }
 
 function setupEventListeners() {
