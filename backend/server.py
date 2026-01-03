@@ -395,6 +395,63 @@ async def delete_passport(group_id: str, passport_id: str):
     
     return {"message": "Passport deleted successfully"}
 
+# Status update endpoint
+@api_router.put("/passports/{passport_id}/status")
+async def update_passport_status(passport_id: str, status: str):
+    """Update passport processing status (pending/done)"""
+    if status not in ["pending", "done"]:
+        raise HTTPException(status_code=400, detail="Invalid status. Use 'pending' or 'done'")
+    
+    update_data = {
+        "status": status,
+        "status_updated_at": datetime.now(timezone.utc).isoformat() if status == "done" else None
+    }
+    
+    result = await db.passports.update_one(
+        {"id": passport_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    
+    passport = await db.passports.find_one({"id": passport_id}, {"_id": 0})
+    return process_passport_images(passport)
+
+# Bulk status update endpoint
+@api_router.put("/groups/{group_id}/passports/bulk-status")
+async def bulk_update_passport_status(group_id: str, passport_ids: List[str], status: str):
+    """Bulk update passport processing status"""
+    if status not in ["pending", "done"]:
+        raise HTTPException(status_code=400, detail="Invalid status. Use 'pending' or 'done'")
+    
+    update_data = {
+        "status": status,
+        "status_updated_at": datetime.now(timezone.utc).isoformat() if status == "done" else None
+    }
+    
+    result = await db.passports.update_many(
+        {"id": {"$in": passport_ids}, "group_id": group_id},
+        {"$set": update_data}
+    )
+    
+    return {"updated": result.modified_count}
+
+# Get group stats endpoint
+@api_router.get("/groups/{group_id}/stats")
+async def get_group_stats(group_id: str):
+    """Get passport processing stats for a group"""
+    total = await db.passports.count_documents({"group_id": group_id})
+    done = await db.passports.count_documents({"group_id": group_id, "status": "done"})
+    pending = total - done
+    
+    return {
+        "total": total,
+        "done": done,
+        "pending": pending,
+        "progress_percent": round((done / total * 100) if total > 0 else 0, 1)
+    }
+
 # CSV Export endpoint
 @api_router.get("/groups/{group_id}/export/csv")
 async def export_passports_csv(group_id: str):
