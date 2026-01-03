@@ -377,12 +377,31 @@ def extract_passport_number(filename: str) -> str:
 
 # Group endpoints
 @api_router.get("/groups", response_model=List[Group])
-async def get_groups():
-    groups = await db.groups.find({}, {"_id": 0}).to_list(1000)
+async def get_groups(client_id: Optional[str] = None):
+    query = {}
+    if client_id:
+        query["client_id"] = client_id
+    
+    groups = await db.groups.find(query, {"_id": 0}).to_list(1000)
+    
+    # Add client name for each group
+    for group in groups:
+        if group.get("client_id"):
+            client = await db.clients.find_one({"id": group["client_id"]}, {"_id": 0, "name": 1})
+            group["client_name"] = client["name"] if client else "Unknown"
+        else:
+            group["client_name"] = None
+    
     return groups
 
 @api_router.post("/groups", response_model=Group)
 async def create_group(group_data: GroupCreate):
+    # Validate client_id if provided
+    if group_data.client_id:
+        client = await db.clients.find_one({"id": group_data.client_id})
+        if not client:
+            raise HTTPException(status_code=400, detail="Client not found")
+    
     group = Group(**group_data.model_dump())
     doc = group.model_dump()
     await db.groups.insert_one(doc)
@@ -393,6 +412,14 @@ async def get_group(group_id: str):
     group = await db.groups.find_one({"id": group_id}, {"_id": 0})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Add client name
+    if group.get("client_id"):
+        client = await db.clients.find_one({"id": group["client_id"]}, {"_id": 0, "name": 1})
+        group["client_name"] = client["name"] if client else "Unknown"
+    else:
+        group["client_name"] = None
+    
     return group
 
 @api_router.put("/groups/{group_id}", response_model=Group)
