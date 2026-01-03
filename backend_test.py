@@ -446,6 +446,8 @@ class PassportAPITester:
         return success
 
     # ============ EXISTING PASSPORT TESTS ============
+    
+    def test_root_endpoint(self):
         """Test root API endpoint"""
         success, response = self.run_test(
             "Root API Endpoint",
