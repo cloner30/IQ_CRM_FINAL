@@ -191,6 +191,49 @@ header h1 {
   cursor: not-allowed;
 }
 
+.btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #059669;
+}
+
+.btn-success:disabled {
+  background: #a7f3d0;
+  cursor: not-allowed;
+}
+
+.progress-bar {
+  margin-bottom: 12px;
+  padding: 10px;
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.progress-track {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, #10b981, #059669);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
 .btn-icon {
   font-size: 16px;
 }
