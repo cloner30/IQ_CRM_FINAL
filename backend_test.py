@@ -160,6 +160,65 @@ class PassportAPITester:
             print(f"   Created passport with ID: {self.passport_id}")
         return success
 
+    def test_create_passport_with_new_fields(self):
+        """Test creating a passport with all new fields (mother info, residence, applicant type)"""
+        if not self.group_id:
+            print("❌ Skipped - No group ID available")
+            return False
+        
+        passport_data = {
+            "passport_no": "NF9876543",
+            "passport_type": "Normal",
+            "first_name_en": "Sarah",
+            "surname_en": "Ahmed",
+            "first_name_ar": "سارة",
+            "surname_ar": "أحمد",
+            "father_name_en": "Mohammed",
+            "father_name_ar": "محمد",
+            "grandfather_name_en": "Ali",
+            "grandfather_name_ar": "علي",
+            # New mother information fields
+            "mother_name_en": "Fatima",
+            "mother_name_ar": "فاطمة",
+            "mother_father_name_en": "Hassan",
+            "mother_father_name_ar": "حسن",
+            "nationality": "Iraqi",
+            "gender": "Female",
+            "birth_date": "1990-05-15",
+            "place_of_issue": "Baghdad",
+            "issue_date": "2020-01-01",
+            "expiry_date": "2030-01-01",
+            "profession": "Engineer",
+            # New additional fields
+            "country_of_residence": "United Arab Emirates",
+            "applicant_type": "Daughter"
+        }
+        success, response = self.run_test(
+            "Create Passport with New Fields",
+            "POST",
+            f"groups/{self.group_id}/passports",
+            200,
+            data=passport_data
+        )
+        if success and 'id' in response:
+            self.new_passport_id = response['id']
+            print(f"   Created passport with new fields, ID: {self.new_passport_id}")
+            
+            # Verify all new fields are present in response
+            new_fields = ['mother_name_en', 'mother_name_ar', 'mother_father_name_en', 
+                         'mother_father_name_ar', 'country_of_residence', 'applicant_type']
+            missing_fields = []
+            for field in new_fields:
+                if field not in response or response[field] != passport_data[field]:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"❌ Missing or incorrect new fields in response: {missing_fields}")
+                return False
+            else:
+                print(f"✅ All new fields correctly saved and returned")
+        return success
+
     def test_get_passport_by_id(self):
         """Test getting a specific passport"""
         if not self.group_id or not self.passport_id:
