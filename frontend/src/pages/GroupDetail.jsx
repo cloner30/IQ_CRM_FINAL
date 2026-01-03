@@ -396,6 +396,55 @@ export const GroupDetail = () => {
         </div>
       </div>
 
+      {/* Mother's Information Section */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-slate-900 border-b pb-2">Mother's Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-slate-700 mb-2 block">Mother Name - English</Label>
+            <Input
+              type="text"
+              placeholder="Mother's Name"
+              value={passportForm.mother_name_en}
+              onChange={(e) => setPassportForm({ ...passportForm, mother_name_en: e.target.value })}
+              data-testid="input-mother-name-en"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Mother Name - Arabic</Label>
+            <Input
+              type="text"
+              placeholder="اسم الأم"
+              value={passportForm.mother_name_ar}
+              onChange={(e) => setPassportForm({ ...passportForm, mother_name_ar: e.target.value })}
+              dir="rtl"
+              data-testid="input-mother-name-ar"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Mother's Father Name - English</Label>
+            <Input
+              type="text"
+              placeholder="Mother's Father's Name"
+              value={passportForm.mother_father_name_en}
+              onChange={(e) => setPassportForm({ ...passportForm, mother_father_name_en: e.target.value })}
+              data-testid="input-mother-father-name-en"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Mother's Father Name - Arabic</Label>
+            <Input
+              type="text"
+              placeholder="اسم والد الأم"
+              value={passportForm.mother_father_name_ar}
+              onChange={(e) => setPassportForm({ ...passportForm, mother_father_name_ar: e.target.value })}
+              dir="rtl"
+              data-testid="input-mother-father-name-ar"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Additional Info */}
       <div className="space-y-4">
         <h3 className="font-semibold text-slate-900 border-b pb-2">Additional Information</h3>
