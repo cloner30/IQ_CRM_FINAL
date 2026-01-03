@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Users, Plus, Search, Trash2, Edit, ArrowRight } from 'lucide-react';
+import { Users, Plus, Search, Trash2, Edit, ArrowRight, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import {
@@ -57,7 +57,8 @@ export const GroupsList = () => {
 
   const filteredGroups = groups.filter(g => 
     g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (g.description && g.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    (g.description && g.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (g.client_name && g.client_name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -147,6 +148,13 @@ export const GroupsList = () => {
                     </Button>
                   </div>
                 </div>
+                {/* Client Badge */}
+                {group.client_name && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <Building2 className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{group.client_name}</span>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-slate-500 mb-4 line-clamp-2">
