@@ -1,0 +1,171 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "Passport Control Admin",
+      "persona": "E1 - The Anti-AI Designer",
+      "vibe": "Control Room / High-Efficiency / Secure",
+      "theme_strategy": "AdminLTE Reimagined (Dark Sidebar, Light Content)"
+    },
+    "typography": {
+      "fonts": [
+        {
+          "family": "Manrope",
+          "weights": ["400", "500", "600", "700"],
+          "usage": "Headings, Navigation, Buttons",
+          "import_url": "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap"
+        },
+        {
+          "family": "IBM Plex Sans",
+          "weights": ["400", "500"],
+          "usage": "Body text, Form labels, Table data",
+          "import_url": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&display=swap"
+        },
+        {
+          "family": "JetBrains Mono",
+          "weights": ["400"],
+          "usage": "Passport Numbers, File Names, IDs",
+          "import_url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap"
+        }
+      ],
+      "rules": {
+        "headings": "font-manrope font-bold tracking-tight text-slate-900",
+        "body": "font-ibm-plex-sans text-slate-600 leading-relaxed",
+        "mono": "font-mono text-xs tracking-wide text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded"
+      }
+    },
+    "colors": {
+      "palette": {
+        "primary": {
+          "DEFAULT": "#4f46e5",
+          "foreground": "#ffffff",
+          "hover": "#4338ca"
+        },
+        "sidebar": {
+          "bg": "#1e1b4b",
+          "fg": "#e0e7ff",
+          "active": "#312e81",
+          "border": "#312e81"
+        },
+        "background": {
+          "body": "#f8fafc",
+          "card": "#ffffff"
+        },
+        "status": {
+          "success": "#059669",
+          "warning": "#d97706",
+          "error": "#e11d48",
+          "info": "#0284c7"
+        }
+      },
+      "tailwind_config_extension": {
+        "colors": {
+          "sidebar": {
+            "DEFAULT": "#1e1b4b",
+            "foreground": "#e0e7ff",
+            "primary": "#4f46e5",
+            "primary-foreground": "#ffffff",
+            "accent": "#312e81",
+            "accent-foreground": "#ffffff",
+            "border": "#312e81",
+            "ring": "#4f46e5"
+          }
+        }
+      }
+    },
+    "layout": {
+      "structure": {
+        "sidebar_width": "w-64",
+        "header_height": "h-16",
+        "content_padding": "p-8"
+      },
+      "grid_system": {
+        "dashboard": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6",
+        "form": "grid grid-cols-1 md:grid-cols-2 gap-8",
+        "card_grid": "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+      },
+      "spacing": {
+        "container_padding": "p-6 md:p-8",
+        "section_gap": "gap-8",
+        "item_gap": "gap-4"
+      }
+    },
+    "components": {
+      "buttons": {
+        "primary": "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm font-medium rounded-md px-4 py-2 transition-all active:scale-95",
+        "secondary": "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm font-medium rounded-md px-4 py-2 transition-all active:scale-95",
+        "destructive": "bg-rose-600 hover:bg-rose-700 text-white shadow-sm font-medium rounded-md px-4 py-2 transition-all active:scale-95"
+      },
+      "cards": {
+        "base": "bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200",
+        "header": "px-6 py-4 border-b border-slate-100 flex items-center justify-between",
+        "content": "p-6"
+      },
+      "inputs": {
+        "base": "flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "label": "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mb-2 block text-slate-700"
+      },
+      "upload_zone": {
+        "container": "border-2 border-dashed border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50/80 transition-colors rounded-xl p-12 text-center cursor-pointer flex flex-col items-center justify-center gap-4",
+        "icon": "w-12 h-12 text-indigo-400 mb-2",
+        "text": "text-lg font-medium text-indigo-900",
+        "subtext": "text-sm text-indigo-600/80"
+      },
+      "status_badge": {
+        "base": "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+        "success": "bg-emerald-100 text-emerald-800",
+        "warning": "bg-amber-100 text-amber-800",
+        "error": "bg-rose-100 text-rose-800",
+        "neutral": "bg-slate-100 text-slate-800"
+      }
+    },
+    "assets": {
+      "images": {
+        "passport_covers": [
+          {
+            "url": "https://images.unsplash.com/photo-1744580389912-e424d67b9749?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwxfHxwYXNzcG9ydCUyMGJvb2slMjBnZW5lcmljfGVufDB8fHx8MTc2NzQ2MzM2OXww&ixlib=rb-4.1.0&q=85",
+            "alt": "Portuguese Passport Cover",
+            "category": "passport_cover"
+          },
+          {
+            "url": "https://images.unsplash.com/photo-1584445634848-9089cb1cb90b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwzfHxwYXNzcG9ydCUyMGJvb2slMjBnZW5lcmljfGVufDB8fHx8MTc2NzQ2MzM2OXww&ixlib=rb-4.1.0&q=85",
+            "alt": "USA Passport Cover",
+            "category": "passport_cover"
+          },
+          {
+            "url": "https://images.unsplash.com/photo-1593781492912-bb538a002c02?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHw0fHxwYXNzcG9ydCUyMGJvb2slMjBnZW5lcmljfGVufDB8fHx8MTc2NzQ2MzM2OXww&ixlib=rb-4.1.0&q=85",
+            "alt": "UK Passport Cover",
+            "category": "passport_cover"
+          }
+        ],
+        "placeholders": [
+          {
+            "url": "https://images.unsplash.com/photo-1562228802-4b1052d0f845?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NzM1NTgyMXww&ixlib=rb-4.1.0&q=85",
+            "alt": "Male Portrait",
+            "category": "profile_placeholder"
+          },
+          {
+            "url": "https://images.unsplash.com/photo-1576558656222-ba66febe3dec?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzh8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc2NzM1NTgyMXww&ixlib=rb-4.1.0&q=85",
+            "alt": "Male Portrait 2",
+            "category": "profile_placeholder"
+          }
+        ]
+      },
+      "icons": {
+        "library": "lucide-react",
+        "preferred": ["Users", "FileText", "Upload", "CheckCircle", "AlertCircle", "Search", "Filter", "MoreVertical", "Trash2", "Edit", "Plus"]
+      }
+    },
+    "universal_guidelines": [
+      "DO NOT use gradients for backgrounds. Use solid colors or subtle noise textures.",
+      "Ensure all interactive elements have a `data-testid` attribute.",
+      "Use `sonner` for toast notifications.",
+      "Use `lucide-react` for icons.",
+      "Maintain the Sidebar (Dark) vs Content (Light) contrast strictly.",
+      "Passport numbers must ALWAYS be displayed in Monospace font.",
+      "Forms must be vertical (Label top, Input bottom).",
+      "Use 'Control Room' density for tables - avoid excessive padding in data rows.",
+      "Always provide visual feedback for file uploads (progress bar or success check)."
+    ],
+    "instructions_to_main_agent": "1. Install fonts in index.css. 2. Configure tailwind.config.js with the new colors. 3. Create a 'Layout' component that implements the Sidebar structure. 4. Build the 'Group' and 'Passport' pages using the specified grid systems. 5. Implement the Bulk Upload with the specific dashed-border style."
+  }
+}
