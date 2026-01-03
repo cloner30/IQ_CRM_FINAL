@@ -466,7 +466,7 @@ async def bulk_import_excel(group_id: str, file: UploadFile = File(...)):
 # Download sample Excel template
 @api_router.get("/templates/passport-import")
 async def get_import_template():
-    # Create sample Excel template
+    # Create sample Excel template with e-visa compatible values
     df = pd.DataFrame({
         'passport_no': ['AB1234567', 'CD7654321'],
         'passport_type': ['Normal', 'Diplomatic'],
@@ -485,11 +485,11 @@ async def get_import_template():
         'nationality': ['American', 'British'],
         'gender': ['Male', 'Female'],
         'birth_date': ['1990-01-15', '1985-06-20'],
-        'place_of_issue': ['USA', 'UK'],
+        'place_of_issue': ['United States of America', 'United Kingdom of Great Britain'],
         'issue_date': ['2020-01-01', '2019-06-15'],
         'expiry_date': ['2030-01-01', '2029-06-15'],
         'profession': ['Engineer', 'Physician'],
-        'country_of_residence': ['United States', 'United Kingdom'],
+        'country_of_residence': ['United States of America', 'United Kingdom of Great Britain'],
         'applicant_type': ['', 'Son']
     })
     
