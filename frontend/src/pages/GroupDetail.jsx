@@ -149,9 +149,9 @@ export const GroupDetail = () => {
   const fetchData = useCallback(async () => {
     try {
       const [groupRes, passportsRes, statsRes] = await Promise.all([
-        axios.get(`${API}/groups/${groupId}`),
-        axios.get(`${API}/groups/${groupId}/passports`),
-        axios.get(`${API}/groups/${groupId}/stats`)
+        api.get(`/groups/${groupId}`),
+        api.get(`/groups/${groupId}/passports`),
+        api.get(`/groups/${groupId}/stats`)
       ]);
       setGroup(groupRes.data);
       setPassports(passportsRes.data);
