@@ -712,21 +712,67 @@ export const GroupDetail = () => {
         </Card>
       </div>
 
+      {/* Progress Stats Bar */}
+      <Card className="mb-6 bg-gradient-to-r from-indigo-50 to-purple-50">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-slate-700">Processing Progress</span>
+              <span className="text-2xl font-bold text-indigo-600">{groupStats.progress_percent}%</span>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                Done: {groupStats.done}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+                Pending: {groupStats.pending}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded-full bg-slate-300"></span>
+                Total: {groupStats.total}
+              </span>
+            </div>
+          </div>
+          <div className="w-full bg-slate-200 rounded-full h-3">
+            <div 
+              className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
+              style={{ width: `${groupStats.progress_percent}%` }}
+            ></div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Passports List */}
       <Card data-testid="passports-card">
         <CardHeader className="border-b border-slate-100">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <CardTitle className="font-manrope">Passports</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                type="text"
-                placeholder="Search passports..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-                data-testid="search-passports"
-              />
+            <div className="flex items-center gap-3">
+              {/* Status Filter */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-36" data-testid="status-filter">
+                  <SelectValue placeholder="Filter status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All ({passports.length})</SelectItem>
+                  <SelectItem value="pending">🔴 Pending ({groupStats.pending})</SelectItem>
+                  <SelectItem value="done">🟢 Done ({groupStats.done})</SelectItem>
+                </SelectContent>
+              </Select>
+              {/* Search */}
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="Search passports..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                  data-testid="search-passports"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
