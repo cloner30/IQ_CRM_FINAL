@@ -450,7 +450,7 @@ async def update_group(group_id: str, group_data: GroupCreate, current_user: dic
     return group
 
 @api_router.delete("/groups/{group_id}")
-async def delete_group(group_id: str):
+async def delete_group(group_id: str, current_user: dict = Depends(get_current_user)):
     await db.passports.delete_many({"group_id": group_id})
     result = await db.groups.delete_one({"id": group_id})
     if result.deleted_count == 0:
