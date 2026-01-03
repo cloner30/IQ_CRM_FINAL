@@ -156,10 +156,6 @@ export const GroupDetail = () => {
       setGroup(groupRes.data);
       setPassports(passportsRes.data);
       setGroupStats(statsRes.data);
-        axios.get(`${API}/groups/${groupId}/passports`)
-      ]);
-      setGroup(groupRes.data);
-      setPassports(passportsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load group data');
