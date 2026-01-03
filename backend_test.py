@@ -1678,6 +1678,58 @@ def main():
         print(f"❌ {tester.tests_run - tester.tests_passed} tests failed")
         return 1
 
+def run_authentication_tests():
+    """Run authentication and client management tests"""
+    print("🚀 Starting Authentication and Client Management Tests")
+    print("=" * 60)
+    
+    tester = PassportAPITester()
+    
+    # Authentication and client management test sequence
+    auth_tests = [
+        # Authentication tests
+        tester.test_init_admin,
+        tester.test_login_valid_credentials,
+        tester.test_login_invalid_credentials,
+        tester.test_get_current_user_with_token,
+        tester.test_get_current_user_without_token,
+        
+        # User management tests
+        tester.test_get_users,
+        tester.test_create_staff_user,
+        tester.test_get_user_by_id,
+        tester.test_update_user,
+        tester.test_delete_user,
+        
+        # Client management tests
+        tester.test_get_clients_empty,
+        tester.test_create_client,
+        tester.test_get_client_by_id,
+        tester.test_get_clients_with_data,
+        tester.test_update_client,
+        tester.test_delete_client,
+        
+        # Group-client linking tests
+        tester.test_create_group_with_client,
+        tester.test_get_groups_with_client_names,
+        tester.test_get_group_by_id_with_client_name,
+    ]
+    
+    # Run authentication tests
+    for test in auth_tests:
+        test()
+    
+    # Print results
+    print("\n" + "=" * 60)
+    print(f"📊 Authentication Test Results: {tester.tests_passed}/{tester.tests_run} passed")
+    
+    if tester.tests_passed == tester.tests_run:
+        print("🎉 All authentication tests passed!")
+        return 0
+    else:
+        print(f"❌ {tester.tests_run - tester.tests_passed} authentication tests failed")
+        return 1
+
 if __name__ == "__main__":
     # Check if specific tests are requested
     if len(sys.argv) > 1:
@@ -1685,5 +1737,7 @@ if __name__ == "__main__":
             sys.exit(run_s3_tests())
         elif sys.argv[1] == "status":
             sys.exit(run_passport_status_tests())
+        elif sys.argv[1] == "auth":
+            sys.exit(run_authentication_tests())
     else:
         sys.exit(main())
