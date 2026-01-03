@@ -337,7 +337,7 @@ async function markAsDone() {
     return;
   }
   
-  if (selectedPassport.visa_status === 'Done') {
+  if (selectedPassport.status === 'done' || selectedPassport.visa_status === 'Done') {
     showStatus('This passenger is already marked as done.', 'error');
     return;
   }
@@ -345,12 +345,11 @@ async function markAsDone() {
   showStatus('Marking as done...', 'loading');
   
   try {
-    const response = await fetch(`${apiUrl}/api/passports/${selectedPassport.id}/status`, {
-      method: 'POST',
+    const response = await fetch(`${apiUrl}/api/passports/${selectedPassport.id}/status?status=done`, {
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ status: 'Done' })
+      }
     });
     
     if (!response.ok) {
@@ -359,14 +358,16 @@ async function markAsDone() {
     }
     
     // Update local data
+    selectedPassport.status = 'done';
     selectedPassport.visa_status = 'Done';
-    selectedPassport.visa_status_updated_at = new Date().toISOString();
+    selectedPassport.status_updated_at = new Date().toISOString();
     
     // Update in allPassports array
     const index = allPassports.findIndex(p => p.id === selectedPassport.id);
     if (index !== -1) {
+      allPassports[index].status = 'done';
       allPassports[index].visa_status = 'Done';
-      allPassports[index].visa_status_updated_at = selectedPassport.visa_status_updated_at;
+      allPassports[index].status_updated_at = selectedPassport.status_updated_at;
     }
     
     // Update progress bar
