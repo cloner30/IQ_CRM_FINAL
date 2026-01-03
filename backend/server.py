@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -11,6 +11,9 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 import aiofiles
+import pandas as pd
+from io import BytesIO, StringIO
+import csv
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -29,6 +32,7 @@ PHOTO_UPLOADS.mkdir(parents=True, exist_ok=True)
 
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg'}
+EXCEL_EXTENSIONS = {'.xlsx', '.xls', '.csv'}
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -112,6 +116,10 @@ class PassportUpdate(BaseModel):
 def validate_file_extension(filename: str) -> bool:
     ext = Path(filename).suffix.lower()
     return ext in ALLOWED_EXTENSIONS
+
+def validate_excel_extension(filename: str) -> bool:
+    ext = Path(filename).suffix.lower()
+    return ext in EXCEL_EXTENSIONS
 
 def extract_passport_number(filename: str) -> str:
     """Extract passport number from filename (without extension)"""
@@ -211,6 +219,10 @@ async def update_passport(group_id: str, passport_id: str, passport_data: Passpo
     if "passport_no" in update_data:
         update_data["passport_no"] = update_data["passport_no"].upper()
     
+    if not update_data:
+        passport = await db.passports.find_one({"id": passport_id}, {"_id": 0})
+        return passport
+    
     result = await db.passports.update_one(
         {"id": passport_id, "group_id": group_id},
         {"$set": update_data}
@@ -232,6 +244,227 @@ async def delete_passport(group_id: str, passport_id: str):
     )
     
     return {"message": "Passport deleted successfully"}
+
+# CSV Export endpoint
+@api_router.get("/groups/{group_id}/export/csv")
+async def export_passports_csv(group_id: str):
+    group = await db.groups.find_one({"id": group_id}, {"_id": 0})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    passports = await db.passports.find({"group_id": group_id}, {"_id": 0}).to_list(1000)
+    
+    if not passports:
+        raise HTTPException(status_code=404, detail="No passports found in this group")
+    
+    # Create CSV
+    output = StringIO()
+    fieldnames = [
+        'passport_no', 'passport_type', 'first_name_en', 'surname_en', 
+        'father_name_en', 'grandfather_name_en', 'first_name_ar', 'surname_ar',
+        'father_name_ar', 'grandfather_name_ar', 'nationality', 'gender',
+        'birth_date', 'place_of_issue', 'issue_date', 'expiry_date', 'profession',
+        'passport_image', 'profile_image'
+    ]
+    
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    
+    for p in passports:
+        row = {field: p.get(field, '') for field in fieldnames}
+        writer.writerow(row)
+    
+    output.seek(0)
+    
+    filename = f"{group['name'].replace(' ', '_')}_passports.csv"
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+# Excel/CSV bulk import endpoint
+@api_router.post("/groups/{group_id}/import/excel")
+async def bulk_import_excel(group_id: str, file: UploadFile = File(...)):
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if not validate_excel_extension(file.filename):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only Excel (.xlsx, .xls) or CSV files allowed.")
+    
+    content = await file.read()
+    
+    try:
+        ext = Path(file.filename).suffix.lower()
+        if ext == '.csv':
+            df = pd.read_csv(BytesIO(content))
+        else:
+            df = pd.read_excel(BytesIO(content))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
+    
+    # Normalize column names
+    df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+    
+    # Map common column name variations
+    column_mapping = {
+        'passport_number': 'passport_no',
+        'passportno': 'passport_no',
+        'passport': 'passport_no',
+        'first_name': 'first_name_en',
+        'firstname': 'first_name_en',
+        'name': 'first_name_en',
+        'surname': 'surname_en',
+        'last_name': 'surname_en',
+        'lastname': 'surname_en',
+        'family_name': 'surname_en',
+        'father': 'father_name_en',
+        'father_name': 'father_name_en',
+        'grandfather': 'grandfather_name_en',
+        'grandfather_name': 'grandfather_name_en',
+        'expiry': 'expiry_date',
+        'expire_date': 'expiry_date',
+        'valid_until': 'expiry_date',
+        'issue': 'issue_date',
+        'issued_date': 'issue_date',
+        'dob': 'birth_date',
+        'date_of_birth': 'birth_date',
+        'birthday': 'birth_date',
+        'country': 'nationality',
+        'sex': 'gender',
+        'job': 'profession',
+        'occupation': 'profession',
+        'type': 'passport_type',
+        'place_issued': 'place_of_issue',
+        'issued_place': 'place_of_issue',
+        'issue_place': 'place_of_issue',
+    }
+    
+    df.rename(columns=column_mapping, inplace=True)
+    
+    results = {"success": [], "failed": [], "skipped": []}
+    
+    for index, row in df.iterrows():
+        try:
+            # Get passport number - required field
+            passport_no = None
+            if 'passport_no' in row and pd.notna(row['passport_no']):
+                passport_no = str(row['passport_no']).strip().upper()
+            
+            if not passport_no:
+                results["failed"].append({
+                    "row": index + 2,
+                    "reason": "Missing passport number"
+                })
+                continue
+            
+            # Check if passport already exists
+            existing = await db.passports.find_one({
+                "group_id": group_id,
+                "passport_no": passport_no
+            })
+            
+            if existing:
+                results["skipped"].append({
+                    "row": index + 2,
+                    "passport_no": passport_no,
+                    "reason": "Passport already exists"
+                })
+                continue
+            
+            # Build passport data
+            passport_data = {
+                "id": str(uuid.uuid4()),
+                "group_id": group_id,
+                "passport_no": passport_no,
+                "passport_type": str(row.get('passport_type', 'Normal')) if pd.notna(row.get('passport_type')) else "Normal",
+                "first_name_en": str(row.get('first_name_en', '')) if pd.notna(row.get('first_name_en')) else "",
+                "surname_en": str(row.get('surname_en', '')) if pd.notna(row.get('surname_en')) else "",
+                "father_name_en": str(row.get('father_name_en', '')) if pd.notna(row.get('father_name_en')) else "",
+                "grandfather_name_en": str(row.get('grandfather_name_en', '')) if pd.notna(row.get('grandfather_name_en')) else "",
+                "first_name_ar": str(row.get('first_name_ar', '')) if pd.notna(row.get('first_name_ar')) else "",
+                "surname_ar": str(row.get('surname_ar', '')) if pd.notna(row.get('surname_ar')) else "",
+                "father_name_ar": str(row.get('father_name_ar', '')) if pd.notna(row.get('father_name_ar')) else "",
+                "grandfather_name_ar": str(row.get('grandfather_name_ar', '')) if pd.notna(row.get('grandfather_name_ar')) else "",
+                "nationality": str(row.get('nationality', '')) if pd.notna(row.get('nationality')) else "",
+                "gender": str(row.get('gender', '')) if pd.notna(row.get('gender')) else "",
+                "birth_date": str(row.get('birth_date', '')) if pd.notna(row.get('birth_date')) else "",
+                "place_of_issue": str(row.get('place_of_issue', '')) if pd.notna(row.get('place_of_issue')) else "",
+                "issue_date": str(row.get('issue_date', '')) if pd.notna(row.get('issue_date')) else "",
+                "expiry_date": str(row.get('expiry_date', '')) if pd.notna(row.get('expiry_date')) else "",
+                "profession": str(row.get('profession', '')) if pd.notna(row.get('profession')) else "",
+                "passport_image": None,
+                "profile_image": None,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            # Check if images already exist for this passport number
+            passport_img = PASSPORT_UPLOADS / group_id / f"{passport_no}.jpg"
+            photo_img = PHOTO_UPLOADS / group_id / f"{passport_no}.jpg"
+            
+            if passport_img.exists():
+                passport_data["passport_image"] = f"/api/uploads/passports/{group_id}/{passport_no}.jpg"
+            if photo_img.exists():
+                passport_data["profile_image"] = f"/api/uploads/photos/{group_id}/{passport_no}.jpg"
+            
+            await db.passports.insert_one(passport_data)
+            results["success"].append({
+                "row": index + 2,
+                "passport_no": passport_no,
+                "name": f"{passport_data['first_name_en']} {passport_data['surname_en']}"
+            })
+            
+        except Exception as e:
+            results["failed"].append({
+                "row": index + 2,
+                "reason": str(e)
+            })
+    
+    # Update group passport count
+    if results["success"]:
+        await db.groups.update_one(
+            {"id": group_id},
+            {"$inc": {"passport_count": len(results["success"])}}
+        )
+    
+    return results
+
+# Download sample Excel template
+@api_router.get("/templates/passport-import")
+async def get_import_template():
+    # Create sample Excel template
+    df = pd.DataFrame({
+        'passport_no': ['AB1234567', 'CD7654321'],
+        'passport_type': ['Normal', 'Diplomatic'],
+        'first_name_en': ['John', 'Jane'],
+        'surname_en': ['Doe', 'Smith'],
+        'father_name_en': ['Michael', 'Robert'],
+        'grandfather_name_en': ['James', 'William'],
+        'first_name_ar': ['جون', 'جين'],
+        'surname_ar': ['دو', 'سميث'],
+        'father_name_ar': ['مايكل', 'روبرت'],
+        'grandfather_name_ar': ['جيمس', 'وليام'],
+        'nationality': ['American', 'British'],
+        'gender': ['Male', 'Female'],
+        'birth_date': ['1990-01-15', '1985-06-20'],
+        'place_of_issue': ['USA', 'UK'],
+        'issue_date': ['2020-01-01', '2019-06-15'],
+        'expiry_date': ['2030-01-01', '2029-06-15'],
+        'profession': ['Engineer', 'Doctor']
+    })
+    
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Passports')
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=passport_import_template.xlsx"}
+    )
 
 # Bulk upload endpoints
 @api_router.post("/groups/{group_id}/upload/passports")
