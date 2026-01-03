@@ -163,11 +163,11 @@ async function fillForm() {
       return;
     }
     
-    // Prepare passport data with image URLs
+    // Prepare passport data with image URLs (S3 presigned URLs are already full URLs)
     const passportData = {
       ...selectedPassport,
-      passport_image_url: selectedPassport.passport_image ? `${apiUrl}${selectedPassport.passport_image}` : null,
-      profile_image_url: selectedPassport.profile_image ? `${apiUrl}${selectedPassport.profile_image}` : null
+      passport_image_url: selectedPassport.passport_image || null,
+      profile_image_url: selectedPassport.profile_image || null
     };
     
     // Execute content script to fill form
@@ -186,6 +186,50 @@ async function fillForm() {
   } catch (error) {
     console.error('Error filling form:', error);
     showStatus('Failed to fill form. Make sure you are on the visa application page.', 'error');
+  }
+}
+
+async function uploadImages() {
+  if (!selectedPassport) {
+    showStatus('Please select a passenger first.', 'error');
+    return;
+  }
+  
+  if (!selectedPassport.passport_image && !selectedPassport.profile_image) {
+    showStatus('No images available for this passenger.', 'error');
+    return;
+  }
+  
+  showStatus('Uploading images...', 'loading');
+  
+  try {
+    // Get current tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    // Check if we're on the right site
+    if (!tab.url.includes('eservice.evisa.iq')) {
+      showStatus('Please navigate to eservice.evisa.iq first.', 'error');
+      return;
+    }
+    
+    // Prepare image data (S3 presigned URLs are already full URLs)
+    const imageData = {
+      passport_no: selectedPassport.passport_no,
+      passport_image_url: selectedPassport.passport_image || null,
+      profile_image_url: selectedPassport.profile_image || null
+    };
+    
+    // Execute content script to upload images
+    await chrome.tabs.sendMessage(tab.id, {
+      action: 'uploadImages',
+      data: imageData
+    });
+    
+    showStatus('Images uploaded/downloaded! ✓', 'success');
+    
+  } catch (error) {
+    console.error('Error uploading images:', error);
+    showStatus('Failed to upload images. Check console for details.', 'error');
   }
 }
 
