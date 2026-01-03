@@ -119,6 +119,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Added 6 new fields to PassportCreate, Passport, PassportUpdate models. Tested via API - all fields save correctly."
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE TESTING COMPLETED: ✅ All 6 new passport fields working perfectly. Created passport with mother_name_en, mother_name_ar, mother_father_name_en, mother_father_name_ar, country_of_residence, applicant_type. GET endpoint returns all new fields correctly. PUT endpoint updates new fields successfully. Tested with both new test group and existing ACF12 group."
 
   - task: "CSV export with new fields"
     implemented: true
@@ -131,6 +134,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Updated CSV export fieldnames to include new fields"
+      - working: true
+        agent: "testing"
+        comment: "✅ CSV EXPORT VERIFIED: All new field headers (mother_name_ar, mother_name_en, mother_father_name_ar, mother_father_name_en, country_of_residence, applicant_type) are present in CSV export. Tested with both test data and ACF12 group. CSV contains correct field values."
 
   - task: "Excel import with new fields"
     implemented: true
@@ -143,6 +149,9 @@ backend:
       - working: true
         agent: "main"
         comment: "Updated column mapping and passport_data builder to include new fields"
+      - working: true
+        agent: "testing"
+        comment: "✅ EXCEL IMPORT VERIFIED: Template download includes all new fields. Bulk import successfully processes CSV with new fields (mother info, residence, applicant type). Imported 2 test passports with all new fields correctly saved. Column mapping works for all new field variations."
 
 frontend:
   - task: "Add Mother's Information section to passport form"
