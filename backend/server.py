@@ -378,7 +378,7 @@ def extract_passport_number(filename: str) -> str:
 
 # Group endpoints
 @api_router.get("/groups", response_model=List[Group])
-async def get_groups(client_id: Optional[str] = None):
+async def get_groups(client_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     query = {}
     if client_id:
         query["client_id"] = client_id
@@ -396,7 +396,7 @@ async def get_groups(client_id: Optional[str] = None):
     return groups
 
 @api_router.post("/groups", response_model=Group)
-async def create_group(group_data: GroupCreate):
+async def create_group(group_data: GroupCreate, current_user: dict = Depends(get_current_user)):
     # Validate client_id if provided
     if group_data.client_id:
         client = await db.clients.find_one({"id": group_data.client_id})
