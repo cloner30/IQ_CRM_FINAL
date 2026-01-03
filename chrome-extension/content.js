@@ -502,37 +502,34 @@ function fillVisaForm(data) {
       fillDropdown(DROPDOWN_MAPPING.nationality, data.nationality, NATIONALITY_MAP);
     }
     
-    // Gender
+    // Gender (E-visa uses: Male, Female)
     if (data.gender) {
       fillDropdown(DROPDOWN_MAPPING.gender, data.gender);
     }
     
-    // Profession
+    // Profession (E-visa uses: Physician, Engineer, other)
     if (data.profession) {
       fillDropdown(DROPDOWN_MAPPING.profession, data.profession, PROFESSION_MAP);
     }
     
-    // Passport Type
+    // Passport Type (E-visa uses: Normal, Temporary, Diplomatic, Special, TravelDoc, UN, passage)
     if (data.passport_type) {
       fillDropdown(DROPDOWN_MAPPING.passport_type, data.passport_type, PASSPORT_TYPE_MAP);
     }
     
-    // Place of Issue
+    // Place of Issue (uses country names - dropdown has full country names)
     if (data.place_of_issue) {
-      fillDropdown(DROPDOWN_MAPPING.place_of_issue, data.place_of_issue);
+      fillDropdown(DROPDOWN_MAPPING.place_of_issue, data.place_of_issue, COUNTRY_MAP);
     }
     
-    // Country of Residence
+    // Country of Residence (uses country names - dropdown has full country names)
     if (data.country_of_residence) {
-      fillDropdown(DROPDOWN_MAPPING.country_of_residence, data.country_of_residence);
+      fillDropdown(DROPDOWN_MAPPING.country_of_residence, data.country_of_residence, COUNTRY_MAP);
     }
     
-    // Applicant Type
+    // Applicant Type (E-visa uses: "", "Son", "Daughter")
     if (data.applicant_type) {
-      const applicantSelect = document.querySelector('select[id*="dynamicEnumPicker1"]');
-      if (applicantSelect) {
-        fillDropdown('select[id*="dynamicEnumPicker1"]', data.applicant_type);
-      }
+      fillDropdown(DROPDOWN_MAPPING.applicant_type, data.applicant_type, APPLICANT_TYPE_MAP);
     }
   }, 500);
   
