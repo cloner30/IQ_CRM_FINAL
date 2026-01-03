@@ -409,7 +409,7 @@ async def create_group(group_data: GroupCreate, current_user: dict = Depends(get
     return group
 
 @api_router.get("/groups/{group_id}", response_model=Group)
-async def get_group(group_id: str):
+async def get_group(group_id: str, current_user: dict = Depends(get_current_user)):
     group = await db.groups.find_one({"id": group_id}, {"_id": 0})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -424,7 +424,7 @@ async def get_group(group_id: str):
     return group
 
 @api_router.put("/groups/{group_id}", response_model=Group)
-async def update_group(group_id: str, group_data: GroupCreate):
+async def update_group(group_id: str, group_data: GroupCreate, current_user: dict = Depends(get_current_user)):
     # Validate client_id if provided
     if group_data.client_id:
         client = await db.clients.find_one({"id": group_data.client_id})
