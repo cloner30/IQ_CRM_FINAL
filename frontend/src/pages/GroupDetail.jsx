@@ -822,16 +822,53 @@ export const GroupDetail = () => {
                       <span className="passport-number" data-testid={`passport-no-${passport.passport_no}`}>
                         {passport.passport_no}
                       </span>
+                      {/* Status Badge */}
+                      {passport.status === 'done' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          ✓ Done
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                          Pending
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
                       <span>{passport.nationality}</span>
                       <span>Exp: {passport.expiry_date}</span>
                       {passport.gender && <span>{passport.gender}</span>}
+                      {passport.status === 'done' && passport.status_updated_at && (
+                        <span className="text-green-600 text-xs">
+                          Completed: {new Date(passport.status_updated_at).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Image Status & Actions */}
+                  {/* Status Toggle & Image Status & Actions */}
                   <div className="flex items-center gap-3">
+                    {/* Mark Done/Pending Button */}
+                    {passport.status === 'done' ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                        onClick={() => handleStatusUpdate(passport.id, 'pending')}
+                        data-testid={`mark-pending-${passport.id}`}
+                      >
+                        Mark Pending
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-green-600 border-green-300 hover:bg-green-50"
+                        onClick={() => handleStatusUpdate(passport.id, 'done')}
+                        data-testid={`mark-done-${passport.id}`}
+                      >
+                        ✓ Mark Done
+                      </Button>
+                    )}
                     <div className="flex gap-2">
                       <span className={`status-badge ${passport.passport_image ? 'success' : 'neutral'}`}>
                         <FileText className="w-3 h-3 mr-1" />
