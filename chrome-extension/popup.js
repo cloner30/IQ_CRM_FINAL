@@ -43,17 +43,29 @@ function setupEventListeners() {
     const passportSelect = document.getElementById('passport-select');
     const preview = document.getElementById('passenger-preview');
     const fillBtn = document.getElementById('fill-form-btn');
+    const markDoneBtn = document.getElementById('mark-done-btn');
+    const progressBar = document.getElementById('group-progress');
     
     if (!groupId) {
       passportSelect.disabled = true;
       passportSelect.innerHTML = '<option value="">-- Select a passenger --</option>';
       preview.classList.add('hidden');
+      progressBar.classList.add('hidden');
       fillBtn.disabled = true;
+      markDoneBtn.disabled = true;
       selectedPassport = null;
+      currentGroupId = null;
+      allPassports = [];
       return;
     }
     
+    currentGroupId = groupId;
     await loadPassports(groupId);
+  });
+  
+  // Status filter change
+  document.getElementById('status-filter').addEventListener('change', () => {
+    filterAndDisplayPassports();
   });
   
   // Passport selection
@@ -62,11 +74,13 @@ function setupEventListeners() {
     const preview = document.getElementById('passenger-preview');
     const fillBtn = document.getElementById('fill-form-btn');
     const uploadBtn = document.getElementById('upload-images-btn');
+    const markDoneBtn = document.getElementById('mark-done-btn');
     
     if (!passportId) {
       preview.classList.add('hidden');
       fillBtn.disabled = true;
       uploadBtn.disabled = true;
+      markDoneBtn.disabled = true;
       selectedPassport = null;
       return;
     }
@@ -90,10 +104,17 @@ function setupEventListeners() {
     if (hasPassportImage) imageStatus.push('🛂 Passport');
     document.getElementById('preview-images').textContent = imageStatus.length > 0 ? imageStatus.join(', ') : 'None';
     
+    // Show visa status in preview
+    const statusBadge = selectedPassport.visa_status === 'Done' ? '✅ Done' : '⏳ Pending';
+    document.getElementById('preview-status').textContent = statusBadge;
+    
     preview.classList.remove('hidden');
     fillBtn.disabled = false;
     // Enable upload button only if images exist
     uploadBtn.disabled = !(selectedPassport.passport_image || selectedPassport.profile_image);
+    // Enable mark done button (disable if already done)
+    markDoneBtn.disabled = selectedPassport.visa_status === 'Done';
+    markDoneBtn.textContent = selectedPassport.visa_status === 'Done' ? '✓ Already Done' : '✓ Mark as Done';
   });
   
   // Fill form button
@@ -101,6 +122,9 @@ function setupEventListeners() {
   
   // Upload images button
   document.getElementById('upload-images-btn').addEventListener('click', uploadImages);
+  
+  // Mark as Done button
+  document.getElementById('mark-done-btn').addEventListener('click', markAsDone);
 }
 
 async function loadGroups() {
