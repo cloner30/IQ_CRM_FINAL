@@ -774,6 +774,19 @@ async def get_s3_status():
         "region": AWS_REGION if s3_enabled else None
     }
 
+# Download Chrome Extension
+@api_router.get("/download/chrome-extension")
+async def download_chrome_extension():
+    """Download the Chrome extension ZIP file"""
+    extension_path = ROOT_DIR.parent / "chrome-extension.zip"
+    if not extension_path.exists():
+        raise HTTPException(status_code=404, detail="Extension file not found")
+    return FileResponse(
+        path=str(extension_path),
+        filename="iraq-evisa-form-filler-extension.zip",
+        media_type="application/zip"
+    )
+
 @api_router.get("/")
 async def root():
     return {"message": "Passport Control Admin API"}
