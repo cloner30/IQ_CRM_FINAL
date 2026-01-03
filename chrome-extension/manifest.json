@@ -1,15 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Iraq E-Visa Form Filler",
-  "version": "1.0.0",
-  "description": "Auto-fill Iraq e-visa application forms with passport data from Passport Control Admin",
+  "version": "1.1.0",
+  "description": "Auto-fill Iraq e-visa application forms with passport data and images from Passport Control Admin",
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "downloads"
   ],
   "host_permissions": [
-    "https://eservice.evisa.iq/*"
+    "https://eservice.evisa.iq/*",
+    "https://*.amazonaws.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
