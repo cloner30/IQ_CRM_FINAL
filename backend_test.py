@@ -1175,6 +1175,39 @@ IM7654321,Omar,Ali,Iraqi,2032-06-30,Maryam,مريم,Saeed,سعيد,Sweden,Husban
             print(f"❌ Failed - Error: {str(e)}")
             return False
 
+def run_passport_status_tests():
+    """Run passport status update tests"""
+    print("🚀 Starting Passport Status Update Tests")
+    print("=" * 60)
+    
+    tester = PassportAPITester()
+    
+    # Status test sequence
+    status_tests = [
+        tester.test_create_group,  # Need a group for passport creation
+        tester.test_create_passport,  # Need a passport for status updates
+        tester.test_passport_status_update_done,
+        tester.test_passport_status_update_pending,
+        tester.test_passport_status_update_invalid,
+        tester.test_passport_status_update_nonexistent,
+        tester.test_acf12_group_passports_status_fields,
+    ]
+    
+    # Run status tests
+    for test in status_tests:
+        test()
+    
+    # Print results
+    print("\n" + "=" * 60)
+    print(f"📊 Passport Status Test Results: {tester.tests_passed}/{tester.tests_run} passed")
+    
+    if tester.tests_passed == tester.tests_run:
+        print("🎉 All passport status tests passed!")
+        return 0
+    else:
+        print(f"❌ {tester.tests_run - tester.tests_passed} passport status tests failed")
+        return 1
+
 def run_s3_tests():
     """Run S3-specific tests"""
     print("🚀 Starting AWS S3 Integration Tests")
