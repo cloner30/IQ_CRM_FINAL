@@ -329,7 +329,8 @@ async def get_passport(group_id: str, passport_id: str):
     passport = await db.passports.find_one({"id": passport_id, "group_id": group_id}, {"_id": 0})
     if not passport:
         raise HTTPException(status_code=404, detail="Passport not found")
-    return passport
+    # Process S3 images to presigned URLs
+    return process_passport_images(passport)
 
 @api_router.put("/groups/{group_id}/passports/{passport_id}", response_model=Passport)
 async def update_passport(group_id: str, passport_id: str, passport_data: PassportUpdate):
@@ -339,7 +340,7 @@ async def update_passport(group_id: str, passport_id: str, passport_data: Passpo
     
     if not update_data:
         passport = await db.passports.find_one({"id": passport_id}, {"_id": 0})
-        return passport
+        return process_passport_images(passport)
     
     result = await db.passports.update_one(
         {"id": passport_id, "group_id": group_id},
@@ -348,7 +349,7 @@ async def update_passport(group_id: str, passport_id: str, passport_data: Passpo
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Passport not found")
     passport = await db.passports.find_one({"id": passport_id}, {"_id": 0})
-    return passport
+    return process_passport_images(passport)
 
 @api_router.delete("/groups/{group_id}/passports/{passport_id}")
 async def delete_passport(group_id: str, passport_id: str):
