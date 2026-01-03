@@ -153,6 +153,18 @@ backend:
         agent: "testing"
         comment: "✅ EXCEL IMPORT VERIFIED: Template download includes all new fields. Bulk import successfully processes CSV with new fields (mother info, residence, applicant type). Imported 2 test passports with all new fields correctly saved. Column mapping works for all new field variations."
 
+  - task: "AWS S3 integration for file uploads"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ COMPREHENSIVE S3 TESTING COMPLETED: All 7 S3 integration tests passed successfully. S3 Status Check: ✅ Returns enabled=true, bucket=passport-control-uploads-1767469373, region=us-east-1. Upload Passport Images: ✅ Successfully uploads JPG files to S3 with correct S3 keys (s3://passports/{group_id}/{passport_no}.jpg). Upload Profile Photos: ✅ Successfully uploads JPG files to S3 with correct S3 keys (s3://photos/{group_id}/{passport_no}.jpg). Presigned URL Verification: ✅ GET /api/groups/{group_id}/passports returns passport_image and profile_image as valid S3 presigned URLs containing amazonaws.com. URLs are accessible (HTTP 200). S3 Presigned URL Endpoint: ✅ GET /api/s3/presigned-url generates valid presigned URLs for any S3 key. All S3 functionality working perfectly with real AWS S3 bucket."
+
 frontend:
   - task: "Add Mother's Information section to passport form"
     implemented: true
