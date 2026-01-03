@@ -43,6 +43,10 @@ Admin LTE themed application for managing passport groups with:
 6. Image mapping by passport number
 7. Passport detail view modal
 8. File type validation (JPG/JPEG only)
+9. **Edit passport functionality** ✅
+10. **CSV export for group passports** ✅
+11. **Excel/CSV bulk import with auto-column mapping** ✅
+12. **Downloadable import template** ✅
 
 ## Prioritized Backlog
 
@@ -50,15 +54,16 @@ Admin LTE themed application for managing passport groups with:
 - All core features implemented ✅
 
 ### P1 (High Priority)
-- [ ] Edit passport functionality
-- [ ] Export passports to CSV/Excel
+- [x] Edit passport functionality ✅
+- [x] Export passports to CSV/Excel ✅
+- [x] Batch passport entry via Excel/CSV import ✅
 - [ ] Passport image preview in bulk upload results
 
 ### P2 (Medium Priority)
 - [ ] User authentication (JWT or Google OAuth)
 - [ ] Passport expiry alerts/notifications
 - [ ] Image cropping for profile photos
-- [ ] Batch passport entry via CSV import
+- [ ] Data validation on import
 
 ### P3 (Low Priority)
 - [ ] Multi-language support (Arabic UI)
@@ -67,6 +72,6 @@ Admin LTE themed application for managing passport groups with:
 - [ ] Group permissions/roles
 
 ## Next Tasks
-1. Add edit passport functionality
-2. Implement CSV export for passport data
-3. Add user authentication if needed
+1. Add user authentication if needed for production
+2. Add passport expiry alerts/notifications
+3. Image cropping for profile photos
