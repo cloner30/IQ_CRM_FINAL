@@ -230,6 +230,26 @@ export const GroupDetail = () => {
     }
   };
 
+  const handleStatusUpdate = async (passportId, newStatus) => {
+    try {
+      await axios.put(`${API}/passports/${passportId}/status?status=${newStatus}`);
+      setPassports(passports.map(p => 
+        p.id === passportId 
+          ? { ...p, status: newStatus, status_updated_at: newStatus === 'done' ? new Date().toISOString() : null }
+          : p
+      ));
+      setGroupStats(prev => ({
+        ...prev,
+        done: newStatus === 'done' ? prev.done + 1 : prev.done - 1,
+        pending: newStatus === 'done' ? prev.pending - 1 : prev.pending + 1,
+        progress_percent: ((newStatus === 'done' ? prev.done + 1 : prev.done - 1) / prev.total * 100).toFixed(1)
+      }));
+      toast.success(`Marked as ${newStatus}`);
+    } catch (error) {
+      toast.error('Failed to update status');
+    }
+  };
+
   const openEditDialog = (passport) => {
     setPassportForm({
       passport_no: passport.passport_no || '',
