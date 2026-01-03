@@ -101,3 +101,113 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Build a Chrome Extension to autofill Iraq e-visa form (https://eservice.evisa.iq/) with passport data.
+  Also add missing fields: mother_name_ar, mother_name_en, mother_father_name_ar, mother_father_name_en,
+  country_of_residence, applicant_type.
+
+backend:
+  - task: "New passport fields (mother info, residence, applicant type)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added 6 new fields to PassportCreate, Passport, PassportUpdate models. Tested via API - all fields save correctly."
+
+  - task: "CSV export with new fields"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated CSV export fieldnames to include new fields"
+
+  - task: "Excel import with new fields"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated column mapping and passport_data builder to include new fields"
+
+frontend:
+  - task: "Add Mother's Information section to passport form"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/GroupDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added Mother's Information section with 4 fields (mother name en/ar, mother's father name en/ar)"
+
+  - task: "Add Country of Residence and Applicant Type fields"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/GroupDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added Country of Residence dropdown with countries list and Applicant Type dropdown"
+
+  - task: "Update View Passport dialog with new fields"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/GroupDetail.jsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated passport details view to show new fields"
+
+chrome_extension:
+  - task: "Chrome extension for e-visa form autofill"
+    implemented: true
+    working: "NA"
+    file: "/app/chrome-extension/"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created complete Chrome extension with manifest.json, popup, options page, and content script. Cannot be auto-tested - requires manual installation in Chrome."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 3
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Backend API with new fields"
+    - "Frontend form with new fields"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Implemented 6 new passport fields (mother info, residence, applicant type) in backend and frontend. Created complete Chrome extension for e-visa form autofill. Extension needs manual testing in Chrome browser."
