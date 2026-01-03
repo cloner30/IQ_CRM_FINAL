@@ -219,18 +219,43 @@ class PassportAPITester:
                 print(f"✅ All new fields correctly saved and returned")
         return success
 
-    def test_get_passport_by_id(self):
-        """Test getting a specific passport"""
-        if not self.group_id or not self.passport_id:
-            print("❌ Skipped - No group/passport ID available")
+    def test_get_passport_with_new_fields(self):
+        """Test getting a passport with new fields to verify they're returned"""
+        if not self.group_id or not hasattr(self, 'new_passport_id'):
+            print("❌ Skipped - No group/new passport ID available")
             return False
         
         success, response = self.run_test(
-            "Get Passport by ID",
+            "Get Passport with New Fields",
             "GET",
-            f"groups/{self.group_id}/passports/{self.passport_id}",
+            f"groups/{self.group_id}/passports/{self.new_passport_id}",
             200
         )
+        
+        if success:
+            # Verify all new fields are present in GET response
+            expected_values = {
+                'mother_name_en': 'Fatima',
+                'mother_name_ar': 'فاطمة',
+                'mother_father_name_en': 'Hassan',
+                'mother_father_name_ar': 'حسن',
+                'country_of_residence': 'United Arab Emirates',
+                'applicant_type': 'Daughter'
+            }
+            
+            missing_or_wrong = []
+            for field, expected_value in expected_values.items():
+                if field not in response or response[field] != expected_value:
+                    missing_or_wrong.append(f"{field}: expected '{expected_value}', got '{response.get(field, 'MISSING')}'")
+            
+            if missing_or_wrong:
+                print(f"❌ Issues with new fields in GET response:")
+                for issue in missing_or_wrong:
+                    print(f"   - {issue}")
+                return False
+            else:
+                print(f"✅ All new fields correctly returned in GET response")
+        
         return success
 
     def test_get_passports_with_data(self):
