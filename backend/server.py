@@ -212,6 +212,7 @@ class Group(BaseModel):
     name: str
     description: str = ""
     client_id: Optional[str] = None  # Link to client
+    client_name: Optional[str] = None  # Client name (populated dynamically)
     passport_count: int = 0
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
