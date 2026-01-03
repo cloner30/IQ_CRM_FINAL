@@ -223,6 +223,33 @@ chrome_extension:
       - working: "NA"
         agent: "main"
         comment: "Created complete Chrome extension with manifest.json, popup, options page, and content script. Cannot be auto-tested - requires manual installation in Chrome."
+      - working: "NA"
+        agent: "main"
+        comment: "v1.2.0: Added Mark as Done button to extension popup. Added visual status indicators (✅/⏳ icons) in passenger dropdown. Added progress bar showing done/total count. Status filter working (All/Pending/Done). Passenger preview now shows visa status. Extension packaged and ready for download."
+
+  - task: "Extension: Mark as Done functionality"
+    implemented: true
+    working: true
+    file: "/app/chrome-extension/popup.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Implemented markAsDone() function that calls PUT /api/passports/{id}/status?status=done. Updates local data, progress bar, and dropdown styling in real-time after marking done."
+
+  - task: "Extension: Visual status indicators"
+    implemented: true
+    working: true
+    file: "/app/chrome-extension/popup.js, popup.css"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Added ✅/⏳ icons to passenger dropdown options. Green background styling for done passengers. Progress bar shows X/Y Done count. Preview section shows visa status badge."
 
 metadata:
   created_by: "main_agent"
