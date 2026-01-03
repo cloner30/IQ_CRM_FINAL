@@ -263,6 +263,52 @@ class PassportAPITester:
         )
         return success
 
+    def test_export_csv(self):
+        """Test CSV export functionality"""
+        if not self.group_id:
+            print("❌ Skipped - No group ID available")
+            return False
+        
+        success, response = self.run_test(
+            "Export CSV",
+            "GET",
+            f"groups/{self.group_id}/export/csv",
+            200
+        )
+        return success
+
+    def test_download_template(self):
+        """Test download Excel template"""
+        success, response = self.run_test(
+            "Download Excel Template",
+            "GET",
+            "templates/passport-import",
+            200
+        )
+        return success
+
+    def test_bulk_import_excel(self):
+        """Test bulk import Excel functionality"""
+        if not self.group_id:
+            print("❌ Skipped - No group ID available")
+            return False
+        
+        # Create a simple CSV content for testing
+        csv_content = """passport_no,first_name_en,surname_en,nationality,expiry_date
+XY9876543,Alice,Johnson,Canadian,2031-12-31
+ZZ1111111,Bob,Wilson,Australian,2032-06-30"""
+        
+        files = {'file': ('test_import.csv', csv_content, 'text/csv')}
+        
+        success, response = self.run_test(
+            "Bulk Import Excel/CSV",
+            "POST",
+            f"groups/{self.group_id}/import/excel",
+            200,
+            files=files
+        )
+        return success
+
     def test_delete_group(self):
         """Test deleting a group"""
         if not self.group_id:
