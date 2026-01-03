@@ -271,7 +271,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "AWS S3 integration for file uploads"
+    - "Passport status update functionality"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
