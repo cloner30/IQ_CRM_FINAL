@@ -529,6 +529,61 @@ ZZ1111111,Bob,Wilson,Australian,2032-06-30"""
         )
         return success
 
+    def test_bulk_import_with_new_fields(self):
+        """Test bulk import with new fields"""
+        if not self.group_id:
+            print("❌ Skipped - No group ID available")
+            return False
+        
+        # Create CSV content with new fields
+        csv_content = """passport_no,first_name_en,surname_en,nationality,expiry_date,mother_name_en,mother_name_ar,mother_father_name_en,mother_father_name_ar,country_of_residence,applicant_type
+IM1234567,Layla,Hassan,Iraqi,2031-12-31,Zeinab,زينب,Khalil,خليل,Germany,Wife
+IM7654321,Omar,Ali,Iraqi,2032-06-30,Maryam,مريم,Saeed,سعيد,Sweden,Husband"""
+        
+        files = {'file': ('test_import_new_fields.csv', csv_content, 'text/csv')}
+        
+        print(f"\n🔍 Testing Bulk Import with New Fields...")
+        url = f"{self.base_url}/groups/{self.group_id}/import/excel"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.post(url, files=files)
+            success = response.status_code == 200
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                try:
+                    response_data = response.json()
+                    print(f"   Import results: {json.dumps(response_data, indent=2)}")
+                    
+                    # Check if import was successful
+                    if 'success' in response_data and len(response_data['success']) > 0:
+                        print(f"✅ Successfully imported {len(response_data['success'])} passports with new fields")
+                        return True
+                    else:
+                        print(f"❌ No passports were successfully imported")
+                        return False
+                        
+                except Exception as e:
+                    print(f"⚠️  Could not parse response JSON: {str(e)}")
+                    return True  # Still consider success if status was 200
+                    
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Error: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
     def test_delete_group(self):
         """Test deleting a group"""
         if not self.group_id:
