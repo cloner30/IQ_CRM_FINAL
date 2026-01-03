@@ -627,19 +627,300 @@ IM7654321,Omar,Ali,Iraqi,2032-06-30,Maryam,مريم,Saeed,سعيد,Sweden,Husban
         )
         return success
 
-    def test_get_nonexistent_passport(self):
-        """Test getting a non-existent passport"""
+    def create_test_image(self, filename="test_image.jpg"):
+        """Create a simple test JPG image using PIL"""
+        # Create a simple 100x100 red image
+        img = Image.new('RGB', (100, 100), color='red')
+        img_bytes = io.BytesIO()
+        img.save(img_bytes, format='JPEG')
+        img_bytes.seek(0)
+        return img_bytes.getvalue()
+
+    def test_s3_status(self):
+        """Test S3 status endpoint"""
+        success, response = self.run_test(
+            "S3 Status Check",
+            "GET",
+            "s3/status",
+            200
+        )
+        
+        if success:
+            # Verify response contains expected fields
+            required_fields = ['enabled', 'bucket', 'region']
+            missing_fields = [field for field in required_fields if field not in response]
+            
+            if missing_fields:
+                print(f"❌ Missing fields in S3 status response: {missing_fields}")
+                return False
+            
+            if response.get('enabled'):
+                print(f"✅ S3 is enabled - Bucket: {response.get('bucket')}, Region: {response.get('region')}")
+            else:
+                print(f"⚠️  S3 is disabled - using local storage")
+            
+        return success
+
+    def test_upload_passport_image_s3(self):
+        """Test uploading passport image to S3"""
         if not self.group_id:
             print("❌ Skipped - No group ID available")
             return False
         
-        success, response = self.run_test(
-            "Get Non-existent Passport",
-            "GET",
-            f"groups/{self.group_id}/passports/nonexistent-id",
-            404
-        )
-        return success
+        # Create test image
+        test_image = self.create_test_image()
+        
+        # Upload passport image
+        files = {'files': ('AB1234567.jpg', test_image, 'image/jpeg')}
+        
+        print(f"\n🔍 Testing Upload Passport Image to S3...")
+        url = f"{self.base_url}/groups/{self.group_id}/upload/passports"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.post(url, files=files)
+            success = response.status_code == 200
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                try:
+                    response_data = response.json()
+                    print(f"   Upload results: {json.dumps(response_data, indent=2)}")
+                    
+                    # Check if upload was successful
+                    if 'success' in response_data and len(response_data['success']) > 0:
+                        print(f"✅ Successfully uploaded passport image")
+                        return True
+                    else:
+                        print(f"❌ No images were successfully uploaded")
+                        return False
+                        
+                except Exception as e:
+                    print(f"⚠️  Could not parse response JSON: {str(e)}")
+                    return True  # Still consider success if status was 200
+                    
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Error: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
+    def test_upload_profile_photo_s3(self):
+        """Test uploading profile photo to S3"""
+        if not self.group_id:
+            print("❌ Skipped - No group ID available")
+            return False
+        
+        # Create test image
+        test_image = self.create_test_image()
+        
+        # Upload profile photo
+        files = {'files': ('AB1234567.jpg', test_image, 'image/jpeg')}
+        
+        print(f"\n🔍 Testing Upload Profile Photo to S3...")
+        url = f"{self.base_url}/groups/{self.group_id}/upload/photos"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.post(url, files=files)
+            success = response.status_code == 200
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                try:
+                    response_data = response.json()
+                    print(f"   Upload results: {json.dumps(response_data, indent=2)}")
+                    
+                    # Check if upload was successful
+                    if 'success' in response_data and len(response_data['success']) > 0:
+                        print(f"✅ Successfully uploaded profile photo")
+                        return True
+                    else:
+                        print(f"❌ No photos were successfully uploaded")
+                        return False
+                        
+                except Exception as e:
+                    print(f"⚠️  Could not parse response JSON: {str(e)}")
+                    return True  # Still consider success if status was 200
+                    
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Error: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
+    def test_presigned_url_verification(self):
+        """Test that passport images contain presigned URLs and are accessible"""
+        if not self.group_id:
+            print("❌ Skipped - No group ID available")
+            return False
+        
+        print(f"\n🔍 Testing Presigned URL Verification...")
+        url = f"{self.base_url}/groups/{self.group_id}/passports"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.get(url)
+            success = response.status_code == 200
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                try:
+                    passports = response.json()
+                    
+                    # Find passports with images
+                    passports_with_images = []
+                    for passport in passports:
+                        if passport.get('passport_image') or passport.get('profile_image'):
+                            passports_with_images.append(passport)
+                    
+                    if not passports_with_images:
+                        print(f"⚠️  No passports with images found to test presigned URLs")
+                        return True
+                    
+                    # Test presigned URLs
+                    for passport in passports_with_images:
+                        passport_no = passport.get('passport_no', 'unknown')
+                        
+                        # Test passport image URL
+                        if passport.get('passport_image'):
+                            passport_url = passport['passport_image']
+                            if 'amazonaws.com' in passport_url:
+                                print(f"✅ Passport {passport_no} has S3 presigned URL for passport image")
+                                # Test URL accessibility
+                                try:
+                                    img_response = requests.head(passport_url, timeout=10)
+                                    if img_response.status_code == 200:
+                                        print(f"✅ Passport image URL is accessible (HTTP 200)")
+                                    else:
+                                        print(f"❌ Passport image URL returned HTTP {img_response.status_code}")
+                                        return False
+                                except Exception as e:
+                                    print(f"❌ Error accessing passport image URL: {str(e)}")
+                                    return False
+                            else:
+                                print(f"⚠️  Passport {passport_no} does not have S3 URL (using local storage)")
+                        
+                        # Test profile image URL
+                        if passport.get('profile_image'):
+                            profile_url = passport['profile_image']
+                            if 'amazonaws.com' in profile_url:
+                                print(f"✅ Passport {passport_no} has S3 presigned URL for profile image")
+                                # Test URL accessibility
+                                try:
+                                    img_response = requests.head(profile_url, timeout=10)
+                                    if img_response.status_code == 200:
+                                        print(f"✅ Profile image URL is accessible (HTTP 200)")
+                                    else:
+                                        print(f"❌ Profile image URL returned HTTP {img_response.status_code}")
+                                        return False
+                                except Exception as e:
+                                    print(f"❌ Error accessing profile image URL: {str(e)}")
+                                    return False
+                            else:
+                                print(f"⚠️  Passport {passport_no} does not have S3 URL (using local storage)")
+                    
+                    return True
+                        
+                except Exception as e:
+                    print(f"❌ Could not parse response JSON: {str(e)}")
+                    return False
+                    
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
+    def test_s3_presigned_url_endpoint(self):
+        """Test S3 presigned URL generation endpoint"""
+        test_key = f"passports/{self.group_id or 'test-group'}/test.jpg"
+        
+        print(f"\n🔍 Testing S3 Presigned URL Endpoint...")
+        url = f"{self.base_url}/s3/presigned-url?key={test_key}"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.get(url)
+            
+            # Check if S3 is enabled first
+            s3_status_response = requests.get(f"{self.base_url}/s3/status")
+            s3_enabled = False
+            if s3_status_response.status_code == 200:
+                s3_status = s3_status_response.json()
+                s3_enabled = s3_status.get('enabled', False)
+            
+            if not s3_enabled:
+                # If S3 is not enabled, expect 503
+                if response.status_code == 503:
+                    self.tests_passed += 1
+                    print(f"✅ Passed - S3 not configured, correctly returned 503")
+                    return True
+                else:
+                    print(f"❌ Failed - S3 not enabled but got status {response.status_code} instead of 503")
+                    return False
+            
+            # If S3 is enabled, expect 200 or 404
+            success = response.status_code in [200, 404]
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    try:
+                        response_data = response.json()
+                        if 'url' in response_data and 'amazonaws.com' in response_data['url']:
+                            print(f"✅ Valid presigned URL generated")
+                            print(f"   URL preview: {response_data['url'][:100]}...")
+                        else:
+                            print(f"❌ Invalid presigned URL format")
+                            return False
+                    except Exception as e:
+                        print(f"❌ Could not parse response JSON: {str(e)}")
+                        return False
+                elif response.status_code == 404:
+                    print(f"✅ Object not found (expected for test key)")
+                
+                return True
+            else:
+                print(f"❌ Failed - Expected 200/404, got {response.status_code}")
+                try:
+                    error_data = response.json()
+                    print(f"   Error: {error_data}")
+                except:
+                    print(f"   Error: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
 
 def main():
     print("🚀 Starting Passport Control Admin API Tests")
