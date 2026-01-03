@@ -14,15 +14,13 @@ import {
 } from '../components/ui/select';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const EditGroup = () => {
   const navigate = useNavigate();
   const { groupId } = useParams();
-  const { token, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [clients, setClients] = useState([]);
@@ -41,7 +39,7 @@ export const EditGroup = () => {
 
   const fetchGroup = async () => {
     try {
-      const response = await axios.get(`${API}/groups/${groupId}`);
+      const response = await api.get(`/groups/${groupId}`);
       const group = response.data;
       setFormData({
         name: group.name || '',
@@ -59,9 +57,7 @@ export const EditGroup = () => {
 
   const fetchClients = async () => {
     try {
-      const response = await axios.get(`${API}/clients`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/clients');
       setClients(response.data);
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -82,7 +78,7 @@ export const EditGroup = () => {
         description: formData.description,
         client_id: formData.client_id || null
       };
-      await axios.put(`${API}/groups/${groupId}`, payload);
+      await api.put(`/groups/${groupId}`, payload);
       toast.success('Group updated successfully');
       navigate(`/groups/${groupId}`);
     } catch (error) {
