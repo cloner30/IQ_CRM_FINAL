@@ -66,6 +66,7 @@ function AppRoutes() {
       <Route path="/groups" element={<ProtectedRoute><GroupsList /></ProtectedRoute>} />
       <Route path="/groups/new" element={<ProtectedRoute><CreateGroup /></ProtectedRoute>} />
       <Route path="/groups/:groupId" element={<ProtectedRoute><GroupDetail /></ProtectedRoute>} />
+      <Route path="/groups/:groupId/edit" element={<ProtectedRoute><EditGroup /></ProtectedRoute>} />
       <Route path="/groups/:groupId/upload" element={<ProtectedRoute><BulkUpload /></ProtectedRoute>} />
       
       {/* Admin Only Routes */}
