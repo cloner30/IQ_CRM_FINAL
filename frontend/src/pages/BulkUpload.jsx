@@ -237,8 +237,8 @@ export const BulkUpload = () => {
     formData.append('file', files[0]);
 
     try {
-      const response = await axios.post(
-        `${API}/groups/${groupId}/import/excel`,
+      const response = await api.post(
+        `/groups/${groupId}/import/excel`,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -272,7 +272,7 @@ export const BulkUpload = () => {
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await axios.get(`${API}/templates/passport-import`, {
+      const response = await api.get(`/templates/passport-import`, {
         responseType: 'blob'
       });
       
