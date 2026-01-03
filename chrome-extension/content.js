@@ -595,3 +595,276 @@ function showNotification(message) {
 
 // Log that content script is loaded
 console.log('E-Visa Form Filler content script loaded');
+
+// ==================== IMAGE UPLOAD FUNCTIONS ====================
+
+// Fetch image from URL and convert to File object
+async function fetchImageAsFile(imageUrl, filename) {
+  try {
+    console.log(`Fetching image: ${imageUrl}`);
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const file = new File([blob], filename, { type: 'image/jpeg' });
+    console.log(`Created file: ${filename}, size: ${file.size} bytes`);
+    return file;
+  } catch (error) {
+    console.error(`Failed to fetch image: ${error}`);
+    return null;
+  }
+}
+
+// Simulate file input change using DataTransfer API
+function setFileInput(inputElement, file) {
+  try {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    inputElement.files = dataTransfer.files;
+    
+    // Trigger change event
+    const changeEvent = new Event('change', { bubbles: true });
+    inputElement.dispatchEvent(changeEvent);
+    
+    console.log(`Set file input: ${file.name}`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to set file input: ${error}`);
+    return false;
+  }
+}
+
+// Navigate to Personal Attachment tab
+function navigateToAttachmentTab() {
+  const tabs = document.querySelectorAll('.mx-tabcontainer-tabs a');
+  for (const tab of tabs) {
+    if (tab.textContent.includes('Personal Attachment')) {
+      tab.click();
+      console.log('Navigated to Personal Attachment tab');
+      return true;
+    }
+  }
+  console.log('Personal Attachment tab not found');
+  return false;
+}
+
+// Select attachment row in the grid
+function selectAttachmentRow(attachmentName) {
+  const rows = document.querySelectorAll('.mx-datagrid tbody tr');
+  for (const row of rows) {
+    const cell = row.querySelector('td');
+    if (cell && cell.textContent.includes(attachmentName)) {
+      row.click();
+      console.log(`Selected row: ${attachmentName}`);
+      return true;
+    }
+  }
+  console.log(`Row not found: ${attachmentName}`);
+  return false;
+}
+
+// Click Upload button and handle file dialog
+async function clickUploadAndSetFile(file) {
+  return new Promise((resolve) => {
+    // Find the Upload button
+    const uploadBtn = document.querySelector('button.mx-name-actionButton1');
+    if (!uploadBtn) {
+      console.log('Upload button not found');
+      resolve(false);
+      return;
+    }
+    
+    // Create a hidden file input to intercept the file dialog
+    const hiddenInput = document.createElement('input');
+    hiddenInput.type = 'file';
+    hiddenInput.accept = 'image/jpeg,image/jpg';
+    hiddenInput.style.display = 'none';
+    document.body.appendChild(hiddenInput);
+    
+    // Set the file and trigger change
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    hiddenInput.files = dataTransfer.files;
+    
+    // Listen for any file input that appears after clicking upload
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType === 1) {
+            const fileInputs = node.querySelectorAll ? node.querySelectorAll('input[type="file"]') : [];
+            for (const input of fileInputs) {
+              setFileInput(input, file);
+              observer.disconnect();
+              resolve(true);
+              return;
+            }
+          }
+        }
+      }
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Click the upload button
+    uploadBtn.click();
+    console.log('Clicked Upload button');
+    
+    // Timeout after 3 seconds
+    setTimeout(() => {
+      observer.disconnect();
+      hiddenInput.remove();
+      resolve(false);
+    }, 3000);
+  });
+}
+
+// Main function to upload images
+async function uploadImages(data) {
+  console.log('Starting image upload with data:', data);
+  
+  const results = { success: [], failed: [] };
+  
+  // Navigate to Personal Attachment tab
+  navigateToAttachmentTab();
+  await sleep(500);
+  
+  // Upload Personal Image (profile photo)
+  if (data.profile_image_url) {
+    try {
+      showNotification('Downloading profile image...');
+      const profileFile = await fetchImageAsFile(data.profile_image_url, `${data.passport_no}_photo.jpg`);
+      
+      if (profileFile) {
+        // Select "Personal Image" row
+        selectAttachmentRow('Personal Image');
+        await sleep(300);
+        
+        // Try to upload
+        const uploaded = await clickUploadAndSetFile(profileFile);
+        if (uploaded) {
+          results.success.push('Personal Image');
+          showNotification('✓ Profile image uploaded!');
+        } else {
+          // Fallback: download the file for manual upload
+          downloadFile(profileFile, `${data.passport_no}_photo.jpg`);
+          results.failed.push('Personal Image (downloaded for manual upload)');
+          showNotification('Profile image downloaded - please upload manually');
+        }
+      }
+    } catch (error) {
+      console.error('Profile image upload error:', error);
+      results.failed.push('Personal Image');
+    }
+  }
+  
+  await sleep(500);
+  
+  // Upload Passport Image
+  if (data.passport_image_url) {
+    try {
+      showNotification('Downloading passport image...');
+      const passportFile = await fetchImageAsFile(data.passport_image_url, `${data.passport_no}_passport.jpg`);
+      
+      if (passportFile) {
+        // Select "Passport" row
+        selectAttachmentRow('Passport');
+        await sleep(300);
+        
+        // Try to upload
+        const uploaded = await clickUploadAndSetFile(passportFile);
+        if (uploaded) {
+          results.success.push('Passport');
+          showNotification('✓ Passport image uploaded!');
+        } else {
+          // Fallback: download the file for manual upload
+          downloadFile(passportFile, `${data.passport_no}_passport.jpg`);
+          results.failed.push('Passport (downloaded for manual upload)');
+          showNotification('Passport image downloaded - please upload manually');
+        }
+      }
+    } catch (error) {
+      console.error('Passport image upload error:', error);
+      results.failed.push('Passport');
+    }
+  }
+  
+  // Show final status
+  if (results.success.length > 0) {
+    showNotification(`✓ Uploaded: ${results.success.join(', ')}`);
+  }
+  if (results.failed.length > 0) {
+    setTimeout(() => {
+      showNotification(`⚠ Manual upload needed: ${results.failed.join(', ')}`, 'warning');
+    }, 2000);
+  }
+  
+  console.log('Image upload complete:', results);
+  return results;
+}
+
+// Download file as fallback
+function downloadFile(file, filename) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  console.log(`Downloaded file: ${filename}`);
+}
+
+// Sleep helper
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Enhanced notification with type
+function showNotification(message, type = 'success') {
+  const existing = document.getElementById('evisa-filler-notification');
+  if (existing) existing.remove();
+  
+  const bgColor = type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#ef4444';
+  
+  const notification = document.createElement('div');
+  notification.id = 'evisa-filler-notification';
+  notification.innerHTML = `
+    <div style="
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${bgColor};
+      color: white;
+      padding: 16px 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: slideIn 0.3s ease;
+    ">
+      ${message}
+    </div>
+    <style>
+      @keyframes slideIn {
+        from { transform: translateX(100px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+    </style>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateX(100px)';
+    notification.style.transition = 'all 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 4000);
+}
