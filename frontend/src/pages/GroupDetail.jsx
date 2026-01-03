@@ -483,15 +483,38 @@ export const GroupDetail = () => {
             </Select>
           </div>
         </div>
-        <div>
-          <Label className="text-slate-700 mb-2 block">Birth Date</Label>
-          <Input
-            type="date"
-            value={passportForm.birth_date}
-            onChange={(e) => setPassportForm({ ...passportForm, birth_date: e.target.value })}
-            className="max-w-xs"
-            data-testid="input-birth-date"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label className="text-slate-700 mb-2 block">Birth Date</Label>
+            <Input
+              type="date"
+              value={passportForm.birth_date}
+              onChange={(e) => setPassportForm({ ...passportForm, birth_date: e.target.value })}
+              data-testid="input-birth-date"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Country of Residence</Label>
+            <Select value={passportForm.country_of_residence} onValueChange={(v) => setPassportForm({ ...passportForm, country_of_residence: v })}>
+              <SelectTrigger data-testid="select-country-of-residence">
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent>
+                {COUNTRIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Applicant Type</Label>
+            <Select value={passportForm.applicant_type} onValueChange={(v) => setPassportForm({ ...passportForm, applicant_type: v })}>
+              <SelectTrigger data-testid="select-applicant-type">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {APPLICANT_TYPES.map(t => <SelectItem key={t || 'empty'} value={t}>{t || '(None)'}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
