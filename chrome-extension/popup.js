@@ -389,7 +389,7 @@ async function markAsDone() {
   showStatus('Marking as done...', 'loading');
   
   try {
-    const response = await fetch(`${apiUrl}/api/passports/${selectedPassport.id}/status?status=done`, {
+    const response = await apiRequest(`/api/passports/${selectedPassport.id}/status?status=done`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
