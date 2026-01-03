@@ -46,7 +46,7 @@ const COUNTRIES = [
 const PASSPORT_TYPES = ["Normal", "Temporary", "Diplomatic", "Special", "Travel Doc", "UN", "Passage"];
 const GENDERS = ["Male", "Female"];
 const PROFESSIONS = ["Physician", "Engineer", "Teacher", "Business", "Student", "Government", "Other"];
-const APPLICANT_TYPES = ["", "Son", "Daughter"];
+const APPLICANT_TYPES = ["Son", "Daughter"];
 
 const emptyForm = {
   passport_no: '',
@@ -506,12 +506,13 @@ export const GroupDetail = () => {
           </div>
           <div>
             <Label className="text-slate-700 mb-2 block">Applicant Type</Label>
-            <Select value={passportForm.applicant_type} onValueChange={(v) => setPassportForm({ ...passportForm, applicant_type: v })}>
+            <Select value={passportForm.applicant_type || "none"} onValueChange={(v) => setPassportForm({ ...passportForm, applicant_type: v === "none" ? "" : v })}>
               <SelectTrigger data-testid="select-applicant-type">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                {APPLICANT_TYPES.map(t => <SelectItem key={t || 'empty'} value={t}>{t || '(None)'}</SelectItem>)}
+                <SelectItem value="none">(None)</SelectItem>
+                {APPLICANT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
