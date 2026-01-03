@@ -160,16 +160,13 @@ async function loadPassports(groupId) {
     const response = await fetch(`${apiUrl}/api/groups/${groupId}/passports`);
     if (!response.ok) throw new Error('Failed to fetch passports');
     
-    const passports = await response.json();
+    allPassports = await response.json();
     
-    passportSelect.innerHTML = '<option value="">-- Select a passenger --</option>';
-    passports.forEach(passport => {
-      const option = document.createElement('option');
-      option.value = passport.id;
-      option.textContent = `${passport.first_name_en} ${passport.surname_en} (${passport.passport_no})`;
-      option.dataset.passport = JSON.stringify(passport);
-      passportSelect.appendChild(option);
-    });
+    // Update progress bar
+    updateProgressBar();
+    
+    // Filter and display passports
+    filterAndDisplayPassports();
     
     passportSelect.disabled = false;
     hideStatus();
@@ -177,6 +174,61 @@ async function loadPassports(groupId) {
     console.error('Error loading passports:', error);
     showStatus('Failed to load passengers.', 'error');
   }
+}
+
+function updateProgressBar() {
+  const progressBar = document.getElementById('group-progress');
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+  
+  const total = allPassports.length;
+  const done = allPassports.filter(p => p.visa_status === 'Done').length;
+  const percentage = total > 0 ? (done / total) * 100 : 0;
+  
+  progressText.textContent = `${done}/${total} Done`;
+  progressFill.style.width = `${percentage}%`;
+  progressBar.classList.remove('hidden');
+}
+
+function filterAndDisplayPassports() {
+  const passportSelect = document.getElementById('passport-select');
+  const statusFilter = document.getElementById('status-filter').value;
+  
+  let filteredPassports = allPassports;
+  
+  if (statusFilter === 'pending') {
+    filteredPassports = allPassports.filter(p => p.visa_status !== 'Done');
+  } else if (statusFilter === 'done') {
+    filteredPassports = allPassports.filter(p => p.visa_status === 'Done');
+  }
+  
+  passportSelect.innerHTML = '<option value="">-- Select a passenger --</option>';
+  
+  filteredPassports.forEach(passport => {
+    const option = document.createElement('option');
+    option.value = passport.id;
+    
+    // Add visual status indicator to the option text
+    const statusIcon = passport.visa_status === 'Done' ? '✅' : '⏳';
+    option.textContent = `${statusIcon} ${passport.first_name_en} ${passport.surname_en} (${passport.passport_no})`;
+    option.dataset.passport = JSON.stringify(passport);
+    
+    // Add class for styling
+    if (passport.visa_status === 'Done') {
+      option.className = 'option-done';
+    } else {
+      option.className = 'option-pending';
+    }
+    
+    passportSelect.appendChild(option);
+  });
+  
+  // Reset selection
+  selectedPassport = null;
+  document.getElementById('passenger-preview').classList.add('hidden');
+  document.getElementById('fill-form-btn').disabled = true;
+  document.getElementById('upload-images-btn').disabled = true;
+  document.getElementById('mark-done-btn').disabled = true;
 }
 
 async function fillForm() {
