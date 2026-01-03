@@ -88,6 +88,9 @@ function setupEventListeners() {
   
   // Fill form button
   document.getElementById('fill-form-btn').addEventListener('click', fillForm);
+  
+  // Upload images button
+  document.getElementById('upload-images-btn').addEventListener('click', uploadImages);
 }
 
 async function loadGroups() {
