@@ -1292,8 +1292,11 @@ def main():
         return 1
 
 if __name__ == "__main__":
-    # Check if S3 tests are requested
-    if len(sys.argv) > 1 and sys.argv[1] == "s3":
-        sys.exit(run_s3_tests())
+    # Check if specific tests are requested
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "s3":
+            sys.exit(run_s3_tests())
+        elif sys.argv[1] == "status":
+            sys.exit(run_passport_status_tests())
     else:
         sys.exit(main())
