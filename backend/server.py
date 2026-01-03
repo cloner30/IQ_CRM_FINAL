@@ -297,6 +297,70 @@ class PassportUpdate(BaseModel):
     applicant_type: Optional[str] = None
     status: Optional[str] = None
 
+# ============ USER MODELS ============
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    name: str
+    role: str = "staff"  # "admin" or "staff"
+
+class UserUpdate(BaseModel):
+    email: Optional[str] = None
+    name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+
+class User(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: str
+    name: str
+    role: str = "staff"
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: dict
+
+# ============ CLIENT MODELS ============
+class ClientCreate(BaseModel):
+    name: str
+    company_name: Optional[str] = ""
+    contact_person_name: Optional[str] = ""
+    contact_person_no: Optional[str] = ""
+    email: Optional[str] = ""
+    mobile_no: Optional[str] = ""
+    address: Optional[str] = ""
+    country: Optional[str] = ""
+
+class ClientUpdate(BaseModel):
+    name: Optional[str] = None
+    company_name: Optional[str] = None
+    contact_person_name: Optional[str] = None
+    contact_person_no: Optional[str] = None
+    email: Optional[str] = None
+    mobile_no: Optional[str] = None
+    address: Optional[str] = None
+    country: Optional[str] = None
+
+class Client(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    company_name: str = ""
+    contact_person_name: str = ""
+    contact_person_no: str = ""
+    email: str = ""
+    mobile_no: str = ""
+    address: str = ""
+    country: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
 def validate_file_extension(filename: str) -> bool:
     ext = Path(filename).suffix.lower()
     return ext in ALLOWED_EXTENSIONS
