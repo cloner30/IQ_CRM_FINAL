@@ -757,13 +757,22 @@ async def get_photo_image(group_id: str, filename: str):
 @api_router.get("/s3/presigned-url")
 async def get_s3_presigned_url(key: str):
     """Generate a presigned URL for an S3 object"""
-    if not s3_client:
+    if not s3_enabled:
         raise HTTPException(status_code=503, detail="S3 not configured")
     
     url = generate_presigned_url(key, expiration=3600)  # 1 hour expiration
     if url:
         return {"url": url}
     raise HTTPException(status_code=404, detail="Could not generate URL")
+
+@api_router.get("/s3/status")
+async def get_s3_status():
+    """Check S3 storage status"""
+    return {
+        "enabled": s3_enabled,
+        "bucket": S3_BUCKET_NAME if s3_enabled else None,
+        "region": AWS_REGION if s3_enabled else None
+    }
 
 @api_router.get("/")
 async def root():
