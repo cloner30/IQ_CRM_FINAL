@@ -104,8 +104,9 @@ function setupEventListeners() {
     if (hasPassportImage) imageStatus.push('🛂 Passport');
     document.getElementById('preview-images').textContent = imageStatus.length > 0 ? imageStatus.join(', ') : 'None';
     
-    // Show visa status in preview
-    const statusBadge = selectedPassport.visa_status === 'Done' ? '✅ Done' : '⏳ Pending';
+    // Show visa status in preview - check both fields
+    const isDone = selectedPassport.status === 'done' || selectedPassport.visa_status === 'Done';
+    const statusBadge = isDone ? '✅ Done' : '⏳ Pending';
     document.getElementById('preview-status').textContent = statusBadge;
     
     preview.classList.remove('hidden');
@@ -113,8 +114,8 @@ function setupEventListeners() {
     // Enable upload button only if images exist
     uploadBtn.disabled = !(selectedPassport.passport_image || selectedPassport.profile_image);
     // Enable mark done button (disable if already done)
-    markDoneBtn.disabled = selectedPassport.visa_status === 'Done';
-    markDoneBtn.textContent = selectedPassport.visa_status === 'Done' ? '✓ Already Done' : '✓ Mark as Done';
+    markDoneBtn.disabled = isDone;
+    markDoneBtn.textContent = isDone ? '✓ Already Done' : '✓ Mark as Done';
   });
   
   // Fill form button
