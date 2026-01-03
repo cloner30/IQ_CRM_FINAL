@@ -1,0 +1,2 @@
+passport_no,passport_type,first_name_en,surname_en,father_name_en,grandfather_name_en,first_name_ar,surname_ar,father_name_ar,grandfather_name_ar,nationality,gender,birth_date,place_of_issue,issue_date,expiry_date,profession,passport_image,profile_image
+TEST123456,Normal,John,Doe,,,,,,,American,Male,,,,2030-12-31,Engineer,,
