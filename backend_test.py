@@ -400,6 +400,51 @@ class PassportAPITester:
         )
         return success
 
+    def test_export_csv_with_new_fields(self):
+        """Test CSV export includes new fields"""
+        if not self.group_id:
+            print("❌ Skipped - No group ID available")
+            return False
+        
+        print(f"\n🔍 Testing CSV Export with New Fields...")
+        url = f"{self.base_url}/groups/{self.group_id}/export/csv"
+        print(f"   URL: {url}")
+        
+        self.tests_run += 1
+        try:
+            response = requests.get(url)
+            success = response.status_code == 200
+            
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                
+                # Check if CSV contains new field headers
+                csv_content = response.text
+                new_field_headers = ['mother_name_ar', 'mother_name_en', 'mother_father_name_ar', 
+                                   'mother_father_name_en', 'country_of_residence', 'applicant_type']
+                
+                missing_headers = []
+                for header in new_field_headers:
+                    if header not in csv_content:
+                        missing_headers.append(header)
+                
+                if missing_headers:
+                    print(f"❌ Missing new field headers in CSV: {missing_headers}")
+                    return False
+                else:
+                    print(f"✅ All new field headers found in CSV export")
+                    print(f"   CSV headers preview: {csv_content.split('\\n')[0][:200]}...")
+                
+                return True
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False
+
     def test_download_template(self):
         """Test download Excel template"""
         success, response = self.run_test(
