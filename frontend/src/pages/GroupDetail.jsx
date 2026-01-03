@@ -6,10 +6,9 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { ArrowLeft, Plus, Upload, FileText, User, Trash2, Edit, Search, CheckCircle, AlertCircle, Image, Eye } from 'lucide-react';
+import { ArrowLeft, Plus, Upload, FileText, User, Trash2, Edit, Search, CheckCircle, AlertCircle, Image, Eye, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -33,6 +32,26 @@ const PASSPORT_TYPES = ["Normal", "Temporary", "Diplomatic", "Special", "Travel 
 const GENDERS = ["Male", "Female"];
 const PROFESSIONS = ["Physician", "Engineer", "Teacher", "Business", "Student", "Government", "Other"];
 
+const emptyForm = {
+  passport_no: '',
+  passport_type: 'Normal',
+  first_name_en: '',
+  surname_en: '',
+  first_name_ar: '',
+  father_name_ar: '',
+  father_name_en: '',
+  grandfather_name_ar: '',
+  grandfather_name_en: '',
+  surname_ar: '',
+  nationality: '',
+  gender: '',
+  birth_date: '',
+  place_of_issue: '',
+  issue_date: '',
+  expiry_date: '',
+  profession: ''
+};
+
 export const GroupDetail = () => {
   const { groupId } = useParams();
   const navigate = useNavigate();
@@ -41,28 +60,12 @@ export const GroupDetail = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddPassport, setShowAddPassport] = useState(false);
+  const [showEditPassport, setShowEditPassport] = useState(null);
   const [showViewPassport, setShowViewPassport] = useState(null);
   const [deletePassportId, setDeletePassportId] = useState(null);
-  const [passportForm, setPassportForm] = useState({
-    passport_no: '',
-    passport_type: 'Normal',
-    first_name_en: '',
-    surname_en: '',
-    first_name_ar: '',
-    father_name_ar: '',
-    father_name_en: '',
-    grandfather_name_ar: '',
-    grandfather_name_en: '',
-    surname_ar: '',
-    nationality: '',
-    gender: '',
-    birth_date: '',
-    place_of_issue: '',
-    issue_date: '',
-    expiry_date: '',
-    profession: ''
-  });
+  const [passportForm, setPassportForm] = useState({ ...emptyForm });
   const [formLoading, setFormLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -86,25 +89,7 @@ export const GroupDetail = () => {
   }, [fetchData]);
 
   const resetForm = () => {
-    setPassportForm({
-      passport_no: '',
-      passport_type: 'Normal',
-      first_name_en: '',
-      surname_en: '',
-      first_name_ar: '',
-      father_name_ar: '',
-      father_name_en: '',
-      grandfather_name_ar: '',
-      grandfather_name_en: '',
-      surname_ar: '',
-      nationality: '',
-      gender: '',
-      birth_date: '',
-      place_of_issue: '',
-      issue_date: '',
-      expiry_date: '',
-      profession: ''
-    });
+    setPassportForm({ ...emptyForm });
   };
 
   const handleAddPassport = async (e) => {
@@ -129,6 +114,27 @@ export const GroupDetail = () => {
     }
   };
 
+  const handleEditPassport = async (e) => {
+    e.preventDefault();
+    if (!passportForm.passport_no || !passportForm.first_name_en || !passportForm.surname_en || !passportForm.nationality || !passportForm.expiry_date) {
+      toast.error('Please fill required fields');
+      return;
+    }
+    
+    setFormLoading(true);
+    try {
+      await axios.put(`${API}/groups/${groupId}/passports/${showEditPassport.id}`, passportForm);
+      setShowEditPassport(null);
+      resetForm();
+      toast.success('Passport updated successfully');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update passport');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
   const handleDeletePassport = async () => {
     if (!deletePassportId) return;
     try {
@@ -143,6 +149,53 @@ export const GroupDetail = () => {
     }
   };
 
+  const openEditDialog = (passport) => {
+    setPassportForm({
+      passport_no: passport.passport_no || '',
+      passport_type: passport.passport_type || 'Normal',
+      first_name_en: passport.first_name_en || '',
+      surname_en: passport.surname_en || '',
+      first_name_ar: passport.first_name_ar || '',
+      father_name_ar: passport.father_name_ar || '',
+      father_name_en: passport.father_name_en || '',
+      grandfather_name_ar: passport.grandfather_name_ar || '',
+      grandfather_name_en: passport.grandfather_name_en || '',
+      surname_ar: passport.surname_ar || '',
+      nationality: passport.nationality || '',
+      gender: passport.gender || '',
+      birth_date: passport.birth_date || '',
+      place_of_issue: passport.place_of_issue || '',
+      issue_date: passport.issue_date || '',
+      expiry_date: passport.expiry_date || '',
+      profession: passport.profession || ''
+    });
+    setShowEditPassport(passport);
+  };
+
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      const response = await axios.get(`${API}/groups/${groupId}/export/csv`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${group?.name || 'passports'}_export.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('CSV exported successfully');
+    } catch (error) {
+      toast.error('Failed to export CSV. Make sure there are passports in this group.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const filteredPassports = passports.filter(p =>
     p.passport_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.first_name_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -153,6 +206,228 @@ export const GroupDetail = () => {
   if (loading) {
     return <div className="text-center py-12 text-slate-500">Loading...</div>;
   }
+
+  const PassportForm = ({ onSubmit, submitLabel, isEdit = false }) => (
+    <form onSubmit={onSubmit} className="space-y-6">
+      {/* Passport Info Section */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-slate-900 border-b pb-2">Passport Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label className="text-slate-700 mb-2 block">Passport Number *</Label>
+            <Input
+              type="text"
+              placeholder="e.g., AB1234567"
+              value={passportForm.passport_no}
+              onChange={(e) => setPassportForm({ ...passportForm, passport_no: e.target.value })}
+              className="font-mono"
+              disabled={isEdit}
+              data-testid="input-passport-no"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Passport Type</Label>
+            <Select value={passportForm.passport_type} onValueChange={(v) => setPassportForm({ ...passportForm, passport_type: v })}>
+              <SelectTrigger data-testid="select-passport-type">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {PASSPORT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Place of Issue</Label>
+            <Select value={passportForm.place_of_issue} onValueChange={(v) => setPassportForm({ ...passportForm, place_of_issue: v })}>
+              <SelectTrigger data-testid="select-place-of-issue">
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent>
+                {NATIONALITIES.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-slate-700 mb-2 block">Issue Date</Label>
+            <Input
+              type="date"
+              value={passportForm.issue_date}
+              onChange={(e) => setPassportForm({ ...passportForm, issue_date: e.target.value })}
+              data-testid="input-issue-date"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Expiry Date *</Label>
+            <Input
+              type="date"
+              value={passportForm.expiry_date}
+              onChange={(e) => setPassportForm({ ...passportForm, expiry_date: e.target.value })}
+              data-testid="input-expiry-date"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Personal Info Section - English */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-slate-900 border-b pb-2">Personal Information (English) *</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-slate-700 mb-2 block">First Name *</Label>
+            <Input
+              type="text"
+              placeholder="First Name"
+              value={passportForm.first_name_en}
+              onChange={(e) => setPassportForm({ ...passportForm, first_name_en: e.target.value })}
+              data-testid="input-first-name-en"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Surname *</Label>
+            <Input
+              type="text"
+              placeholder="Surname"
+              value={passportForm.surname_en}
+              onChange={(e) => setPassportForm({ ...passportForm, surname_en: e.target.value })}
+              data-testid="input-surname-en"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Father Name</Label>
+            <Input
+              type="text"
+              placeholder="Father Name"
+              value={passportForm.father_name_en}
+              onChange={(e) => setPassportForm({ ...passportForm, father_name_en: e.target.value })}
+              data-testid="input-father-name-en"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Grandfather Name</Label>
+            <Input
+              type="text"
+              placeholder="Grandfather Name"
+              value={passportForm.grandfather_name_en}
+              onChange={(e) => setPassportForm({ ...passportForm, grandfather_name_en: e.target.value })}
+              data-testid="input-grandfather-name-en"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Personal Info Section - Arabic */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-slate-900 border-b pb-2">Personal Information (Arabic)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-slate-700 mb-2 block">First Name - Arabic</Label>
+            <Input
+              type="text"
+              placeholder="الاسم الأول"
+              value={passportForm.first_name_ar}
+              onChange={(e) => setPassportForm({ ...passportForm, first_name_ar: e.target.value })}
+              dir="rtl"
+              data-testid="input-first-name-ar"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Surname - Arabic</Label>
+            <Input
+              type="text"
+              placeholder="اللقب"
+              value={passportForm.surname_ar}
+              onChange={(e) => setPassportForm({ ...passportForm, surname_ar: e.target.value })}
+              dir="rtl"
+              data-testid="input-surname-ar"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Father Name - Arabic</Label>
+            <Input
+              type="text"
+              placeholder="اسم الأب"
+              value={passportForm.father_name_ar}
+              onChange={(e) => setPassportForm({ ...passportForm, father_name_ar: e.target.value })}
+              dir="rtl"
+              data-testid="input-father-name-ar"
+            />
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Grandfather Name - Arabic</Label>
+            <Input
+              type="text"
+              placeholder="اسم الجد"
+              value={passportForm.grandfather_name_ar}
+              onChange={(e) => setPassportForm({ ...passportForm, grandfather_name_ar: e.target.value })}
+              dir="rtl"
+              data-testid="input-grandfather-name-ar"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Info */}
+      <div className="space-y-4">
+        <h3 className="font-semibold text-slate-900 border-b pb-2">Additional Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label className="text-slate-700 mb-2 block">Nationality *</Label>
+            <Select value={passportForm.nationality} onValueChange={(v) => setPassportForm({ ...passportForm, nationality: v })}>
+              <SelectTrigger data-testid="select-nationality">
+                <SelectValue placeholder="Select nationality" />
+              </SelectTrigger>
+              <SelectContent>
+                {NATIONALITIES.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Gender</Label>
+            <Select value={passportForm.gender} onValueChange={(v) => setPassportForm({ ...passportForm, gender: v })}>
+              <SelectTrigger data-testid="select-gender">
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                {GENDERS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-slate-700 mb-2 block">Profession</Label>
+            <Select value={passportForm.profession} onValueChange={(v) => setPassportForm({ ...passportForm, profession: v })}>
+              <SelectTrigger data-testid="select-profession">
+                <SelectValue placeholder="Select profession" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROFESSIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div>
+          <Label className="text-slate-700 mb-2 block">Birth Date</Label>
+          <Input
+            type="date"
+            value={passportForm.birth_date}
+            onChange={(e) => setPassportForm({ ...passportForm, birth_date: e.target.value })}
+            className="max-w-xs"
+            data-testid="input-birth-date"
+          />
+        </div>
+      </div>
+
+      <DialogFooter className="pt-4">
+        <Button type="button" variant="outline" onClick={() => { isEdit ? setShowEditPassport(null) : setShowAddPassport(false); resetForm(); }}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={formLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="submit-passport">
+          {formLoading ? 'Saving...' : submitLabel}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
 
   return (
     <div data-testid="group-detail-page">
@@ -175,6 +450,15 @@ export const GroupDetail = () => {
             <p className="text-slate-600 mt-1">{group?.description || 'No description'}</p>
           </div>
           <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={handleExportCSV}
+              disabled={exporting || passports.length === 0}
+              data-testid="export-csv-btn"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {exporting ? 'Exporting...' : 'Export CSV'}
+            </Button>
             <Button
               variant="outline"
               onClick={() => setShowAddPassport(true)}
@@ -336,6 +620,15 @@ export const GroupDetail = () => {
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-8 w-8 text-slate-400 hover:text-indigo-600"
+                      onClick={() => openEditDialog(passport)}
+                      data-testid={`edit-passport-${passport.id}`}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 text-slate-400 hover:text-rose-600"
                       onClick={() => setDeletePassportId(passport.id)}
                       data-testid={`delete-passport-${passport.id}`}
@@ -357,224 +650,19 @@ export const GroupDetail = () => {
             <DialogTitle className="font-manrope">Add New Passport</DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] pr-4">
-            <form onSubmit={handleAddPassport} className="space-y-6">
-              {/* Passport Info Section */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-slate-900 border-b pb-2">Passport Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Passport Number *</Label>
-                    <Input
-                      type="text"
-                      placeholder="e.g., AB1234567"
-                      value={passportForm.passport_no}
-                      onChange={(e) => setPassportForm({ ...passportForm, passport_no: e.target.value })}
-                      className="font-mono"
-                      data-testid="input-passport-no"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Passport Type</Label>
-                    <Select value={passportForm.passport_type} onValueChange={(v) => setPassportForm({ ...passportForm, passport_type: v })}>
-                      <SelectTrigger data-testid="select-passport-type">
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PASSPORT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Place of Issue</Label>
-                    <Select value={passportForm.place_of_issue} onValueChange={(v) => setPassportForm({ ...passportForm, place_of_issue: v })}>
-                      <SelectTrigger data-testid="select-place-of-issue">
-                        <SelectValue placeholder="Select country" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {NATIONALITIES.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Issue Date</Label>
-                    <Input
-                      type="date"
-                      value={passportForm.issue_date}
-                      onChange={(e) => setPassportForm({ ...passportForm, issue_date: e.target.value })}
-                      data-testid="input-issue-date"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Expiry Date *</Label>
-                    <Input
-                      type="date"
-                      value={passportForm.expiry_date}
-                      onChange={(e) => setPassportForm({ ...passportForm, expiry_date: e.target.value })}
-                      data-testid="input-expiry-date"
-                    />
-                  </div>
-                </div>
-              </div>
+            <PassportForm onSubmit={handleAddPassport} submitLabel="Add Passport" />
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
-              {/* Personal Info Section - English */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-slate-900 border-b pb-2">Personal Information (English) *</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">First Name *</Label>
-                    <Input
-                      type="text"
-                      placeholder="First Name"
-                      value={passportForm.first_name_en}
-                      onChange={(e) => setPassportForm({ ...passportForm, first_name_en: e.target.value })}
-                      data-testid="input-first-name-en"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Surname *</Label>
-                    <Input
-                      type="text"
-                      placeholder="Surname"
-                      value={passportForm.surname_en}
-                      onChange={(e) => setPassportForm({ ...passportForm, surname_en: e.target.value })}
-                      data-testid="input-surname-en"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Father Name</Label>
-                    <Input
-                      type="text"
-                      placeholder="Father Name"
-                      value={passportForm.father_name_en}
-                      onChange={(e) => setPassportForm({ ...passportForm, father_name_en: e.target.value })}
-                      data-testid="input-father-name-en"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Grandfather Name</Label>
-                    <Input
-                      type="text"
-                      placeholder="Grandfather Name"
-                      value={passportForm.grandfather_name_en}
-                      onChange={(e) => setPassportForm({ ...passportForm, grandfather_name_en: e.target.value })}
-                      data-testid="input-grandfather-name-en"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Personal Info Section - Arabic */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-slate-900 border-b pb-2">Personal Information (Arabic)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">First Name - Arabic</Label>
-                    <Input
-                      type="text"
-                      placeholder="الاسم الأول"
-                      value={passportForm.first_name_ar}
-                      onChange={(e) => setPassportForm({ ...passportForm, first_name_ar: e.target.value })}
-                      dir="rtl"
-                      data-testid="input-first-name-ar"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Surname - Arabic</Label>
-                    <Input
-                      type="text"
-                      placeholder="اللقب"
-                      value={passportForm.surname_ar}
-                      onChange={(e) => setPassportForm({ ...passportForm, surname_ar: e.target.value })}
-                      dir="rtl"
-                      data-testid="input-surname-ar"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Father Name - Arabic</Label>
-                    <Input
-                      type="text"
-                      placeholder="اسم الأب"
-                      value={passportForm.father_name_ar}
-                      onChange={(e) => setPassportForm({ ...passportForm, father_name_ar: e.target.value })}
-                      dir="rtl"
-                      data-testid="input-father-name-ar"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Grandfather Name - Arabic</Label>
-                    <Input
-                      type="text"
-                      placeholder="اسم الجد"
-                      value={passportForm.grandfather_name_ar}
-                      onChange={(e) => setPassportForm({ ...passportForm, grandfather_name_ar: e.target.value })}
-                      dir="rtl"
-                      data-testid="input-grandfather-name-ar"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Additional Info */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-slate-900 border-b pb-2">Additional Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Nationality *</Label>
-                    <Select value={passportForm.nationality} onValueChange={(v) => setPassportForm({ ...passportForm, nationality: v })}>
-                      <SelectTrigger data-testid="select-nationality">
-                        <SelectValue placeholder="Select nationality" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {NATIONALITIES.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Gender</Label>
-                    <Select value={passportForm.gender} onValueChange={(v) => setPassportForm({ ...passportForm, gender: v })}>
-                      <SelectTrigger data-testid="select-gender">
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {GENDERS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-slate-700 mb-2 block">Profession</Label>
-                    <Select value={passportForm.profession} onValueChange={(v) => setPassportForm({ ...passportForm, profession: v })}>
-                      <SelectTrigger data-testid="select-profession">
-                        <SelectValue placeholder="Select profession" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PROFESSIONS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-slate-700 mb-2 block">Birth Date</Label>
-                  <Input
-                    type="date"
-                    value={passportForm.birth_date}
-                    onChange={(e) => setPassportForm({ ...passportForm, birth_date: e.target.value })}
-                    className="max-w-xs"
-                    data-testid="input-birth-date"
-                  />
-                </div>
-              </div>
-
-              <DialogFooter className="pt-4">
-                <Button type="button" variant="outline" onClick={() => { setShowAddPassport(false); resetForm(); }} data-testid="cancel-add-passport">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={formLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white" data-testid="submit-passport">
-                  {formLoading ? 'Adding...' : 'Add Passport'}
-                </Button>
-              </DialogFooter>
-            </form>
+      {/* Edit Passport Dialog */}
+      <Dialog open={!!showEditPassport} onOpenChange={() => { setShowEditPassport(null); resetForm(); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh]" data-testid="edit-passport-dialog">
+          <DialogHeader>
+            <DialogTitle className="font-manrope">Edit Passport</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh] pr-4">
+            <PassportForm onSubmit={handleEditPassport} submitLabel="Save Changes" isEdit={true} />
           </ScrollArea>
         </DialogContent>
       </Dialog>
