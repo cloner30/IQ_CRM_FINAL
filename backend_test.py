@@ -10,6 +10,7 @@ class PassportAPITester:
         self.tests_passed = 0
         self.group_id = None
         self.passport_id = None
+        self.new_passport_id = None
 
     def run_test(self, name, method, endpoint, expected_status, data=None, files=None):
         """Run a single API test"""
