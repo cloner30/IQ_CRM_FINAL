@@ -33,33 +33,61 @@ S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'passport-control-uploads')
 
 # Initialize S3 client
 s3_client = None
-if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
-    s3_client = boto3.client(
-        's3',
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
-    )
-    # Create bucket if it doesn't exist
+s3_enabled = False
+
+def init_s3():
+    """Initialize S3 client and create bucket if needed"""
+    global s3_client, s3_enabled
+    
+    if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY:
+        logging.info("AWS credentials not configured, using local storage")
+        return False
+    
     try:
-        s3_client.head_bucket(Bucket=S3_BUCKET_NAME)
-        logging.info(f"S3 bucket {S3_BUCKET_NAME} exists")
-    except ClientError as e:
-        error_code = e.response.get('Error', {}).get('Code', '')
-        if error_code == '404':
-            try:
-                if AWS_REGION == 'us-east-1':
-                    s3_client.create_bucket(Bucket=S3_BUCKET_NAME)
-                else:
-                    s3_client.create_bucket(
-                        Bucket=S3_BUCKET_NAME,
-                        CreateBucketConfiguration={'LocationConstraint': AWS_REGION}
-                    )
-                logging.info(f"Created S3 bucket {S3_BUCKET_NAME}")
-            except Exception as create_err:
-                logging.error(f"Failed to create bucket: {create_err}")
-        else:
-            logging.error(f"Error checking bucket: {e}")
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+            region_name=AWS_REGION
+        )
+        
+        # Check if bucket exists
+        try:
+            s3_client.head_bucket(Bucket=S3_BUCKET_NAME)
+            logging.info(f"S3 bucket {S3_BUCKET_NAME} exists")
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', '')
+            if error_code == '404' or error_code == 'NoSuchBucket':
+                # Create bucket
+                try:
+                    if AWS_REGION == 'us-east-1':
+                        s3_client.create_bucket(Bucket=S3_BUCKET_NAME)
+                    else:
+                        s3_client.create_bucket(
+                            Bucket=S3_BUCKET_NAME,
+                            CreateBucketConfiguration={'LocationConstraint': AWS_REGION}
+                        )
+                    logging.info(f"Created S3 bucket {S3_BUCKET_NAME}")
+                except Exception as create_err:
+                    logging.error(f"Failed to create bucket: {create_err}")
+                    return False
+            else:
+                logging.error(f"Error checking bucket: {e}")
+                return False
+        
+        s3_enabled = True
+        logging.info("S3 storage enabled")
+        return True
+        
+    except Exception as e:
+        logging.error(f"S3 initialization failed: {e}")
+        return False
+
+# Try to initialize S3 (non-blocking)
+try:
+    init_s3()
+except Exception as e:
+    logging.warning(f"S3 init skipped: {e}")
 
 # Create local uploads directory (fallback)
 UPLOADS_DIR = ROOT_DIR / 'uploads'
