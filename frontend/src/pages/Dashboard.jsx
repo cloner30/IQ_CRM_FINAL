@@ -3,9 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Users, FileText, Plus, ArrowRight } from 'lucide-react';
-import axios from 'axios';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import api from '../utils/api';
 
 export const Dashboard = () => {
   const [groups, setGroups] = useState([]);
@@ -17,7 +15,7 @@ export const Dashboard = () => {
 
   const fetchGroups = async () => {
     try {
-      const response = await axios.get(`${API}/groups`);
+      const response = await api.get('/groups');
       setGroups(response.data);
     } catch (error) {
       console.error('Error fetching groups:', error);
