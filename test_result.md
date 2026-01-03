@@ -271,7 +271,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Passport status update functionality"
+    - "User Authentication System"
+    - "Client Management"
+    - "Group-Client Linking"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
