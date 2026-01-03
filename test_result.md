@@ -211,7 +211,6 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Backend API with new fields"
     - "Frontend form with new fields"
   stuck_tasks: []
   test_all: false
