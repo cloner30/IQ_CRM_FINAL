@@ -220,3 +220,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Implemented 6 new passport fields (mother info, residence, applicant type) in backend and frontend. Created complete Chrome extension for e-visa form autofill. Extension needs manual testing in Chrome browser."
+  - agent: "testing"
+    message: "BACKEND TESTING COMPLETE: All 25 API tests passed successfully. New passport fields (mother_name_en, mother_name_ar, mother_father_name_en, mother_father_name_ar, country_of_residence, applicant_type) are fully functional. ✅ CREATE: New fields save correctly ✅ GET: All fields returned properly ✅ UPDATE: New fields update successfully ✅ CSV Export: All new headers included ✅ Excel Template: Contains all new columns ✅ Bulk Import: Processes new fields correctly. Tested with both new test group and existing ACF12 group. Backend implementation is production-ready."
