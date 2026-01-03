@@ -280,9 +280,10 @@ async def export_passports_csv(group_id: str):
     fieldnames = [
         'passport_no', 'passport_type', 'first_name_en', 'surname_en', 
         'father_name_en', 'grandfather_name_en', 'first_name_ar', 'surname_ar',
-        'father_name_ar', 'grandfather_name_ar', 'nationality', 'gender',
+        'father_name_ar', 'grandfather_name_ar', 'mother_name_ar', 'mother_name_en',
+        'mother_father_name_ar', 'mother_father_name_en', 'nationality', 'gender',
         'birth_date', 'place_of_issue', 'issue_date', 'expiry_date', 'profession',
-        'passport_image', 'profile_image'
+        'country_of_residence', 'applicant_type', 'passport_image', 'profile_image'
     ]
     
     writer = csv.DictWriter(output, fieldnames=fieldnames)
@@ -342,6 +343,10 @@ async def bulk_import_excel(group_id: str, file: UploadFile = File(...)):
         'father_name': 'father_name_en',
         'grandfather': 'grandfather_name_en',
         'grandfather_name': 'grandfather_name_en',
+        'mother_name': 'mother_name_en',
+        'mother': 'mother_name_en',
+        'mother_father': 'mother_father_name_en',
+        'mothers_father': 'mother_father_name_en',
         'expiry': 'expiry_date',
         'expire_date': 'expiry_date',
         'valid_until': 'expiry_date',
@@ -358,6 +363,9 @@ async def bulk_import_excel(group_id: str, file: UploadFile = File(...)):
         'place_issued': 'place_of_issue',
         'issued_place': 'place_of_issue',
         'issue_place': 'place_of_issue',
+        'residence': 'country_of_residence',
+        'residence_country': 'country_of_residence',
+        'applicant': 'applicant_type',
     }
     
     df.rename(columns=column_mapping, inplace=True)
@@ -406,6 +414,10 @@ async def bulk_import_excel(group_id: str, file: UploadFile = File(...)):
                 "surname_ar": str(row.get('surname_ar', '')) if pd.notna(row.get('surname_ar')) else "",
                 "father_name_ar": str(row.get('father_name_ar', '')) if pd.notna(row.get('father_name_ar')) else "",
                 "grandfather_name_ar": str(row.get('grandfather_name_ar', '')) if pd.notna(row.get('grandfather_name_ar')) else "",
+                "mother_name_ar": str(row.get('mother_name_ar', '')) if pd.notna(row.get('mother_name_ar')) else "",
+                "mother_name_en": str(row.get('mother_name_en', '')) if pd.notna(row.get('mother_name_en')) else "",
+                "mother_father_name_ar": str(row.get('mother_father_name_ar', '')) if pd.notna(row.get('mother_father_name_ar')) else "",
+                "mother_father_name_en": str(row.get('mother_father_name_en', '')) if pd.notna(row.get('mother_father_name_en')) else "",
                 "nationality": str(row.get('nationality', '')) if pd.notna(row.get('nationality')) else "",
                 "gender": str(row.get('gender', '')) if pd.notna(row.get('gender')) else "",
                 "birth_date": str(row.get('birth_date', '')) if pd.notna(row.get('birth_date')) else "",
@@ -413,6 +425,8 @@ async def bulk_import_excel(group_id: str, file: UploadFile = File(...)):
                 "issue_date": str(row.get('issue_date', '')) if pd.notna(row.get('issue_date')) else "",
                 "expiry_date": str(row.get('expiry_date', '')) if pd.notna(row.get('expiry_date')) else "",
                 "profession": str(row.get('profession', '')) if pd.notna(row.get('profession')) else "",
+                "country_of_residence": str(row.get('country_of_residence', '')) if pd.notna(row.get('country_of_residence')) else "",
+                "applicant_type": str(row.get('applicant_type', '')) if pd.notna(row.get('applicant_type')) else "",
                 "passport_image": None,
                 "profile_image": None,
                 "created_at": datetime.now(timezone.utc).isoformat()
@@ -464,13 +478,19 @@ async def get_import_template():
         'surname_ar': ['دو', 'سميث'],
         'father_name_ar': ['مايكل', 'روبرت'],
         'grandfather_name_ar': ['جيمس', 'وليام'],
+        'mother_name_ar': ['سارة', 'ماري'],
+        'mother_name_en': ['Sarah', 'Mary'],
+        'mother_father_name_ar': ['أحمد', 'ديفيد'],
+        'mother_father_name_en': ['Ahmed', 'David'],
         'nationality': ['American', 'British'],
         'gender': ['Male', 'Female'],
         'birth_date': ['1990-01-15', '1985-06-20'],
         'place_of_issue': ['USA', 'UK'],
         'issue_date': ['2020-01-01', '2019-06-15'],
         'expiry_date': ['2030-01-01', '2029-06-15'],
-        'profession': ['Engineer', 'Doctor']
+        'profession': ['Engineer', 'Physician'],
+        'country_of_residence': ['United States', 'United Kingdom'],
+        'applicant_type': ['', 'Son']
     })
     
     output = BytesIO()
