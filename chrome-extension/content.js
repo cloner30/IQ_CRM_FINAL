@@ -16,6 +16,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     uploadImages(request.data);
     sendResponse({ success: true });
   }
+  if (request.action === 'startInsuranceDownload') {
+    processInsuranceDownload(request.data).then(result => {
+      sendResponse(result);
+    }).catch(err => {
+      console.error('Insurance download error:', err);
+      sendResponse({ success: false, error: err.message });
+    });
+    return true; // Keep channel open for async response
+  }
   return true;
 });
 
