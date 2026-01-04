@@ -1838,14 +1838,13 @@ function showNotification(message, type = 'success') {
 // ============================================
 
 async function processInsuranceDownload(data) {
-  const { approvalNumber, groupId, passports, apiUrl, authToken } = data;
+  const { approvalNumber, groupId, apiUrl, authToken } = data;
   
   console.log('Starting insurance download process...');
   console.log(`Approval Number: ${approvalNumber}`);
   console.log(`Group ID: ${groupId}`);
-  console.log(`Total passengers: ${passports.length}`);
   
-  showNotification(`📄 Starting insurance download for ${passports.length} passengers...`);
+  showNotification(`📄 Starting insurance download...`);
   
   let processed = 0;
   let failed = 0;
