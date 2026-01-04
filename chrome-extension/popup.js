@@ -607,3 +607,92 @@ async function markAsDone() {
     showStatus(`Failed to mark as done: ${error.message}`, 'error');
   }
 }
+
+// Insurance PDF Download Functions
+function showInsuranceStatus(message, type = 'info') {
+  const statusEl = document.getElementById('insurance-status');
+  statusEl.textContent = message;
+  statusEl.className = `status ${type}`;
+  statusEl.classList.remove('hidden');
+}
+
+function hideInsuranceStatus() {
+  document.getElementById('insurance-status').classList.add('hidden');
+}
+
+function updateInsuranceProgress(current, total) {
+  const progressBar = document.getElementById('insurance-progress');
+  const progressText = document.getElementById('insurance-progress-text');
+  const progressFill = document.getElementById('insurance-progress-fill');
+  
+  progressBar.classList.remove('hidden');
+  progressText.textContent = `${current}/${total}`;
+  progressFill.style.width = `${(current / total) * 100}%`;
+}
+
+async function startInsuranceDownload() {
+  if (!currentGroup || !currentGroup.approval_number) {
+    showInsuranceStatus('No approval number set for this group. Please set it in the web app first.', 'error');
+    return;
+  }
+  
+  if (!allPassports || allPassports.length === 0) {
+    showInsuranceStatus('No passengers in this group.', 'error');
+    return;
+  }
+  
+  if (insuranceDownloadInProgress) {
+    showInsuranceStatus('Insurance download already in progress...', 'loading');
+    return;
+  }
+  
+  // Get current tab
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const url = tab.url.toLowerCase();
+  
+  if (!url.includes('evisa.iq')) {
+    showInsuranceStatus('Please navigate to the Iraq e-visa site first.', 'error');
+    return;
+  }
+  
+  insuranceDownloadInProgress = true;
+  const insuranceBtn = document.getElementById('start-insurance-download');
+  insuranceBtn.disabled = true;
+  insuranceBtn.innerHTML = '<span class="btn-icon">⏳</span> Downloading...';
+  
+  showInsuranceStatus('Starting insurance download...', 'loading');
+  
+  try {
+    // Send message to content script to start insurance download
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      action: 'startInsuranceDownload',
+      data: {
+        approvalNumber: currentGroup.approval_number,
+        groupId: currentGroupId,
+        passports: allPassports.map(p => ({
+          id: p.id,
+          passport_no: p.passport_no,
+          name: `${p.first_name_en} ${p.surname_en}`
+        })),
+        apiUrl: apiUrl,
+        authToken: authToken
+      }
+    });
+    
+    if (response && response.success) {
+      showInsuranceStatus(`✅ Insurance download completed! ${response.processed || 0} PDFs saved.`, 'success');
+      // Refresh passports to show updated insurance_pdf status
+      await loadPassports(currentGroupId);
+    } else {
+      showInsuranceStatus(`Download completed with issues: ${response?.message || 'Unknown error'}`, 'error');
+    }
+    
+  } catch (error) {
+    console.error('Insurance download error:', error);
+    showInsuranceStatus(`Error: ${error.message}`, 'error');
+  } finally {
+    insuranceDownloadInProgress = false;
+    insuranceBtn.disabled = false;
+    insuranceBtn.innerHTML = '<span class="btn-icon">📥</span> Start Insurance Download';
+  }
+}
