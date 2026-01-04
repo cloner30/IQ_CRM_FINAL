@@ -2114,7 +2114,7 @@ async function clickInsurancePrintAndGetPdf() {
   return pdfInfo?.url || null;
 }
 
-async function downloadAndUploadPdf(pdfUrl, passportNo, groupId, apiUrl, authToken) {
+async function downloadAndUploadPdf(pdfUrl, passportNo, fullNameEn, groupId, apiUrl, authToken) {
   try {
     // Use background script to download PDF (avoids CORS)
     const pdfData = await new Promise((resolve, reject) => {
@@ -2130,12 +2130,15 @@ async function downloadAndUploadPdf(pdfUrl, passportNo, groupId, apiUrl, authTok
       });
     });
     
-    // Upload to server
+    // Upload to server (will create passport record if not exists)
     const formData = new FormData();
     const blob = base64ToBlob(pdfData, 'application/pdf');
     formData.append('file', blob, `${passportNo}.pdf`);
     formData.append('passport_no', passportNo);
     formData.append('group_id', groupId);
+    if (fullNameEn) {
+      formData.append('full_name_en', fullNameEn);
+    }
     
     const response = await fetch(`${apiUrl}/api/passports/insurance-pdf-by-passport-no`, {
       method: 'POST',
@@ -2156,11 +2159,11 @@ async function downloadAndUploadPdf(pdfUrl, passportNo, groupId, apiUrl, authTok
     // Close the PDF tab
     chrome.runtime.sendMessage({ action: 'closePdfTab' });
     
-    return true;
+    return { success: true, created_new: result.created_new };
     
   } catch (error) {
     console.error('Download/upload error:', error);
-    return false;
+    return { success: false };
   }
 }
 
