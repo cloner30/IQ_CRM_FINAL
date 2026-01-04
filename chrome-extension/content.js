@@ -1286,7 +1286,7 @@ async function uploadImages(data) {
   // Upload Personal Image (profile photo)
   if (data.profile_image_url) {
     try {
-      showNotification('📷 Downloading profile image...');
+      showNotification('📷 Fetching profile image...');
       const profileFile = await fetchImageAsFile(data.profile_image_url, `${data.passport_no}_photo.jpg`);
       
       if (profileFile) {
@@ -1313,10 +1313,18 @@ async function uploadImages(data) {
         // Close any open popup
         closePopup();
         await sleep(500);
+      } else {
+        // Direct download as last resort
+        showNotification('📥 Downloading profile image...');
+        await downloadImageDirect(data.profile_image_url, `${data.passport_no}_photo.jpg`);
+        results.failed.push('Personal Image (downloaded)');
+        showNotification('📥 Profile image downloaded - please upload manually');
       }
     } catch (error) {
       console.error('Profile image upload error:', error);
-      results.failed.push('Personal Image');
+      // Try direct download
+      await downloadImageDirect(data.profile_image_url, `${data.passport_no}_photo.jpg`);
+      results.failed.push('Personal Image (error - downloaded)');
     }
   }
   
@@ -1325,7 +1333,7 @@ async function uploadImages(data) {
   // Upload Passport Image
   if (data.passport_image_url) {
     try {
-      showNotification('🛂 Downloading passport scan...');
+      showNotification('🛂 Fetching passport scan...');
       const passportFile = await fetchImageAsFile(data.passport_image_url, `${data.passport_no}_passport.jpg`);
       
       if (passportFile) {
@@ -1351,10 +1359,18 @@ async function uploadImages(data) {
         
         // Close any open popup
         closePopup();
+      } else {
+        // Direct download as last resort
+        showNotification('📥 Downloading passport scan...');
+        await downloadImageDirect(data.passport_image_url, `${data.passport_no}_passport.jpg`);
+        results.failed.push('Passport (downloaded)');
+        showNotification('📥 Passport image downloaded - please upload manually');
       }
     } catch (error) {
       console.error('Passport image upload error:', error);
-      results.failed.push('Passport');
+      // Try direct download
+      await downloadImageDirect(data.passport_image_url, `${data.passport_no}_passport.jpg`);
+      results.failed.push('Passport (error - downloaded)');
     }
   }
   
