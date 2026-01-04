@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Users, LayoutDashboard, Upload, Settings, Building2, UserCog, LogOut } from 'lucide-react';
+import { Users, LayoutDashboard, Upload, Settings, Building2, UserCog, LogOut, ScanLine } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
 
@@ -16,6 +16,7 @@ export const Layout = ({ children }) => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard, adminOnly: false },
     { name: 'Groups', href: '/groups', icon: Users, adminOnly: false },
+    { name: 'Scanner', href: '/scanner', icon: ScanLine, adminOnly: false },
     { name: 'Clients', href: '/clients', icon: Building2, adminOnly: true },
     { name: 'Users', href: '/users', icon: UserCog, adminOnly: true },
   ];
