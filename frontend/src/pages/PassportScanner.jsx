@@ -229,16 +229,36 @@ export const PassportScanner = () => {
       const response = await fetch(capturedImage);
       const blob = await response.blob();
       
-      const formData = new FormData();
-      formData.append('image', blob, 'passport.jpg');
+      const uploadData = new FormData();
+      uploadData.append('image', blob, 'passport.jpg');
       
-      const result = await api.post('/ocr/scan-passport', formData, {
+      const result = await api.post('/ocr/scan-passport', uploadData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
       if (result.data.success) {
-        setExtractedData(result.data.extracted_data || {});
-        toast.success('Passport data extracted!');
+        const extracted = result.data.extracted_data || {};
+        
+        // Map nationality from code to name
+        const nationality = mapNationality(extracted);
+        
+        // Merge extracted data with empty form template
+        const mergedData = {
+          ...EMPTY_FORM,
+          passport_no: extracted.passport_no || '',
+          first_name_en: extracted.first_name_en || '',
+          surname_en: extracted.surname_en || '',
+          father_name_en: extracted.father_name_en || '',
+          nationality: nationality,
+          gender: extracted.gender || '',
+          birth_date: extracted.birth_date || '',
+          expiry_date: extracted.expiry_date || '',
+          place_of_issue: extracted.place_of_issue || '',
+          issue_date: extracted.issue_date || '',
+        };
+        
+        setFormData(mergedData);
+        toast.success('Passport data extracted! Please review and complete the form.');
       } else {
         toast.error(result.data.error || 'Failed to extract data');
       }
@@ -256,26 +276,55 @@ export const PassportScanner = () => {
       return;
     }
     
-    if (!extractedData?.passport_no) {
+    if (!formData?.passport_no) {
       toast.error('Passport number is required');
+      return;
+    }
+    
+    if (!formData?.first_name_en || !formData?.surname_en) {
+      toast.error('First name and surname are required');
+      return;
+    }
+    
+    if (!formData?.nationality) {
+      toast.error('Nationality is required');
+      return;
+    }
+    
+    if (!formData?.expiry_date) {
+      toast.error('Expiry date is required');
       return;
     }
     
     setSaving(true);
     
     try {
-      // Prepare passport data with required fields
+      // Prepare passport data - convert empty strings to null for optional fields
       const passportData = {
-        passport_no: extractedData.passport_no || '',
-        first_name_en: extractedData.first_name_en || extractedData.surname_en || 'Unknown',
-        surname_en: extractedData.surname_en || 'Unknown',
-        nationality: extractedData.nationality || 'Unknown',
-        expiry_date: extractedData.expiry_date || new Date().toISOString().split('T')[0],
-        // Optional fields
-        father_name_en: extractedData.father_name_en || null,
-        gender: extractedData.gender || null,
-        birth_date: extractedData.birth_date || null,
-        place_of_issue: extractedData.place_of_issue || null,
+        passport_no: formData.passport_no,
+        first_name_en: formData.first_name_en,
+        surname_en: formData.surname_en,
+        nationality: formData.nationality,
+        expiry_date: formData.expiry_date,
+        // Optional fields - send null if empty
+        passport_type: formData.passport_type || null,
+        first_name_ar: formData.first_name_ar || null,
+        father_name_en: formData.father_name_en || null,
+        father_name_ar: formData.father_name_ar || null,
+        grandfather_name_en: formData.grandfather_name_en || null,
+        grandfather_name_ar: formData.grandfather_name_ar || null,
+        surname_ar: formData.surname_ar || null,
+        mother_name_en: formData.mother_name_en || null,
+        mother_name_ar: formData.mother_name_ar || null,
+        mother_father_name_en: formData.mother_father_name_en || null,
+        mother_father_name_ar: formData.mother_father_name_ar || null,
+        gender: formData.gender || null,
+        birth_date: formData.birth_date || null,
+        place_of_issue: formData.place_of_issue || null,
+        issue_date: formData.issue_date || null,
+        profession: formData.profession || null,
+        country_of_residence: formData.country_of_residence || null,
+        applicant_type: formData.applicant_type || null,
       };
       
       await api.post(`/groups/${selectedGroup}/passports`, passportData);
@@ -283,7 +332,7 @@ export const PassportScanner = () => {
       
       // Reset for next scan
       setCapturedImage(null);
-      setExtractedData(null);
+      setFormData(null);
       
     } catch (error) {
       console.error('Save error:', error);
