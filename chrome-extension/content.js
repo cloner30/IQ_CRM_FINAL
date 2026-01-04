@@ -1396,31 +1396,48 @@ async function clickUploadAndSetFile(file, attachmentType = 'Personal Image') {
     uploadBtn.click();
     console.log('Clicked Upload button');
     
-    // Wait for the Mendix popup to appear
-    await sleep(800);
+    // Wait and retry finding the popup multiple times
+    let popup = null;
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      await sleep(500 * attempt); // Increasing wait: 500ms, 1000ms, 1500ms...
+      
+      // Try multiple selectors for the popup
+      popup = document.querySelector('div.mx-window.mx-window-active[role="dialog"]') ||
+              document.querySelector('div.mx-window[role="dialog"]') ||
+              document.querySelector('.mx-window-active') ||
+              document.querySelector('.mx-dialog') ||
+              document.querySelector('[class*="modal"][class*="active"]');
+      
+      if (popup) {
+        console.log(`Found upload popup on attempt ${attempt}`);
+        break;
+      }
+      console.log(`Popup not found on attempt ${attempt}, retrying...`);
+    }
     
-    // Find the popup window (mx-window)
-    const popup = document.querySelector('div.mx-window.mx-window-active[role="dialog"]');
     if (!popup) {
-      console.log('Upload popup not found');
+      console.log('Upload popup not found after 5 attempts');
       resolve(false);
       return;
     }
     console.log('Found upload popup');
     
-    // Find the file input inside the popup (inside mx-fileinput component)
-    const fileInputContainer = popup.querySelector('.mx-fileinput, .mx-filemanager');
-    if (!fileInputContainer) {
-      console.log('File input container not found in popup');
-      resolve(false);
-      return;
-    }
+    // Wait a bit more for popup content to load
+    await sleep(500);
     
-    // Find the hidden file input
-    let fileInput = fileInputContainer.querySelector('input[type="file"]');
+    // Find the file input inside the popup (try multiple selectors)
+    let fileInput = popup.querySelector('input[type="file"]') ||
+                   popup.querySelector('.mx-fileinput input[type="file"]') ||
+                   popup.querySelector('.mx-filemanager input[type="file"]') ||
+                   document.querySelector('.mx-window-active input[type="file"]');
+    
     if (!fileInput) {
-      // Try to find any file input in the popup
-      fileInput = popup.querySelector('input[type="file"]');
+      // Try to find any file input that appeared recently
+      const allFileInputs = document.querySelectorAll('input[type="file"]');
+      if (allFileInputs.length > 0) {
+        fileInput = allFileInputs[allFileInputs.length - 1]; // Get the last one
+        console.log('Found file input via fallback method');
+      }
     }
     
     if (fileInput) {
