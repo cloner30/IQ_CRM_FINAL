@@ -267,6 +267,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "BUG FIX: Fixed MRZ parsing issue where given names (e.g., 'RAJESH KUMAR') were being incorrectly split with second word going to father_name_en. Father name is NOT in MRZ and must be entered manually. Now: (1) full given names stored in first_name_en, (2) father_name_en NOT auto-filled, (3) UI updated to show '*Manual' label on Father Name and Grandfather Name fields with 'Enter manually' placeholder."
+      - working: true
+        agent: "main"
+        comment: "ENHANCEMENT: Added auto-fill logic per user request: (1) Passport Type defaults to 'Normal', (2) Place of Issue and Country of Residence auto-filled from nationality using NATIONALITY_TO_COUNTRY mapping with e-visa form values, (3) Issue Date calculated as Expiry Date minus 10 years plus 1 day (e.g., 2030-01-13 → 2020-01-14), (4) Place of Issue, Country of Residence, and Profession now use dropdown selects matching e-visa form values."
 
   - task: "Add Country of Residence and Applicant Type fields"
     implemented: true
