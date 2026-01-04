@@ -917,14 +917,33 @@ async function fillVisaForm(data) {
   }
   
   // ========== DEFAULT ACCOMMODATION VALUES ==========
+  console.log('=== Filling accommodation fields ===');
+  
+  // Log all dropdowns on page for debugging
+  logAllDropdowns();
+  
   // Accommodation Type - Default: Hotel
   totalFields++;
-  if (fillDropdown(DROPDOWN_MAPPING.accommodation_type, DEFAULT_VALUES.accommodation_type)) filledCount++;
+  let filled = fillDropdown(DROPDOWN_MAPPING.accommodation_type, DEFAULT_VALUES.accommodation_type);
+  if (!filled) {
+    filled = fillDropdownByLabel('accommodation', DEFAULT_VALUES.accommodation_type);
+  }
+  if (!filled) {
+    filled = fillDropdownByLabel('type', DEFAULT_VALUES.accommodation_type);
+  }
+  if (filled) filledCount++;
   await delay(200);
   
   // Governorate - Default: Najaf
   totalFields++;
-  if (fillDropdown(DROPDOWN_MAPPING.governorate, DEFAULT_VALUES.governorate)) filledCount++;
+  filled = fillDropdown(DROPDOWN_MAPPING.governorate, DEFAULT_VALUES.governorate);
+  if (!filled) {
+    filled = fillDropdownByLabel('governorate', DEFAULT_VALUES.governorate);
+  }
+  if (!filled) {
+    filled = fillDropdownByLabel('محافظة', DEFAULT_VALUES.governorate);
+  }
+  if (filled) filledCount++;
   await delay(200);
   
   // Hotel Name - Default: الخيمه بلاز
@@ -935,6 +954,102 @@ async function fillVisaForm(data) {
   showNotification(`Form filled! ${filledCount}/${totalFields} fields populated.`);
   
   console.log(`Form fill complete: ${filledCount}/${totalFields} fields filled`);
+}
+
+// Log all dropdowns on the page for debugging
+function logAllDropdowns() {
+  console.log('=== All dropdowns on page ===');
+  const selects = document.querySelectorAll('select');
+  console.log(`Found ${selects.length} select elements:`);
+  selects.forEach((select, i) => {
+    const id = select.id || 'no-id';
+    const name = select.name || 'no-name';
+    const options = Array.from(select.options).slice(0, 3).map(o => o.text).join(', ');
+    console.log(`${i + 1}. id="${id}" name="${name}" options: [${options}...]`);
+  });
+}
+
+// Fill dropdown by finding it via label text
+function fillDropdownByLabel(labelKeyword, value) {
+  console.log(`Trying to find dropdown by label containing: ${labelKeyword}`);
+  
+  const labels = document.querySelectorAll('label, .control-label, .mx-label, span[class*="label"]');
+  
+  for (const label of labels) {
+    const labelText = label.textContent.toLowerCase();
+    
+    if (labelText.includes(labelKeyword.toLowerCase())) {
+      console.log(`Found label: "${label.textContent}"`);
+      
+      // Method 1: Check 'for' attribute
+      const forId = label.getAttribute('for');
+      if (forId) {
+        const select = document.getElementById(forId);
+        if (select && select.tagName === 'SELECT') {
+          console.log(`Found select by 'for' attribute: ${select.id}`);
+          return setSelectValue(select, value);
+        }
+      }
+      
+      // Method 2: Find select in same container
+      const container = label.closest('.form-group, .mx-dataview-content, [class*="form"]');
+      if (container) {
+        const select = container.querySelector('select');
+        if (select) {
+          console.log(`Found select in same container: ${select.id}`);
+          return setSelectValue(select, value);
+        }
+      }
+      
+      // Method 3: Find next sibling select
+      let sibling = label.nextElementSibling;
+      while (sibling) {
+        if (sibling.tagName === 'SELECT') {
+          console.log(`Found select as sibling: ${sibling.id}`);
+          return setSelectValue(sibling, value);
+        }
+        const nestedSelect = sibling.querySelector('select');
+        if (nestedSelect) {
+          console.log(`Found nested select: ${nestedSelect.id}`);
+          return setSelectValue(nestedSelect, value);
+        }
+        sibling = sibling.nextElementSibling;
+      }
+    }
+  }
+  
+  console.log(`Could not find dropdown by label: ${labelKeyword}`);
+  return false;
+}
+
+// Set select value helper
+function setSelectValue(select, value) {
+  const options = Array.from(select.options);
+  
+  // Try exact match
+  for (const option of options) {
+    if (option.text === value || option.value === value || 
+        option.text.trim().toLowerCase() === value.toLowerCase()) {
+      select.value = option.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      console.log(`✓ Set select value: ${value}`);
+      return true;
+    }
+  }
+  
+  // Try partial match
+  for (const option of options) {
+    if (option.text.toLowerCase().includes(value.toLowerCase()) ||
+        value.toLowerCase().includes(option.text.toLowerCase())) {
+      select.value = option.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      console.log(`✓ Set select value (partial): ${option.text}`);
+      return true;
+    }
+  }
+  
+  console.log(`Could not find option "${value}" in select`);
+  return false;
 }
 
 // Fill hotel name field
