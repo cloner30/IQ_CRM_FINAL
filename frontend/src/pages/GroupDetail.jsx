@@ -813,7 +813,7 @@ export const GroupDetail = () => {
                   <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden flex-shrink-0">
                     {passport.profile_image ? (
                       <img
-                        src={`${process.env.REACT_APP_BACKEND_URL}${passport.profile_image}`}
+                        src={getImageUrl(passport.profile_image)}
                         alt={passport.first_name_en}
                         className="w-full h-full object-cover"
                       />
