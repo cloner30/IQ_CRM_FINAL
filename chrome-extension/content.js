@@ -432,22 +432,58 @@ function fillDateField(selector, value) {
     return false;
   }
   
-  const container = document.querySelector(selector)?.closest('.mx-datepicker');
+  // Try multiple methods to find and fill the date field
   
-  if (container) {
-    const input = container.querySelector('input.form-control');
-    if (input) {
+  // Method 1: Find by partial ID match (Mendix generates long IDs)
+  const allInputs = document.querySelectorAll('input');
+  for (const input of allInputs) {
+    const id = input.id || '';
+    const name = input.name || '';
+    const placeholder = input.placeholder || '';
+    
+    // Check if this input matches our selector pattern
+    const selectorId = selector.match(/id\*="([^"]+)"/)?.[1] || '';
+    if (selectorId && (id.includes(selectorId) || name.includes(selectorId))) {
+      input.focus();
       input.value = formattedDate;
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       input.dispatchEvent(new Event('blur', { bubbles: true }));
-      console.log(`Filled date ${selector} with: ${formattedDate}`);
+      console.log(`Filled date field (method 1): ${formattedDate}`);
       return true;
     }
   }
   
-  // Fallback: try direct selector
-  return fillTextField(selector, formattedDate);
+  // Method 2: Direct querySelector
+  const directInput = document.querySelector(selector);
+  if (directInput) {
+    directInput.focus();
+    directInput.value = formattedDate;
+    directInput.dispatchEvent(new Event('input', { bubbles: true }));
+    directInput.dispatchEvent(new Event('change', { bubbles: true }));
+    directInput.dispatchEvent(new Event('blur', { bubbles: true }));
+    console.log(`Filled date field (method 2): ${formattedDate}`);
+    return true;
+  }
+  
+  // Method 3: Find mx-datepicker container
+  const container = document.querySelector(selector)?.closest('.mx-datepicker');
+  if (container) {
+    const input = container.querySelector('input');
+    if (input) {
+      input.focus();
+      input.value = formattedDate;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.dispatchEvent(new Event('blur', { bubbles: true }));
+      console.log(`Filled date field (method 3): ${formattedDate}`);
+      return true;
+    }
+  }
+  
+  console.log(`Date field not found: ${selector}`);
+  return false;
 }
 
 // Fill a dropdown/select field
