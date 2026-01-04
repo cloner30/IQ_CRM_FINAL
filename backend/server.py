@@ -218,56 +218,56 @@ class Group(BaseModel):
 
 class PassportCreate(BaseModel):
     passport_no: str
-    passport_type: Optional[str] = "Normal"
+    passport_type: Optional[str] = None
     first_name_en: str
     surname_en: str
-    first_name_ar: Optional[str] = ""
-    father_name_ar: Optional[str] = ""
-    father_name_en: Optional[str] = ""
-    grandfather_name_ar: Optional[str] = ""
-    grandfather_name_en: Optional[str] = ""
-    surname_ar: Optional[str] = ""
-    mother_name_ar: Optional[str] = ""
-    mother_name_en: Optional[str] = ""
-    mother_father_name_ar: Optional[str] = ""
-    mother_father_name_en: Optional[str] = ""
+    first_name_ar: Optional[str] = None
+    father_name_ar: Optional[str] = None
+    father_name_en: Optional[str] = None
+    grandfather_name_ar: Optional[str] = None
+    grandfather_name_en: Optional[str] = None
+    surname_ar: Optional[str] = None
+    mother_name_ar: Optional[str] = None
+    mother_name_en: Optional[str] = None
+    mother_father_name_ar: Optional[str] = None
+    mother_father_name_en: Optional[str] = None
     nationality: str
-    gender: Optional[str] = ""
-    birth_date: Optional[str] = ""
-    place_of_issue: Optional[str] = ""
-    issue_date: Optional[str] = ""
+    gender: Optional[str] = None
+    birth_date: Optional[str] = None
+    place_of_issue: Optional[str] = None
+    issue_date: Optional[str] = None
     expiry_date: str
-    profession: Optional[str] = ""
-    country_of_residence: Optional[str] = ""
-    applicant_type: Optional[str] = ""
+    profession: Optional[str] = None
+    country_of_residence: Optional[str] = None
+    applicant_type: Optional[str] = None
 
 class Passport(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     group_id: str
     passport_no: str
-    passport_type: str = "Normal"
+    passport_type: Optional[str] = None
     first_name_en: str = ""
     surname_en: str = ""
-    first_name_ar: str = ""
-    father_name_ar: str = ""
-    father_name_en: str = ""
-    grandfather_name_ar: str = ""
-    grandfather_name_en: str = ""
-    surname_ar: str = ""
-    mother_name_ar: str = ""
-    mother_name_en: str = ""
-    mother_father_name_ar: str = ""
-    mother_father_name_en: str = ""
+    first_name_ar: Optional[str] = None
+    father_name_ar: Optional[str] = None
+    father_name_en: Optional[str] = None
+    grandfather_name_ar: Optional[str] = None
+    grandfather_name_en: Optional[str] = None
+    surname_ar: Optional[str] = None
+    mother_name_ar: Optional[str] = None
+    mother_name_en: Optional[str] = None
+    mother_father_name_ar: Optional[str] = None
+    mother_father_name_en: Optional[str] = None
     nationality: str = ""
-    gender: str = ""
-    birth_date: str = ""
-    place_of_issue: str = ""
-    issue_date: str = ""
+    gender: Optional[str] = None
+    birth_date: Optional[str] = None
+    place_of_issue: Optional[str] = None
+    issue_date: Optional[str] = None
     expiry_date: str = ""
-    profession: str = ""
-    country_of_residence: str = ""
-    applicant_type: str = ""
+    profession: Optional[str] = None
+    country_of_residence: Optional[str] = None
+    applicant_type: Optional[str] = None
     passport_image: Optional[str] = None
     profile_image: Optional[str] = None
     status: str = "pending"  # pending, done
