@@ -342,17 +342,17 @@ export const PassportScanner = () => {
     }
   };
 
-  const updateExtractedField = (field, value) => {
-    setExtractedData(prev => ({
+  const updateField = (field, value) => {
+    setFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-slate-900 text-white pb-8">
       {/* Header */}
-      <header className="bg-slate-800 p-4 flex items-center gap-4">
+      <header className="bg-slate-800 p-4 flex items-center gap-4 sticky top-0 z-10">
         <Button 
           variant="ghost" 
           size="icon"
