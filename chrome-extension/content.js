@@ -1050,32 +1050,44 @@ async function uploadImages(data) {
   
   const results = { success: [], failed: [] };
   
-  // Navigate to Personal Attachment tab
-  navigateToAttachmentTab();
-  await sleep(500);
+  // Navigate to Personal Attachment tab first
+  const tabFound = navigateToAttachmentTab();
+  if (!tabFound) {
+    showNotification('Please navigate to the Personal Attachment tab first');
+    return results;
+  }
+  await sleep(1000);
   
   // Upload Personal Image (profile photo)
   if (data.profile_image_url) {
     try {
-      showNotification('Downloading profile image...');
+      showNotification('📷 Downloading profile image...');
       const profileFile = await fetchImageAsFile(data.profile_image_url, `${data.passport_no}_photo.jpg`);
       
       if (profileFile) {
-        // Select "Personal Image" row
-        selectAttachmentRow('Personal Image');
-        await sleep(300);
+        // Select "Personal Image" row in the attachment grid
+        const rowSelected = selectAttachmentRow('Personal Image');
+        if (!rowSelected) {
+          // Try alternative names
+          selectAttachmentRow('Photo') || selectAttachmentRow('صورة شخصية');
+        }
+        await sleep(500);
         
-        // Try to upload
-        const uploaded = await clickUploadAndSetFile(profileFile);
+        // Try to upload using the Mendix popup
+        const uploaded = await clickUploadAndSetFile(profileFile, 'Personal Image');
         if (uploaded) {
           results.success.push('Personal Image');
-          showNotification('✓ Profile image uploaded!');
+          showNotification('✅ Profile image uploaded!');
         } else {
           // Fallback: download the file for manual upload
           downloadFile(profileFile, `${data.passport_no}_photo.jpg`);
           results.failed.push('Personal Image (downloaded for manual upload)');
-          showNotification('Profile image downloaded - please upload manually');
+          showNotification('📥 Profile image downloaded - please upload manually');
         }
+        
+        // Close any open popup
+        closePopup();
+        await sleep(500);
       }
     } catch (error) {
       console.error('Profile image upload error:', error);
@@ -1083,34 +1095,64 @@ async function uploadImages(data) {
     }
   }
   
-  await sleep(500);
+  await sleep(800);
   
   // Upload Passport Image
   if (data.passport_image_url) {
     try {
-      showNotification('Downloading passport image...');
+      showNotification('🛂 Downloading passport scan...');
       const passportFile = await fetchImageAsFile(data.passport_image_url, `${data.passport_no}_passport.jpg`);
       
       if (passportFile) {
-        // Select "Passport" row
-        selectAttachmentRow('Passport');
-        await sleep(300);
+        // Select "Passport" row in the attachment grid
+        const rowSelected = selectAttachmentRow('Passport');
+        if (!rowSelected) {
+          // Try alternative names
+          selectAttachmentRow('Passport Scan') || selectAttachmentRow('جواز السفر');
+        }
+        await sleep(500);
         
-        // Try to upload
-        const uploaded = await clickUploadAndSetFile(passportFile);
+        // Try to upload using the Mendix popup
+        const uploaded = await clickUploadAndSetFile(passportFile, 'Passport');
         if (uploaded) {
           results.success.push('Passport');
-          showNotification('✓ Passport image uploaded!');
+          showNotification('✅ Passport scan uploaded!');
         } else {
           // Fallback: download the file for manual upload
           downloadFile(passportFile, `${data.passport_no}_passport.jpg`);
           results.failed.push('Passport (downloaded for manual upload)');
-          showNotification('Passport image downloaded - please upload manually');
+          showNotification('📥 Passport image downloaded - please upload manually');
         }
+        
+        // Close any open popup
+        closePopup();
       }
     } catch (error) {
       console.error('Passport image upload error:', error);
       results.failed.push('Passport');
+    }
+  }
+  
+  // Show final status
+  await sleep(500);
+  if (results.success.length > 0) {
+    showNotification(`✅ Uploaded: ${results.success.join(', ')}`);
+  } else if (results.failed.length > 0) {
+    showNotification(`📥 Images downloaded for manual upload`);
+  }
+  
+  console.log('Upload results:', results);
+  return results;
+}
+
+// Close any open Mendix popup
+function closePopup() {
+  const closeBtn = document.querySelector('.mx-window-active .mx-window-close, .mx-window-active button[aria-label="Close"]');
+  if (closeBtn) {
+    closeBtn.click();
+    console.log('Closed popup');
+  }
+}
     }
   }
   
