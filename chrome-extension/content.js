@@ -531,6 +531,15 @@ function fillDateField(selector, value) {
   const allInputs = document.querySelectorAll('input');
   console.log(`Total inputs on page: ${allInputs.length}`);
   
+  // Log all inputs with date-related IDs for debugging
+  console.log('=== Searching for date inputs ===');
+  for (const input of allInputs) {
+    const id = input.id || '';
+    if (id.toLowerCase().includes('date') || id.toLowerCase().includes('picker')) {
+      console.log(`  Date input found: id="${id.substring(0, 80)}..."`);
+    }
+  }
+  
   // Method 1: Search by FULL ID match (most specific)
   for (const input of allInputs) {
     const id = input.id || '';
@@ -538,7 +547,7 @@ function fillDateField(selector, value) {
     // Check if input ID contains the FULL selector ID pattern
     if (selectorId && id.includes(selectorId)) {
       console.log(`✓ Found date field by FULL ID match: ${id}`);
-      return setInputValue(input, formattedDate);
+      return setDateInputValue(input, formattedDate);
     }
   }
   
@@ -546,21 +555,32 @@ function fillDateField(selector, value) {
   // E.g., for "SNP_Beneficiary_Company.cLEVRDatePicker4", match both parts
   const [componentName, pickerName] = selectorId.split('.');
   if (componentName && pickerName) {
+    console.log(`Trying component+picker match: ${componentName} + ${pickerName}`);
     for (const input of allInputs) {
       const id = input.id || '';
       // Must contain BOTH the component name and picker name
       if (id.includes(componentName) && id.includes(pickerName)) {
         console.log(`✓ Found date field by component+picker match: ${id}`);
-        return setInputValue(input, formattedDate);
+        return setDateInputValue(input, formattedDate);
+      }
+    }
+    
+    // Method 3: Try just the picker name (e.g., cLEVRDatePicker4)
+    console.log(`Trying picker name only: ${pickerName}`);
+    for (const input of allInputs) {
+      const id = input.id || '';
+      if (id.includes(pickerName)) {
+        console.log(`✓ Found date field by picker name: ${id}`);
+        return setDateInputValue(input, formattedDate);
       }
     }
   }
   
-  // Method 3: Direct querySelector as last resort
+  // Method 4: Direct querySelector as last resort
   const directInput = document.querySelector(selector);
   if (directInput) {
     console.log(`✓ Found date field by direct selector`);
-    return setInputValue(directInput, formattedDate);
+    return setDateInputValue(directInput, formattedDate);
   }
   
   console.log(`Date field not found: ${selector}`);
