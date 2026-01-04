@@ -1958,19 +1958,31 @@ async function searchByApprovalNumber(approvalNumber) {
     await sleep(1000);
   }
   
-  // Find the "Book Approve Number" input field
-  // Based on HTML: div.mx-name-searchField3 contains the input
-  const approvalInput = document.querySelector('div.mx-name-searchField3 input.form-control') ||
-                        document.querySelector('input[id*="SearchInput_52"] input') ||
-                        findInputByLabel('Book Approve Number');
+  // Find the "Book Approve Number" input field by label (most reliable method)
+  // Based on HTML structure: label "Book Approve Number" is in SearchInput_52
+  let approvalInput = findInputByLabel('Book Approve Number');
+  
+  // Fallback selectors if label search fails
+  if (!approvalInput) {
+    // Try by widget ID (SearchInput_52 is Book Approve Number based on HTML)
+    const searchItem = document.querySelector('#mxui_widget_SearchInput_52');
+    if (searchItem) {
+      approvalInput = searchItem.querySelector('input.form-control');
+    }
+  }
   
   if (!approvalInput) {
-    console.error('Could not find approval number input field');
-    // Try alternative selectors
-    const allInputs = document.querySelectorAll('.mx-grid-search-input input.form-control');
-    console.log('Available search inputs:', allInputs.length);
+    console.error('Could not find Book Approve Number input field');
+    // Log all available search fields for debugging
+    const allLabels = document.querySelectorAll('.mx-grid-search-label label');
+    console.log('Available search fields:');
+    allLabels.forEach((label, i) => {
+      console.log(`  ${i}: ${label.textContent}`);
+    });
     return false;
   }
+  
+  console.log('Found Book Approve Number input field');
   
   // Clear and fill the input
   approvalInput.value = '';
