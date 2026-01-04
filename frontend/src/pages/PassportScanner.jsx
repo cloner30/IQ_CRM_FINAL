@@ -63,16 +63,48 @@ const NATIONALITIES = [
   "Venezuelan", "Vietnamese", "Yemeni", "Zambian", "Zimbabwean"
 ];
 
+// Nationality to Country mapping (for Place of Issue & Country of Residence - matching e-visa form values)
+const NATIONALITY_TO_COUNTRY = {
+  "Afghan": "Afghanistan", "Albanian": "Albania", "Algerian": "Algeria", "American": "United States of America",
+  "Andorran": "Andorra", "Angolan": "Angola", "Argentine": "Argentina", "Armenian": "Armenia",
+  "Australian": "Australia", "Austrian": "Austria", "Azerbaijani": "Azerbaijan", "Bahraini": "Bahrain",
+  "Bangladeshi": "Bangladesh", "Belarusian": "Belarus", "Belgian": "Belgium", "Bhutanese": "Bhutan",
+  "Bolivian": "Bolivia", "Bosnian": "Bosnia and Herzegovina", "Brazilian": "Brazil", "British": "United Kingdom of Great Britain",
+  "Bruneian": "Brunei Darussalam", "Bulgarian": "Bulgaria", "Cambodian": "Cambodia", "Cameroonian": "Cameroon",
+  "Canadian": "Canada", "Chadian": "Chad", "Chilean": "Chile", "Chinese": "China", "Colombian": "Colombia",
+  "Costa Rican": "Costa Rica", "Croatian": "Croatia", "Cuban": "Cuba", "Cypriot": "Cyprus", "Czech": "Czech Republic",
+  "Danish": "Denmark", "Dutch": "Netherlands", "Ecuadorian": "Ecuador", "Egyptian": "Egypt", "Emirati": "United Arab Emirates",
+  "Estonian": "Estonia", "Ethiopian": "Ethiopia", "Filipino": "Philippines", "Finnish": "Finland", "French": "France",
+  "Georgian": "Georgia", "German": "Germany", "Ghanaian": "Ghana", "Greek": "Greece", "Guatemalan": "Guatemala",
+  "Honduran": "Honduras", "Hungarian": "Hungary", "Icelandic": "Iceland", "Indian": "India", "Indonesian": "Indonesia",
+  "Iranian": "Iran Islamic Republic of", "Iraqi": "Iraq", "Irish": "Ireland", "Israeli": "Israel", "Italian": "Italy",
+  "Japanese": "Japan", "Jordanian": "Jordan", "Kazakhstani": "Kazakhstan", "Kenyan": "Kenya", "Kuwaiti": "Kuwait",
+  "Kyrgyzstani": "Kyrgyzstan", "Latvian": "Latvia", "Lebanese": "Lebanon", "Libyan": "Libyan Arab Jamahiriya",
+  "Lithuanian": "Lithuania", "Luxembourger": "Luxembourg", "Malaysian": "Malaysia", "Maldivian": "Maldives",
+  "Maltese": "Malta", "Mexican": "Mexico", "Moldovan": "Moldova", "Mongolian": "Mongolia", "Moroccan": "Morocco",
+  "Nepalese": "Nepal", "New Zealander": "New Zealand", "Nigerian": "Nigeria", "North Korean": "Democratic Peoples Republic of Korea",
+  "Norwegian": "Norway", "Omani": "Oman", "Pakistani": "Pakistan", "Palestinian": "Palestinian", "Panamanian": "Panama",
+  "Peruvian": "Peru", "Polish": "Poland", "Portuguese": "Portugal", "Qatari": "Qatar", "Romanian": "Romania",
+  "Russian": "Russian Federation", "Saudi": "Saudi Arabia", "Serbian": "Serbia", "Singaporean": "Singapore",
+  "Slovak": "Slovakia", "Slovenian": "Slovenia", "Somali": "Somalia", "South African": "South Africa",
+  "South Korean": "Republic of Korea", "Spanish": "Spain", "Sri Lankan": "Sri Lanka", "Sudanese": "Sudan",
+  "Swedish": "Sweden", "Swiss": "Switzerland", "Syrian": "Syrian Arab Republic", "Taiwanese": "China",
+  "Tajikistani": "Tajikistan", "Tanzanian": "United Republic of Tanzania", "Thai": "Thailand", "Tunisian": "Tunisia",
+  "Turkish": "Turkey", "Turkmen": "Turkmenistan", "Ugandan": "Uganda", "Ukrainian": "Ukraine", "Uruguayan": "Uruguay",
+  "Uzbekistani": "Uzbekistan", "Venezuelan": "Venezuela Bolivarian Republic", "Vietnamese": "Viet Nam",
+  "Yemeni": "Yemen", "Zambian": "Zambia", "Zimbabwean": "Zimbabwe"
+};
+
 // Gender options
 const GENDERS = ["Male", "Female"];
 
-// Passport types
-const PASSPORT_TYPES = ["Normal", "Diplomatic", "Service", "Special", "Official"];
+// Passport types (matching e-visa form values)
+const PASSPORT_TYPES = ["Normal", "Temporary", "Diplomatic", "Special", "TravelDoc", "UN", "passage"];
 
-// Empty form template
+// Empty form template with default passport type
 const EMPTY_FORM = {
   passport_no: '',
-  passport_type: '',
+  passport_type: 'Normal',  // Default to Normal
   first_name_en: '',
   surname_en: '',
   first_name_ar: '',
@@ -94,6 +126,28 @@ const EMPTY_FORM = {
   profession: '',
   country_of_residence: '',
   applicant_type: ''
+};
+
+// Helper function to calculate issue date from expiry date (expiry - 10 years)
+const calculateIssueDate = (expiryDate) => {
+  if (!expiryDate) return '';
+  try {
+    const expiry = new Date(expiryDate);
+    if (isNaN(expiry.getTime())) return '';
+    
+    // Subtract 10 years and add 1 day
+    const issue = new Date(expiry);
+    issue.setFullYear(issue.getFullYear() - 10);
+    issue.setDate(issue.getDate() + 1);
+    
+    // Format as YYYY-MM-DD
+    const year = issue.getFullYear();
+    const month = String(issue.getMonth() + 1).padStart(2, '0');
+    const day = String(issue.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch {
+    return '';
+  }
 };
 
 export const PassportScanner = () => {
