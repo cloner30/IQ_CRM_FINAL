@@ -657,9 +657,25 @@ async function startInsuranceDownload() {
   insuranceBtn.disabled = true;
   insuranceBtn.innerHTML = '<span class="btn-icon">⏳</span> Downloading...';
   
-  showInsuranceStatus('Starting insurance download...', 'loading');
+  showInsuranceStatus('Injecting content script...', 'loading');
   
   try {
+    // First, try to inject the content script in case it's not loaded
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+      console.log('Content script injected successfully');
+    } catch (injectError) {
+      console.log('Content script already loaded or injection skipped:', injectError.message);
+    }
+    
+    // Wait a bit for script to initialize
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    showInsuranceStatus('Starting insurance download...', 'loading');
+    
     // Send message to content script to start insurance download
     // Passports list is optional - new records will be created from e-visa page data
     const response = await chrome.tabs.sendMessage(tab.id, {
@@ -686,7 +702,11 @@ async function startInsuranceDownload() {
     
   } catch (error) {
     console.error('Insurance download error:', error);
-    showInsuranceStatus(`Error: ${error.message}`, 'error');
+    if (error.message.includes('Receiving end does not exist')) {
+      showInsuranceStatus('Please refresh the e-visa page and try again.', 'error');
+    } else {
+      showInsuranceStatus(`Error: ${error.message}`, 'error');
+    }
   } finally {
     insuranceDownloadInProgress = false;
     insuranceBtn.disabled = false;
