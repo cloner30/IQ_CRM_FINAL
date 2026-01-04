@@ -1870,7 +1870,7 @@ function showNotification(message, type = 'success') {
 // INSURANCE PDF DOWNLOAD FUNCTIONALITY
 // ============================================
 
-async function processInsuranceDownload(data) {
+async function processInsuranceDownload(data, resumeFrom = null) {
   const { approvalNumber, groupId, apiUrl, authToken } = data;
   
   console.log('Starting insurance download process...');
@@ -1879,25 +1879,46 @@ async function processInsuranceDownload(data) {
   
   showNotification(`📄 Starting insurance download...`);
   
-  let processed = 0;
-  let failed = 0;
-  let skipped = 0;
-  let created = 0;  // Track newly created passport records
+  let processed = resumeFrom?.processed || 0;
+  let failed = resumeFrom?.failed || 0;
+  let skipped = resumeFrom?.skipped || 0;
+  let created = resumeFrom?.created || 0;
+  let startPage = resumeFrom?.pageNum || 1;
+  let startRowIndex = resumeFrom?.rowIndex || 0;
   
   try {
-    // Step 1: Search by Approval Number
-    const searchSuccess = await searchByApprovalNumber(approvalNumber);
-    if (!searchSuccess) {
-      return { success: false, message: 'Failed to search by approval number' };
+    // Step 1: Search by Approval Number (skip if resuming on same page)
+    if (!resumeFrom) {
+      const searchSuccess = await searchByApprovalNumber(approvalNumber);
+      if (!searchSuccess) {
+        return { success: false, message: 'Failed to search by approval number' };
+      }
+      await sleep(2000); // Wait for results to load
     }
-    
-    await sleep(2000); // Wait for results to load
     
     // Step 2: Process all pages
     let hasMorePages = true;
-    let pageNum = 1;
+    let pageNum = startPage;
+    
+    // Navigate to the correct page if resuming
+    if (resumeFrom && resumeFrom.pageNum > 1) {
+      showNotification(`📄 Navigating to page ${resumeFrom.pageNum}...`);
+      for (let p = 1; p < resumeFrom.pageNum; p++) {
+        const nextBtn = document.querySelector('button.mx-name-paging-next:not([disabled])');
+        if (nextBtn) {
+          nextBtn.click();
+          await sleep(1500);
+        }
+      }
+    }
     
     while (hasMorePages) {
+      // Check for stop
+      if (insuranceStopped) {
+        showNotification(`⏹️ Stopped. Processed: ${processed}`);
+        return { stopped: true, processed, failed, skipped, created };
+      }
+      
       console.log(`Processing page ${pageNum}...`);
       showNotification(`📄 Processing page ${pageNum}...`);
       
@@ -1905,7 +1926,33 @@ async function processInsuranceDownload(data) {
       const rows = document.querySelectorAll('tbody[dojoattachpoint="gridBodyNode"] tr');
       console.log(`Found ${rows.length} rows on page ${pageNum}`);
       
-      for (let i = 0; i < rows.length; i++) {
+      // Determine start index (for resume)
+      const rowStartIndex = (pageNum === startPage) ? startRowIndex : 0;
+      
+      for (let i = rowStartIndex; i < rows.length; i++) {
+        // Check for pause
+        if (insurancePaused) {
+          console.log('Paused at row', i, 'page', pageNum);
+          showNotification(`⏸️ Paused. Processed: ${processed}`);
+          // Save state for resume
+          insuranceState = {
+            data,
+            processed,
+            failed,
+            skipped,
+            created,
+            pageNum,
+            rowIndex: i
+          };
+          return { paused: true, processed, failed, skipped, created };
+        }
+        
+        // Check for stop
+        if (insuranceStopped) {
+          showNotification(`⏹️ Stopped. Processed: ${processed}`);
+          return { stopped: true, processed, failed, skipped, created };
+        }
+        
         const row = rows[i];
         
         // Extract passport number and full name from row
@@ -1920,7 +1967,7 @@ async function processInsuranceDownload(data) {
         const fullNameEn = rowData.fullNameEn || '';
         
         console.log(`Processing: ${fullNameEn || passportNo} (${passportNo})`);
-        showNotification(`📄 Processing: ${fullNameEn || passportNo}`);
+        showNotification(`📄 [${processed + 1}] ${fullNameEn || passportNo}`);
         
         try {
           // Step 2a: Select the row
@@ -1955,6 +2002,9 @@ async function processInsuranceDownload(data) {
           failed++;
         }
       }
+      
+      // Reset start index after first page
+      startRowIndex = 0;
       
       // Check for next page
       const nextBtn = document.querySelector('button.mx-name-paging-next:not([disabled])');
