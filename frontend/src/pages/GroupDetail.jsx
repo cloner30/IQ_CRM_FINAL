@@ -906,6 +906,63 @@ export const GroupDetail = () => {
         </CardContent>
       </Card>
 
+      {/* Submission Details */}
+      <Card className="mb-6" data-testid="submission-details-card">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="font-manrope flex items-center gap-2">
+            <FileText className="w-5 h-5 text-indigo-600" />
+            Submission Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div>
+              <Label className="text-slate-700 mb-2 block flex items-center gap-1">
+                <Hash className="w-4 h-4" />
+                Approval Number
+              </Label>
+              <Input
+                type="text"
+                placeholder="Enter approval number"
+                value={approvalNumber}
+                onChange={(e) => setApprovalNumber(e.target.value)}
+                data-testid="input-approval-number"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-700 mb-2 block flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                Date of Payment
+              </Label>
+              <Input
+                type="date"
+                value={dateOfPayment}
+                onChange={(e) => setDateOfPayment(e.target.value)}
+                data-testid="input-date-of-payment"
+              />
+            </div>
+            <div>
+              <Button
+                onClick={handleSaveSubmissionDetails}
+                disabled={savingSubmissionDetails}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white w-full"
+                data-testid="save-submission-details-btn"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {savingSubmissionDetails ? 'Saving...' : 'Save Details'}
+              </Button>
+            </div>
+          </div>
+          {(group?.approval_number || group?.date_of_payment) && (
+            <div className="mt-4 p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
+              <span className="font-medium">Current Values: </span>
+              {group?.approval_number && <span className="mr-4">Approval #: <strong>{group.approval_number}</strong></span>}
+              {group?.date_of_payment && <span>Payment Date: <strong>{group.date_of_payment}</strong></span>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Passports List */}
       <Card data-testid="passports-card">
         <CardHeader className="border-b border-slate-100">
