@@ -1850,6 +1850,7 @@ async function processInsuranceDownload(data) {
   let processed = 0;
   let failed = 0;
   let skipped = 0;
+  let created = 0;  // Track newly created passport records
   
   try {
     // Step 1: Search by Approval Number
@@ -1875,24 +1876,19 @@ async function processInsuranceDownload(data) {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         
-        // Extract passport number from row
-        const passportNo = extractPassportFromRow(row);
-        if (!passportNo) {
+        // Extract passport number and full name from row
+        const rowData = extractDataFromRow(row);
+        if (!rowData.passportNo) {
           console.log(`Row ${i}: Could not extract passport number, skipping`);
           skipped++;
           continue;
         }
         
-        // Check if this passport is in our list
-        const passenger = passports.find(p => p.passport_no === passportNo);
-        if (!passenger) {
-          console.log(`Passport ${passportNo} not in our group, skipping`);
-          skipped++;
-          continue;
-        }
+        const passportNo = rowData.passportNo;
+        const fullNameEn = rowData.fullNameEn || '';
         
-        console.log(`Processing passenger: ${passenger.name} (${passportNo})`);
-        showNotification(`📄 Processing: ${passenger.name}`);
+        console.log(`Processing: ${fullNameEn || passportNo} (${passportNo})`);
+        showNotification(`📄 Processing: ${fullNameEn || passportNo}`);
         
         try {
           // Step 2a: Select the row
@@ -1907,10 +1903,13 @@ async function processInsuranceDownload(data) {
             continue;
           }
           
-          // Step 2c: Download PDF and upload to server
-          const uploadSuccess = await downloadAndUploadPdf(pdfUrl, passportNo, groupId, apiUrl, authToken);
-          if (uploadSuccess) {
+          // Step 2c: Download PDF and upload to server (will create passport record if not exists)
+          const uploadResult = await downloadAndUploadPdf(pdfUrl, passportNo, fullNameEn, groupId, apiUrl, authToken);
+          if (uploadResult.success) {
             processed++;
+            if (uploadResult.created_new) {
+              created++;
+            }
             console.log(`✅ Successfully processed ${passportNo}`);
           } else {
             failed++;
@@ -1938,11 +1937,11 @@ async function processInsuranceDownload(data) {
       }
     }
     
-    const message = `Completed! Processed: ${processed}, Failed: ${failed}, Skipped: ${skipped}`;
+    const message = `Completed! Processed: ${processed}, New records: ${created}, Failed: ${failed}, Skipped: ${skipped}`;
     console.log(message);
     showNotification(`✅ ${message}`);
     
-    return { success: true, processed, failed, skipped, message };
+    return { success: true, processed, failed, skipped, created, message };
     
   } catch (error) {
     console.error('Insurance download error:', error);
