@@ -1,6 +1,11 @@
 // Content script for E-Visa Form Filler Extension
 // This script runs on eservice.evisa.iq and fills the visa application form
 
+// Insurance download state management
+let insurancePaused = false;
+let insuranceStopped = false;
+let insuranceState = null; // Store state for resume
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'fillForm') {
@@ -17,6 +22,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ success: true });
   }
   if (request.action === 'startInsuranceDownload') {
+    insurancePaused = false;
+    insuranceStopped = false;
+    insuranceState = null;
     processInsuranceDownload(request.data).then(result => {
       sendResponse(result);
     }).catch(err => {
@@ -24,6 +32,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: false, error: err.message });
     });
     return true; // Keep channel open for async response
+  }
+  if (request.action === 'pauseInsuranceDownload') {
+    insurancePaused = true;
+    console.log('Insurance download pause requested');
+    sendResponse({ success: true });
+  }
+  if (request.action === 'resumeInsuranceDownload') {
+    insurancePaused = false;
+    if (insuranceState) {
+      resumeInsuranceDownload().then(result => {
+        sendResponse(result);
+      }).catch(err => {
+        console.error('Resume error:', err);
+        sendResponse({ success: false, error: err.message });
+      });
+      return true;
+    } else {
+      sendResponse({ success: false, error: 'No saved state to resume' });
+    }
+  }
+  if (request.action === 'stopInsuranceDownload') {
+    insuranceStopped = true;
+    insurancePaused = false;
+    console.log('Insurance download stop requested');
+    sendResponse({ success: true });
   }
   return true;
 });
