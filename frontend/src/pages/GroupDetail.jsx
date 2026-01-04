@@ -191,6 +191,11 @@ export const GroupDetail = () => {
   const [exporting, setExporting] = useState(false);
   const [groupStats, setGroupStats] = useState({ total: 0, done: 0, pending: 0, progress_percent: 0 });
   const [relationshipProofFile, setRelationshipProofFile] = useState(null);  // For relationship proof upload
+  
+  // Submission details state
+  const [approvalNumber, setApprovalNumber] = useState('');
+  const [dateOfPayment, setDateOfPayment] = useState('');
+  const [savingSubmissionDetails, setSavingSubmissionDetails] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -202,6 +207,9 @@ export const GroupDetail = () => {
       setGroup(groupRes.data);
       setPassports(passportsRes.data);
       setGroupStats(statsRes.data);
+      // Set submission details from group data
+      setApprovalNumber(groupRes.data.approval_number || '');
+      setDateOfPayment(groupRes.data.date_of_payment || '');
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load group data');
@@ -217,6 +225,24 @@ export const GroupDetail = () => {
 
   const resetForm = () => {
     setPassportForm({ ...emptyForm });
+  };
+  
+  // Save submission details handler
+  const handleSaveSubmissionDetails = async () => {
+    setSavingSubmissionDetails(true);
+    try {
+      const response = await api.put(`/groups/${groupId}/submission-details`, {
+        approval_number: approvalNumber || null,
+        date_of_payment: dateOfPayment || null
+      });
+      setGroup(response.data);
+      toast.success('Submission details saved successfully');
+    } catch (error) {
+      console.error('Error saving submission details:', error);
+      toast.error(error.response?.data?.detail || 'Failed to save submission details');
+    } finally {
+      setSavingSubmissionDetails(false);
+    }
   };
 
   const handleAddPassport = async (e) => {
