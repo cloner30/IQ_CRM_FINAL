@@ -177,7 +177,14 @@ async function loadGroups() {
     const response = await apiRequest('/api/groups');
     if (!response.ok) throw new Error('Failed to fetch groups');
     
-    const groups = await response.json();
+    let groups = await response.json();
+    
+    // Sort groups from newest to oldest (by created_at)
+    groups.sort((a, b) => {
+      const dateA = new Date(a.created_at || 0);
+      const dateB = new Date(b.created_at || 0);
+      return dateB - dateA; // Newest first
+    });
     
     groupSelect.innerHTML = '<option value="">-- Select a group --</option>';
     groups.forEach(group => {
@@ -203,6 +210,13 @@ async function loadPassports(groupId) {
     if (!response.ok) throw new Error('Failed to fetch passports');
     
     allPassports = await response.json();
+    
+    // Sort passports from newest to oldest (by created_at)
+    allPassports.sort((a, b) => {
+      const dateA = new Date(a.created_at || 0);
+      const dateB = new Date(b.created_at || 0);
+      return dateB - dateA; // Newest first
+    });
     
     // Update progress bar
     updateProgressBar();
