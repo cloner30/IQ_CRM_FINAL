@@ -719,11 +719,19 @@ async function fillVisaForm(data) {
   await delay(500);
   console.log('=== Filling date fields ===');
   
+  // First, let's log all date-related inputs on the page for debugging
+  logDateInputs();
+  
   // Birth Date
   if (data.birth_date) {
     totalFields++;
     console.log(`Filling birth_date: ${data.birth_date}`);
-    if (fillDateField(FIELD_MAPPING.birth_date, data.birth_date)) {
+    // Try by selector first, then by label
+    let filled = fillDateField(FIELD_MAPPING.birth_date, data.birth_date);
+    if (!filled) {
+      filled = fillDateByLabel('birth', data.birth_date);
+    }
+    if (filled) {
       filledCount++;
       console.log('✓ Birth date filled');
     } else {
@@ -736,7 +744,11 @@ async function fillVisaForm(data) {
   if (data.issue_date) {
     totalFields++;
     console.log(`Filling issue_date: ${data.issue_date}`);
-    if (fillDateField(FIELD_MAPPING.issue_date, data.issue_date)) {
+    let filled = fillDateField(FIELD_MAPPING.issue_date, data.issue_date);
+    if (!filled) {
+      filled = fillDateByLabel('issue', data.issue_date);
+    }
+    if (filled) {
       filledCount++;
       console.log('✓ Issue date filled');
     } else {
@@ -749,7 +761,11 @@ async function fillVisaForm(data) {
   if (data.expiry_date) {
     totalFields++;
     console.log(`Filling expiry_date: ${data.expiry_date}`);
-    if (fillDateField(FIELD_MAPPING.expiry_date, data.expiry_date)) {
+    let filled = fillDateField(FIELD_MAPPING.expiry_date, data.expiry_date);
+    if (!filled) {
+      filled = fillDateByLabel('expir', data.expiry_date);
+    }
+    if (filled) {
       filledCount++;
       console.log('✓ Expiry date filled');
     } else {
