@@ -241,6 +241,30 @@ frontend:
         agent: "testing"
         comment: "✅ COMPREHENSIVE FRONTEND TESTING COMPLETED: Mother's Information section fully functional. All 4 fields present in both Add and Edit forms: Mother Name - English (data-testid='input-mother-name-en'), Mother Name - Arabic (data-testid='input-mother-name-ar'), Mother's Father Name - English (data-testid='input-mother-father-name-en'), Mother's Father Name - Arabic (data-testid='input-mother-father-name-ar'). Fields properly labeled and accessible."
 
+  - task: "Edit Group Page - P0"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/EditGroup.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Edit Group page created with form pre-populated from existing data. Tested: edit page loads, form populated, Save Changes button works, API call succeeds, changes persist to database, success toast displayed, redirect to group detail page works."
+
+  - task: "Passport Scanner Page - P0"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/pages/PassportScanner.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Passport Scanner page loads correctly with mobile-friendly dark theme. Features: group selection dropdown, camera view area, Start Camera button, Upload button, back navigation. Backend OCR endpoint tested and working with nationality mapping from 3-letter codes to full names."
+
   - task: "Add Country of Residence and Applicant Type fields"
     implemented: true
     working: true
