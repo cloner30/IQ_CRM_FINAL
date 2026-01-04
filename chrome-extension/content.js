@@ -641,47 +641,65 @@ function fillDateByLabel(labelKeyword, value) {
   
   console.log(`Trying to find date field by label containing: ${labelKeyword}`);
   
+  // More specific label patterns to avoid wrong matches
+  const labelPatterns = {
+    'birth': ['date of birth', 'birth date', 'dob', 'تاريخ الميلاد'],
+    'issue': ['date of issue', 'issue date', 'issuance date', 'تاريخ الإصدار'],
+    'expir': ['date of expiry', 'expiry date', 'expiration date', 'تاريخ الانتهاء', 'valid until']
+  };
+  
+  const patterns = labelPatterns[labelKeyword] || [labelKeyword];
+  
   // Find all labels
   const labels = document.querySelectorAll('label, .control-label, .mx-label, span[class*="label"]');
   
   for (const label of labels) {
-    const labelText = label.textContent.toLowerCase();
+    const labelText = label.textContent.toLowerCase().trim();
     
-    if (labelText.includes(labelKeyword.toLowerCase())) {
-      console.log(`Found label: "${label.textContent}"`);
+    // Check if label matches any of our patterns
+    const matches = patterns.some(pattern => labelText.includes(pattern.toLowerCase()));
+    
+    // IMPORTANT: Exclude "place of issue" when looking for issue date
+    if (labelKeyword === 'issue' && labelText.includes('place')) {
+      console.log(`Skipping "place of issue" - looking for date field`);
+      continue;
+    }
+    
+    if (matches) {
+      console.log(`Found matching label: "${label.textContent.trim()}"`);
       
-      // Try to find associated input
       // Method 1: Check 'for' attribute
       const forId = label.getAttribute('for');
       if (forId) {
         const input = document.getElementById(forId);
-        if (input) {
+        // Make sure it's a text input (date field), not a select (dropdown)
+        if (input && input.tagName === 'INPUT' && input.type !== 'hidden') {
           console.log(`Found input by 'for' attribute: ${input.id}`);
-          return setInputValue(input, formattedDate);
+          return setDateInputValue(input, formattedDate);
         }
       }
       
       // Method 2: Find input in same container
       const container = label.closest('.form-group, .mx-dataview-content, .mx-dateinput, [class*="date"]');
       if (container) {
-        const input = container.querySelector('input[type="text"], input:not([type="hidden"])');
-        if (input) {
+        const input = container.querySelector('input[type="text"], input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
+        if (input && input.tagName === 'INPUT') {
           console.log(`Found input in same container: ${input.id}`);
-          return setInputValue(input, formattedDate);
+          return setDateInputValue(input, formattedDate);
         }
       }
       
       // Method 3: Find next sibling input
       let sibling = label.nextElementSibling;
       while (sibling) {
-        if (sibling.tagName === 'INPUT') {
+        if (sibling.tagName === 'INPUT' && sibling.type !== 'hidden') {
           console.log(`Found input as sibling: ${sibling.id}`);
-          return setInputValue(sibling, formattedDate);
+          return setDateInputValue(sibling, formattedDate);
         }
-        const nestedInput = sibling.querySelector('input');
+        const nestedInput = sibling.querySelector('input[type="text"], input:not([type="hidden"])');
         if (nestedInput) {
           console.log(`Found nested input: ${nestedInput.id}`);
-          return setInputValue(nestedInput, formattedDate);
+          return setDateInputValue(nestedInput, formattedDate);
         }
         sibling = sibling.nextElementSibling;
       }
@@ -690,6 +708,53 @@ function fillDateByLabel(labelKeyword, value) {
   
   console.log(`Could not find date field by label: ${labelKeyword}`);
   return false;
+}
+
+// Set date input value (separate from general setInputValue to avoid issues)
+function setDateInputValue(input, value) {
+  try {
+    console.log(`Setting date value "${value}" on input: ${input.id || input.name || 'unknown'}`);
+    
+    // Focus the input
+    input.focus();
+    input.click();
+    
+    // Clear existing value
+    input.value = '';
+    
+    // Set value directly first
+    input.value = value;
+    
+    // Try native setter if available
+    try {
+      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      if (nativeSetter) {
+        nativeSetter.call(input, value);
+      }
+    } catch (e) {
+      // Ignore native setter errors
+    }
+    
+    // Dispatch events
+    input.dispatchEvent(new Event('focus', { bubbles: true }));
+    input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', keyCode: 9, bubbles: true }));
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    
+    console.log(`✓ Set date value: ${value}`);
+    return true;
+  } catch (err) {
+    console.error(`Error setting date value: ${err.message}`);
+    // Final fallback
+    try {
+      input.value = value;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 }
 
 // Fill a dropdown/select field
