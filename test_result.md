@@ -318,7 +318,9 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Passport Scanner Page - OCR extraction with nationality mapping"
+    - "Group Edit Functionality - Save Changes persistence"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -326,6 +328,8 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Implemented 6 new passport fields (mother info, residence, applicant type) in backend and frontend. Created complete Chrome extension for e-visa form autofill. Extension needs manual testing in Chrome browser."
+  - agent: "main"
+    message: "P0 Testing Focus: (1) Passport Scanner Page - need to verify OCR extraction works with nationality mapping from 3-letter country codes to full nationality names. Full form should display after extraction. (2) Group Edit Functionality - need to verify the PUT /groups/{group_id} endpoint works and changes persist to database. Test credentials: admin@admin.com / admin123"
   - agent: "testing"
     message: "BACKEND TESTING COMPLETE: All 25 API tests passed successfully. New passport fields (mother_name_en, mother_name_ar, mother_father_name_en, mother_father_name_ar, country_of_residence, applicant_type) are fully functional. ✅ CREATE: New fields save correctly ✅ GET: All fields returned properly ✅ UPDATE: New fields update successfully ✅ CSV Export: All new headers included ✅ Excel Template: Contains all new columns ✅ Bulk Import: Processes new fields correctly. Tested with both new test group and existing ACF12 group. Backend implementation is production-ready."
   - agent: "testing"
