@@ -200,7 +200,10 @@ async function loadGroups() {
     groups.forEach(group => {
       const option = document.createElement('option');
       option.value = group.id;
-      option.textContent = `${group.name} (${group.passport_count || 0} passengers)`;
+      // Show approval number indicator if present
+      const approvalIndicator = group.approval_number ? ' 📄' : '';
+      option.textContent = `${group.name} (${group.passport_count || 0} passengers)${approvalIndicator}`;
+      option.dataset.group = JSON.stringify(group);
       groupSelect.appendChild(option);
     });
     
@@ -212,7 +215,7 @@ async function loadGroups() {
         currentGroupId = lastSelectedGroupId;
         console.log(`Auto-selected last group: ${lastSelectedGroupId}`);
         // Automatically load passports for the last selected group
-        await loadPassports(lastSelectedGroupId);
+        await loadGroupAndPassports(lastSelectedGroupId);
       }
     }
     
@@ -221,6 +224,32 @@ async function loadGroups() {
     console.error('Error loading groups:', error);
     showStatus('Failed to load groups. Check settings.', 'error');
   }
+}
+
+async function loadGroupAndPassports(groupId) {
+  // First fetch the group details to get approval_number
+  try {
+    const groupResponse = await apiRequest(`/api/groups/${groupId}`);
+    if (groupResponse.ok) {
+      currentGroup = await groupResponse.json();
+      console.log('Loaded group:', currentGroup);
+      
+      // Enable/disable insurance button based on approval_number
+      const insuranceBtn = document.getElementById('start-insurance-download');
+      if (currentGroup.approval_number) {
+        insuranceBtn.disabled = false;
+        insuranceBtn.title = `Approval Number: ${currentGroup.approval_number}`;
+      } else {
+        insuranceBtn.disabled = true;
+        insuranceBtn.title = 'No approval number set for this group';
+      }
+    }
+  } catch (error) {
+    console.error('Error loading group details:', error);
+  }
+  
+  // Then load passports
+  await loadPassports(groupId);
 }
 
 async function loadPassports(groupId) {
