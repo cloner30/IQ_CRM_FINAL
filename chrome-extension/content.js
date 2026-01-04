@@ -657,6 +657,11 @@ function fillDropdown(selector, value, mapping = null) {
 // Main function to fill the visa form
 async function fillVisaForm(data) {
   console.log('Starting form fill with data:', data);
+  console.log('Date fields in data:', {
+    birth_date: data.birth_date,
+    issue_date: data.issue_date,
+    expiry_date: data.expiry_date
+  });
   
   let filledCount = 0;
   let totalFields = 0;
@@ -664,18 +669,59 @@ async function fillVisaForm(data) {
   // Helper to add delay
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   
-  // Fill text fields first
+  // Fill text fields first (non-date fields)
   for (const [field, selector] of Object.entries(FIELD_MAPPING)) {
+    if (field.includes('date')) continue; // Skip dates for now, handle separately
+    
     totalFields++;
     const value = data[field];
     if (value !== null && value !== undefined && value !== '') {
-      if (field.includes('date')) {
-        if (fillDateField(selector, value)) filledCount++;
-      } else {
-        if (fillTextField(selector, value)) filledCount++;
-      }
+      if (fillTextField(selector, value)) filledCount++;
     }
     await delay(50); // Small delay between fields
+  }
+  
+  // Fill date fields with more care and delay
+  await delay(500);
+  console.log('=== Filling date fields ===');
+  
+  // Birth Date
+  if (data.birth_date) {
+    totalFields++;
+    console.log(`Filling birth_date: ${data.birth_date}`);
+    if (fillDateField(FIELD_MAPPING.birth_date, data.birth_date)) {
+      filledCount++;
+      console.log('✓ Birth date filled');
+    } else {
+      console.log('✗ Birth date NOT filled');
+    }
+    await delay(300);
+  }
+  
+  // Issue Date
+  if (data.issue_date) {
+    totalFields++;
+    console.log(`Filling issue_date: ${data.issue_date}`);
+    if (fillDateField(FIELD_MAPPING.issue_date, data.issue_date)) {
+      filledCount++;
+      console.log('✓ Issue date filled');
+    } else {
+      console.log('✗ Issue date NOT filled');
+    }
+    await delay(300);
+  }
+  
+  // Expiry Date
+  if (data.expiry_date) {
+    totalFields++;
+    console.log(`Filling expiry_date: ${data.expiry_date}`);
+    if (fillDateField(FIELD_MAPPING.expiry_date, data.expiry_date)) {
+      filledCount++;
+      console.log('✓ Expiry date filled');
+    } else {
+      console.log('✗ Expiry date NOT filled');
+    }
+    await delay(300);
   }
   
   // Fill dropdowns with delays for Mendix to process
