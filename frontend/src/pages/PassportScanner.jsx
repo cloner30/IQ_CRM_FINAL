@@ -101,6 +101,48 @@ const GENDERS = ["Male", "Female"];
 // Passport types (matching e-visa form values)
 const PASSPORT_TYPES = ["Normal", "Temporary", "Diplomatic", "Special", "TravelDoc", "UN", "passage"];
 
+// Countries list (matching e-visa form values exactly)
+const COUNTRIES = [
+  "Afghanistan", "Aland Islands", "Albania", "Algeria", "American Samoa", "Andorra", "Angola",
+  "Anguilla", "Antigua and Barbuda", "Antilles", "Argentina", "Armenia", "Aruba", "Australia",
+  "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium",
+  "Belize", "Benin", "Bermuda", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil",
+  "British Virgin Islands", "Brunei Darussalam", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia",
+  "Cameroon", "Canada", "Cape Verde", "Cayman Islands", "Central African Republic", "Chad", "Chile",
+  "China", "Colombia", "Comoros", "Congo", "Cook Islands", "Costa Rica", "Cote dIvoire", "Croatia",
+  "Cuba", "Cyprus", "Czech Republic", "Democratic Peoples Republic of Korea",
+  "Democratic Republic of the Congo", "Denmark", "Djibouti", "Dominica", "Dominican Republic",
+  "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia",
+  "Faeroe Islands", "Falkland Islands Malvinas", "Fiji", "Finland", "France", "French Guiana",
+  "French Polynesia", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Gibraltar", "Greece",
+  "Greenland", "Grenada", "Guadeloupe", "Guam", "Guatemala", "Guernsey", "Guinea", "Guinea Bissau",
+  "Guyana", "Haiti", "Holy See", "Honduras", "Hong Kong", "Hungary", "Iceland", "India", "Indonesia",
+  "Iran Islamic Republic of", "Iraq", "Ireland", "Isle of Man", "Italy", "Jamaica", "Japan",
+  "Jersey", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan",
+  "Lao Peoples Democratic Republic", "Latvia", "Lebanon", "Lesotho", "Liberia",
+  "Libyan Arab Jamahiriya", "Liechtenstein", "Lithuania", "Luxembourg", "Macao", "Madagascar",
+  "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Mariana Islands", "Marshall Islands",
+  "Martinique", "Mauritania", "Mauritius", "Mayotte", "Mexico", "Micronesia", "Moldova", "Monaco",
+  "Mongolia", "Montenegro", "Montserrat", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru",
+  "Nepal", "Netherlands", "New Caledonia", "New Zealand", "Nicaragua", "Niger", "Nigeria", "Niue",
+  "Norfolk Island", "Norway", "Oman", "Pakistan", "Palau", "Palestinian", "Panama",
+  "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Pitcairn", "Poland", "Portugal",
+  "Puerto Rico", "Qatar", "Republic of Korea", "Republic of Macedonia", "Romania", "Runion",
+  "Russian Federation", "Rwanda", "Saint Barthelemy", "Saint Helena", "Saint Kitts", "Saint Lucia",
+  "Saint Martin", "Saint Pierre and Miquelon", "Saint Vincent", "Samoa", "San Marino", "Sao Tome",
+  "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leonean", "Singapore", "Slovakia",
+  "Slovenia", "Solomon Islands", "Somalia", "South Africa", "Spain", "Sri Lanka", "Sudan",
+  "Suriname", "Svalbard Islands", "Swaziland", "Sweden", "Switzerland", "Syrian Arab Republic",
+  "Tajikistan", "Thailand", "Timor Leste", "Togo", "Tokelau", "Tonga", "Trinidad and Tobago",
+  "Tunisia", "Turkey", "Turkmenistan", "Turks Islands", "Tuvalu", "Uganda", "Ukraine",
+  "United Arab Emirates", "United Kingdom of Great Britain", "United Republic of Tanzania",
+  "United States of America", "Uruguay", "Uzbekistan", "Vanuatu", "Venezuela Bolivarian Republic",
+  "Viet Nam", "Virgin Islands", "Wallis Islands", "Western Sahara", "Yemen", "Zambia", "Zimbabwe"
+];
+
+// Professions list (matching e-visa form values)
+const PROFESSIONS = ["Physician", "Engineer", "other"];
+
 // Empty form template with default passport type
 const EMPTY_FORM = {
   passport_no: '',
