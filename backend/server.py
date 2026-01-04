@@ -306,7 +306,49 @@ class PassportUpdate(BaseModel):
     profession: Optional[str] = None
     country_of_residence: Optional[str] = None
     applicant_type: Optional[str] = None
+    relationship_proof: Optional[str] = None  # S3 URL for relationship proof
     status: Optional[str] = None
+
+# Helper function to calculate age from birth_date
+def calculate_age(birth_date_str: str) -> int:
+    """Calculate age from birth date string (YYYY-MM-DD format)"""
+    if not birth_date_str:
+        return 99  # Default to adult if no birth date
+    try:
+        # Handle various date formats
+        if '-' in birth_date_str:
+            birth_date = datetime.strptime(birth_date_str.split('T')[0], '%Y-%m-%d')
+        elif '/' in birth_date_str:
+            parts = birth_date_str.split('/')
+            if len(parts[2]) == 4:  # m/d/yyyy
+                birth_date = datetime.strptime(birth_date_str, '%m/%d/%Y')
+            else:  # m/d/yy
+                birth_date = datetime.strptime(birth_date_str, '%m/%d/%y')
+        else:
+            return 99
+        
+        today = datetime.now()
+        age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        return age
+    except Exception as e:
+        logging.warning(f"Could not parse birth date '{birth_date_str}': {e}")
+        return 99  # Default to adult on error
+
+def is_minor(birth_date_str: str) -> bool:
+    """Check if person is under 18 years old"""
+    return calculate_age(birth_date_str) < 18
+
+def get_applicant_type(birth_date_str: str, gender: str) -> str:
+    """Get applicant type based on age and gender"""
+    if not is_minor(birth_date_str):
+        return ""  # Empty for adults
+    
+    gender_lower = (gender or "").lower()
+    if gender_lower in ["male", "m"]:
+        return "Son"
+    elif gender_lower in ["female", "f"]:
+        return "Daughter"
+    return ""  # Default to empty if gender unknown
 
 # ============ USER MODELS ============
 class UserCreate(BaseModel):
