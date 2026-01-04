@@ -1190,10 +1190,12 @@ async def upload_insurance_pdf(
 async def upload_insurance_pdf_by_passport_no(
     passport_no: str = Form(...),
     group_id: str = Form(...),
+    full_name_en: str = Form(None),  # Optional: Full name from e-visa page
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Upload insurance PDF for a passport by passport number (used by Chrome extension)"""
+    """Upload insurance PDF for a passport by passport number (used by Chrome extension).
+    If passport doesn't exist in the group, it will be created automatically."""
     # Verify group exists
     group = await db.groups.find_one({"id": group_id})
     if not group:
@@ -1201,8 +1203,43 @@ async def upload_insurance_pdf_by_passport_no(
     
     # Find passport by passport_no and group_id
     passport = await db.passports.find_one({"passport_no": passport_no, "group_id": group_id})
+    
+    # If passport doesn't exist, create it automatically
     if not passport:
-        raise HTTPException(status_code=404, detail=f"Passport {passport_no} not found in group")
+        # Parse full name if provided
+        first_name_en = ""
+        surname_en = ""
+        if full_name_en:
+            name_parts = full_name_en.strip().split()
+            if len(name_parts) >= 2:
+                first_name_en = name_parts[0]
+                surname_en = " ".join(name_parts[1:])
+            elif len(name_parts) == 1:
+                first_name_en = name_parts[0]
+        
+        # Create new passport record
+        new_passport = {
+            "id": str(uuid.uuid4()),
+            "group_id": group_id,
+            "passport_no": passport_no,
+            "first_name_en": first_name_en,
+            "surname_en": surname_en,
+            "nationality": "",
+            "expiry_date": "",
+            "status": "done",  # Mark as done since visa was already processed
+            "status_updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.passports.insert_one(new_passport)
+        
+        # Update group passport count
+        await db.groups.update_one(
+            {"id": group_id},
+            {"$inc": {"passport_count": 1}}
+        )
+        
+        passport = new_passport
+        logging.info(f"Created new passport record for {passport_no} in group {group_id}")
     
     # Validate file type - allow PDF
     filename = file.filename.lower()
@@ -1228,7 +1265,8 @@ async def upload_insurance_pdf_by_passport_no(
                     "success": True, 
                     "message": f"Insurance PDF uploaded for {passport_no}", 
                     "url": presigned_url,
-                    "passport_id": passport["id"]
+                    "passport_id": passport["id"],
+                    "created_new": passport.get("created_at") == passport.get("status_updated_at")  # Indicates if newly created
                 }
             else:
                 raise HTTPException(status_code=500, detail="S3 upload failed")
