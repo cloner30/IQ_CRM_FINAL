@@ -520,6 +520,43 @@ async def update_group(group_id: str, group_data: GroupCreate, current_user: dic
     
     return group
 
+@api_router.put("/groups/{group_id}/submission-details", response_model=Group)
+async def update_group_submission_details(
+    group_id: str, 
+    submission_data: GroupSubmissionDetails, 
+    current_user: dict = Depends(get_current_user)
+):
+    """Update approval number and date of payment for a group"""
+    # Check if group exists
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Build update dict with only non-None values
+    update_data = {}
+    if submission_data.approval_number is not None:
+        update_data["approval_number"] = submission_data.approval_number
+    if submission_data.date_of_payment is not None:
+        update_data["date_of_payment"] = submission_data.date_of_payment
+    
+    if update_data:
+        await db.groups.update_one(
+            {"id": group_id},
+            {"$set": update_data}
+        )
+    
+    # Fetch and return updated group
+    group = await db.groups.find_one({"id": group_id}, {"_id": 0})
+    
+    # Add client name
+    if group.get("client_id"):
+        client = await db.clients.find_one({"id": group["client_id"]}, {"_id": 0, "name": 1})
+        group["client_name"] = client["name"] if client else "Unknown"
+    else:
+        group["client_name"] = None
+    
+    return group
+
 @api_router.delete("/groups/{group_id}")
 async def delete_group(group_id: str, current_user: dict = Depends(get_current_user)):
     await db.passports.delete_many({"group_id": group_id})
