@@ -88,6 +88,7 @@ function setupEventListeners() {
     const fillBtn = document.getElementById('fill-form-btn');
     const markDoneBtn = document.getElementById('mark-done-btn');
     const progressBar = document.getElementById('group-progress');
+    const insuranceBtn = document.getElementById('start-insurance-download');
     
     if (!groupId) {
       passportSelect.disabled = true;
@@ -96,14 +97,16 @@ function setupEventListeners() {
       progressBar.classList.add('hidden');
       fillBtn.disabled = true;
       markDoneBtn.disabled = true;
+      insuranceBtn.disabled = true;
       selectedPassport = null;
       currentGroupId = null;
+      currentGroup = null;
       allPassports = [];
       return;
     }
     
     currentGroupId = groupId;
-    await loadPassports(groupId);
+    await loadGroupAndPassports(groupId);
   });
   
   // Status filter change
