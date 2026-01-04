@@ -635,6 +635,19 @@ function updateInsuranceProgress(current, total) {
   progressFill.style.width = `${(current / total) * 100}%`;
 }
 
+function showInsuranceButtons(state) {
+  // state: 'idle', 'running', 'paused'
+  const startBtn = document.getElementById('start-insurance-download');
+  const pauseBtn = document.getElementById('pause-insurance-download');
+  const resumeBtn = document.getElementById('resume-insurance-download');
+  const stopBtn = document.getElementById('stop-insurance-download');
+  
+  startBtn.classList.toggle('hidden', state !== 'idle');
+  pauseBtn.classList.toggle('hidden', state !== 'running');
+  resumeBtn.classList.toggle('hidden', state !== 'paused');
+  stopBtn.classList.toggle('hidden', state === 'idle');
+}
+
 async function startInsuranceDownload() {
   if (!currentGroup || !currentGroup.approval_number) {
     showInsuranceStatus('No approval number set for this group. Please set it in the web app first.', 'error');
@@ -657,11 +670,11 @@ async function startInsuranceDownload() {
     return;
   }
   
+  currentTabId = tab.id;
   insuranceDownloadInProgress = true;
-  const insuranceBtn = document.getElementById('start-insurance-download');
-  insuranceBtn.disabled = true;
-  insuranceBtn.innerHTML = '<span class="btn-icon">⏳</span> Downloading...';
+  insuranceDownloadPaused = false;
   
+  showInsuranceButtons('running');
   showInsuranceStatus('Injecting content script...', 'loading');
   
   try {
@@ -701,6 +714,13 @@ async function startInsuranceDownload() {
       showInsuranceStatus(statusMsg, 'success');
       // Refresh passports to show updated data
       await loadGroupAndPassports(currentGroupId);
+    } else if (response && response.paused) {
+      showInsuranceStatus(`⏸️ Paused. Processed: ${response.processed || 0}. Click Resume to continue.`, 'info');
+      insuranceDownloadPaused = true;
+      showInsuranceButtons('paused');
+      return; // Don't reset state
+    } else if (response && response.stopped) {
+      showInsuranceStatus(`⏹️ Stopped. Processed: ${response.processed || 0} PDFs.`, 'info');
     } else {
       showInsuranceStatus(`Download completed with issues: ${response?.message || 'Unknown error'}`, 'error');
     }
@@ -713,8 +733,71 @@ async function startInsuranceDownload() {
       showInsuranceStatus(`Error: ${error.message}`, 'error');
     }
   } finally {
-    insuranceDownloadInProgress = false;
-    insuranceBtn.disabled = false;
-    insuranceBtn.innerHTML = '<span class="btn-icon">📥</span> Start Insurance Download';
+    if (!insuranceDownloadPaused) {
+      insuranceDownloadInProgress = false;
+      showInsuranceButtons('idle');
+    }
   }
+}
+
+async function pauseInsuranceDownload() {
+  if (!insuranceDownloadInProgress || !currentTabId) return;
+  
+  try {
+    await chrome.tabs.sendMessage(currentTabId, { action: 'pauseInsuranceDownload' });
+    showInsuranceStatus('⏸️ Pausing... Will pause after current passenger.', 'loading');
+  } catch (error) {
+    console.error('Error pausing:', error);
+  }
+}
+
+async function resumeInsuranceDownload() {
+  if (!insuranceDownloadPaused || !currentTabId) return;
+  
+  insuranceDownloadPaused = false;
+  showInsuranceButtons('running');
+  showInsuranceStatus('▶️ Resuming download...', 'loading');
+  
+  try {
+    const response = await chrome.tabs.sendMessage(currentTabId, { action: 'resumeInsuranceDownload' });
+    
+    if (response && response.success) {
+      let statusMsg = `✅ Completed! ${response.processed || 0} PDFs saved.`;
+      if (response.created) {
+        statusMsg += ` (${response.created} new passengers created)`;
+      }
+      showInsuranceStatus(statusMsg, 'success');
+      await loadGroupAndPassports(currentGroupId);
+    } else if (response && response.paused) {
+      showInsuranceStatus(`⏸️ Paused. Processed: ${response.processed || 0}. Click Resume to continue.`, 'info');
+      insuranceDownloadPaused = true;
+      showInsuranceButtons('paused');
+      return;
+    } else if (response && response.stopped) {
+      showInsuranceStatus(`⏹️ Stopped. Processed: ${response.processed || 0} PDFs.`, 'info');
+    }
+  } catch (error) {
+    console.error('Error resuming:', error);
+    showInsuranceStatus(`Error: ${error.message}`, 'error');
+  } finally {
+    if (!insuranceDownloadPaused) {
+      insuranceDownloadInProgress = false;
+      showInsuranceButtons('idle');
+    }
+  }
+}
+
+async function stopInsuranceDownload() {
+  if (!currentTabId) return;
+  
+  try {
+    await chrome.tabs.sendMessage(currentTabId, { action: 'stopInsuranceDownload' });
+    showInsuranceStatus('⏹️ Stopping...', 'loading');
+  } catch (error) {
+    console.error('Error stopping:', error);
+  }
+  
+  insuranceDownloadInProgress = false;
+  insuranceDownloadPaused = false;
+  showInsuranceButtons('idle');
 }
