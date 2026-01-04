@@ -1331,17 +1331,52 @@ function navigateToAttachmentTab() {
   return false;
 }
 
-// Select attachment row in the grid
-function selectAttachmentRow(attachmentName) {
-  const rows = document.querySelectorAll('.mx-datagrid tbody tr');
+// Select attachment row in the grid - MUST be done before clicking Upload
+async function selectAttachmentRow(attachmentName) {
+  console.log(`Attempting to select row: ${attachmentName}`);
+  
+  // Try multiple selectors for the grid rows
+  const rows = document.querySelectorAll('.mx-datagrid tbody tr, .mx-listview-list tr, table tbody tr');
+  console.log(`Found ${rows.length} rows in grid`);
+  
   for (const row of rows) {
-    const cell = row.querySelector('td');
-    if (cell && cell.textContent.includes(attachmentName)) {
+    const cells = row.querySelectorAll('td');
+    let found = false;
+    
+    for (const cell of cells) {
+      const text = cell.textContent.trim();
+      if (text.toLowerCase().includes(attachmentName.toLowerCase())) {
+        found = true;
+        break;
+      }
+    }
+    
+    if (found) {
+      // Click on the row to select it
       row.click();
-      console.log(`Selected row: ${attachmentName}`);
+      console.log(`Clicked on row: ${attachmentName}`);
+      
+      // Also try clicking the first cell
+      const firstCell = row.querySelector('td');
+      if (firstCell) {
+        firstCell.click();
+      }
+      
+      // Add selected class if needed
+      row.classList.add('selected', 'mx-datagrid-selected');
+      
+      // Dispatch events to ensure selection is registered
+      row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      row.dispatchEvent(new Event('select', { bubbles: true }));
+      
+      console.log(`✓ Selected row: ${attachmentName}`);
+      
+      // Wait for selection to be processed
+      await sleep(500);
       return true;
     }
   }
+  
   console.log(`Row not found: ${attachmentName}`);
   return false;
 }
@@ -1351,13 +1386,26 @@ async function clickUploadAndSetFile(file, attachmentType = 'Personal Image') {
   return new Promise(async (resolve) => {
     console.log(`Starting upload for attachment type: ${attachmentType}`);
     
+    // IMPORTANT: Verify row is selected before uploading
+    const selectedRow = document.querySelector('.mx-datagrid-selected, .mx-datagrid tbody tr.selected, tr[class*="selected"]');
+    if (selectedRow) {
+      console.log(`Row selected before upload: ${selectedRow.textContent.substring(0, 50)}...`);
+    } else {
+      console.log('WARNING: No row appears to be selected');
+    }
+    
     // Find the Upload button in the grid toolbar
-    const uploadBtn = document.querySelector('button.mx-name-actionButton1');
+    const uploadBtn = document.querySelector('button.mx-name-actionButton1') ||
+                     document.querySelector('button[class*="upload"]') ||
+                     document.querySelector('.mx-datagrid-toolbar button:first-child');
+    
     if (!uploadBtn) {
       console.log('Upload button not found');
       resolve(false);
       return;
     }
+    
+    console.log(`Found upload button: ${uploadBtn.textContent || uploadBtn.className}`);
     
     // Click the upload button to open the popup
     uploadBtn.click();
