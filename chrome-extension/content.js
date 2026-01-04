@@ -964,12 +964,25 @@ async function fillVisaForm(data) {
     await delay(200);
   }
   
-  // Applicant Type (E-visa uses: "", "Son", "Daughter")
-  if (data.applicant_type) {
-    totalFields++;
-    if (fillDropdown(DROPDOWN_MAPPING.applicant_type, data.applicant_type, APPLICANT_TYPE_MAP)) filledCount++;
-    await delay(200);
+  // Applicant Type - AUTO-CALCULATED based on age and gender
+  // Adults (18+): None/Empty
+  // Minors (<18) Male: Son
+  // Minors (<18) Female: Daughter
+  totalFields++;
+  const autoApplicantType = getApplicantType(data.birth_date, data.gender);
+  console.log(`Auto-calculated applicant type: Age=${calculateAge(data.birth_date)}, Gender=${data.gender}, Type=${autoApplicantType || '(None - Adult)'}`);
+  
+  if (autoApplicantType) {
+    if (fillDropdown(DROPDOWN_MAPPING.applicant_type, autoApplicantType, APPLICANT_TYPE_MAP)) {
+      filledCount++;
+      console.log(`✓ Applicant type set to: ${autoApplicantType}`);
+    }
+  } else {
+    // Leave empty for adults
+    console.log('✓ Applicant type: None (Adult)');
+    filledCount++; // Count as success since we intentionally left it empty
   }
+  await delay(200);
   
   // ========== DEFAULT ACCOMMODATION VALUES ==========
   console.log('=== Filling accommodation fields ===');
