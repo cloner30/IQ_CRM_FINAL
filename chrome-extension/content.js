@@ -2023,12 +2023,34 @@ async function processInsuranceDownload(data, resumeFrom = null) {
     console.log(message);
     showNotification(`✅ ${message}`);
     
+    // Clear state on completion
+    insuranceState = null;
+    
     return { success: true, processed, failed, skipped, created, message };
     
   } catch (error) {
     console.error('Insurance download error:', error);
     return { success: false, message: error.message };
   }
+}
+
+// Resume function for insurance download
+async function resumeInsuranceDownload() {
+  if (!insuranceState) {
+    return { success: false, message: 'No saved state to resume from' };
+  }
+  
+  console.log('Resuming insurance download from saved state:', insuranceState);
+  showNotification(`▶️ Resuming from row ${insuranceState.rowIndex} on page ${insuranceState.pageNum}...`);
+  
+  return processInsuranceDownload(insuranceState.data, {
+    processed: insuranceState.processed,
+    failed: insuranceState.failed,
+    skipped: insuranceState.skipped,
+    created: insuranceState.created,
+    pageNum: insuranceState.pageNum,
+    rowIndex: insuranceState.rowIndex
+  });
 }
 
 async function searchByApprovalNumber(approvalNumber) {
