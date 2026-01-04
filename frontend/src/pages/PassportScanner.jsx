@@ -517,99 +517,276 @@ export const PassportScanner = () => {
         {/* Hidden canvas for capture */}
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* Extracted Data Form */}
-        {extractedData && (
+        {/* Complete Passport Form */}
+        {formData && (
           <div className="bg-slate-800 rounded-xl p-4 space-y-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Check className="w-5 h-5 text-green-500" />
-              Extracted Data
+              Passport Details
             </h2>
             
             <p className="text-xs text-slate-400">
-              Review and edit the extracted data before saving
+              Review extracted data and fill in remaining fields. Fields marked with * are required.
             </p>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-slate-400 text-xs">Passport No *</Label>
-                <Input
-                  value={extractedData.passport_no || ''}
-                  onChange={(e) => updateExtractedField('passport_no', e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white mt-1"
-                />
+
+            {/* Basic Information */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-slate-300 border-b border-slate-700 pb-2">Basic Information</h3>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">Passport No *</Label>
+                  <Input
+                    value={formData.passport_no}
+                    onChange={(e) => updateField('passport_no', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                    placeholder="e.g., AB1234567"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Passport Type</Label>
+                  <Select value={formData.passport_type} onValueChange={(v) => updateField('passport_type', v)}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PASSPORT_TYPES.map(type => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <Label className="text-slate-400 text-xs">Nationality *</Label>
-                <Input
-                  value={extractedData.nationality || ''}
-                  onChange={(e) => updateExtractedField('nationality', e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white mt-1"
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">First Name (EN) *</Label>
+                  <Input
+                    value={formData.first_name_en}
+                    onChange={(e) => updateField('first_name_en', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Surname (EN) *</Label>
+                  <Input
+                    value={formData.surname_en}
+                    onChange={(e) => updateField('surname_en', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
               </div>
-              <div>
-                <Label className="text-slate-400 text-xs">First Name *</Label>
-                <Input
-                  value={extractedData.first_name_en || ''}
-                  onChange={(e) => updateExtractedField('first_name_en', e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white mt-1"
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">Father Name (EN)</Label>
+                  <Input
+                    value={formData.father_name_en}
+                    onChange={(e) => updateField('father_name_en', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Grandfather Name (EN)</Label>
+                  <Input
+                    value={formData.grandfather_name_en}
+                    onChange={(e) => updateField('grandfather_name_en', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
               </div>
-              <div>
-                <Label className="text-slate-400 text-xs">Surname *</Label>
-                <Input
-                  value={extractedData.surname_en || ''}
-                  onChange={(e) => updateExtractedField('surname_en', e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white mt-1"
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">Nationality *</Label>
+                  <Select value={formData.nationality} onValueChange={(v) => updateField('nationality', v)}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                      <SelectValue placeholder="Select nationality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NATIONALITIES.map(nat => (
+                        <SelectItem key={nat} value={nat}>{nat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Gender</Label>
+                  <Select value={formData.gender} onValueChange={(v) => updateField('gender', v)}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GENDERS.map(g => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <Label className="text-slate-400 text-xs">Father Name</Label>
-                <Input
-                  value={extractedData.father_name_en || ''}
-                  onChange={(e) => updateExtractedField('father_name_en', e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white mt-1"
-                />
+            </div>
+
+            {/* Arabic Names */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-slate-300 border-b border-slate-700 pb-2">Arabic Names</h3>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">First Name (AR)</Label>
+                  <Input
+                    value={formData.first_name_ar}
+                    onChange={(e) => updateField('first_name_ar', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Surname (AR)</Label>
+                  <Input
+                    value={formData.surname_ar}
+                    onChange={(e) => updateField('surname_ar', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
+                    dir="rtl"
+                  />
+                </div>
               </div>
-              <div>
-                <Label className="text-slate-400 text-xs">Gender</Label>
-                <Input
-                  value={extractedData.gender || ''}
-                  onChange={(e) => updateExtractedField('gender', e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white mt-1"
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">Father Name (AR)</Label>
+                  <Input
+                    value={formData.father_name_ar}
+                    onChange={(e) => updateField('father_name_ar', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Grandfather (AR)</Label>
+                  <Input
+                    value={formData.grandfather_name_ar}
+                    onChange={(e) => updateField('grandfather_name_ar', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
+                    dir="rtl"
+                  />
+                </div>
               </div>
-              <div>
-                <Label className="text-slate-400 text-xs">Birth Date</Label>
-                <Input
-                  type="date"
-                  value={extractedData.birth_date || ''}
-                  onChange={(e) => updateExtractedField('birth_date', e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white mt-1"
-                />
+            </div>
+
+            {/* Mother's Information */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-slate-300 border-b border-slate-700 pb-2">Mother's Information</h3>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">Mother Name (EN)</Label>
+                  <Input
+                    value={formData.mother_name_en}
+                    onChange={(e) => updateField('mother_name_en', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Mother Name (AR)</Label>
+                  <Input
+                    value={formData.mother_name_ar}
+                    onChange={(e) => updateField('mother_name_ar', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
+                    dir="rtl"
+                  />
+                </div>
               </div>
-              <div>
-                <Label className="text-slate-400 text-xs">Expiry Date *</Label>
-                <Input
-                  type="date"
-                  value={extractedData.expiry_date || ''}
-                  onChange={(e) => updateExtractedField('expiry_date', e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white mt-1"
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">Mother's Father (EN)</Label>
+                  <Input
+                    value={formData.mother_father_name_en}
+                    onChange={(e) => updateField('mother_father_name_en', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Mother's Father (AR)</Label>
+                  <Input
+                    value={formData.mother_father_name_ar}
+                    onChange={(e) => updateField('mother_father_name_ar', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
+                    dir="rtl"
+                  />
+                </div>
               </div>
-              <div className="col-span-2">
-                <Label className="text-slate-400 text-xs">Place of Issue</Label>
-                <Input
-                  value={extractedData.place_of_issue || ''}
-                  onChange={(e) => updateExtractedField('place_of_issue', e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white mt-1"
-                />
+            </div>
+
+            {/* Dates & Other Info */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-slate-300 border-b border-slate-700 pb-2">Dates & Other Details</h3>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">Birth Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.birth_date}
+                    onChange={(e) => updateField('birth_date', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Expiry Date *</Label>
+                  <Input
+                    type="date"
+                    value={formData.expiry_date}
+                    onChange={(e) => updateField('expiry_date', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">Issue Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.issue_date}
+                    onChange={(e) => updateField('issue_date', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Place of Issue</Label>
+                  <Input
+                    value={formData.place_of_issue}
+                    onChange={(e) => updateField('place_of_issue', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-400 text-xs">Profession</Label>
+                  <Input
+                    value={formData.profession}
+                    onChange={(e) => updateField('profession', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Country of Residence</Label>
+                  <Input
+                    value={formData.country_of_residence}
+                    onChange={(e) => updateField('country_of_residence', e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white mt-1"
+                  />
+                </div>
               </div>
             </div>
             
             <Button
               onClick={savePassport}
               disabled={saving || !selectedGroup}
-              className="w-full bg-green-600 hover:bg-green-700"
+              className="w-full bg-green-600 hover:bg-green-700 mt-4"
             >
               {saving ? (
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
