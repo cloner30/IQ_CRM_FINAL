@@ -381,30 +381,46 @@ const APPLICANT_TYPE_MAP = {
   'Daughter': 'Daughter'
 };
 
-// Convert date to m/d/yyyy format
+// Convert date to m/d/yyyy format (e.g., 1/15/2025)
 function formatDate(dateStr) {
   if (!dateStr) return '';
+  
+  console.log(`Formatting date: ${dateStr}`);
   
   // Handle various input formats
   let date;
   if (dateStr.includes('-')) {
-    // YYYY-MM-DD format
+    // YYYY-MM-DD format (from our app)
     const parts = dateStr.split('-');
-    date = new Date(parts[0], parts[1] - 1, parts[2]);
+    if (parts.length === 3) {
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1; // JS months are 0-indexed
+      const day = parseInt(parts[2]);
+      date = new Date(year, month, day);
+    }
   } else if (dateStr.includes('/')) {
-    // Already in some slash format
-    return dateStr;
+    // Already in slash format - check if it needs conversion
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      // Could be m/d/yyyy or d/m/yyyy - assume m/d/yyyy
+      return dateStr;
+    }
   } else {
     date = new Date(dateStr);
   }
   
-  if (isNaN(date.getTime())) return dateStr;
+  if (!date || isNaN(date.getTime())) {
+    console.log(`Invalid date: ${dateStr}`);
+    return dateStr;
+  }
   
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
+  const month = date.getMonth() + 1; // No leading zero
+  const day = date.getDate(); // No leading zero
   const year = date.getFullYear();
   
-  return `${month}/${day}/${year}`;
+  const formatted = `${month}/${day}/${year}`;
+  console.log(`Formatted date: ${dateStr} -> ${formatted}`);
+  return formatted;
 }
 
 // Fill a text input field
