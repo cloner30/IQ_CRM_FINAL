@@ -75,6 +75,9 @@ function AppRoutes() {
       <Route path="/groups/:groupId/edit" element={<ProtectedRoute><EditGroup /></ProtectedRoute>} />
       <Route path="/groups/:groupId/upload" element={<ProtectedRoute><BulkUpload /></ProtectedRoute>} />
       
+      {/* Mobile Scanner - No sidebar layout */}
+      <Route path="/scanner" element={<ProtectedRoute noLayout><PassportScanner /></ProtectedRoute>} />
+      
       {/* Admin Only Routes */}
       <Route path="/users" element={<ProtectedRoute adminOnly><UsersManagement /></ProtectedRoute>} />
       <Route path="/clients" element={<ProtectedRoute adminOnly><ClientsManagement /></ProtectedRoute>} />
