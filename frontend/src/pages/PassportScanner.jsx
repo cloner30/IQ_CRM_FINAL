@@ -14,6 +14,88 @@ import { toast } from 'sonner';
 import api from '../utils/api';
 import { Camera, RotateCcw, Check, X, Loader2, Upload, ScanLine, ArrowLeft } from 'lucide-react';
 
+// Country code to nationality mapping
+const COUNTRY_CODE_TO_NATIONALITY = {
+  'AFG': 'Afghan', 'ALB': 'Albanian', 'DZA': 'Algerian', 'AND': 'Andorran', 'AGO': 'Angolan',
+  'ARG': 'Argentine', 'ARM': 'Armenian', 'AUS': 'Australian', 'AUT': 'Austrian', 'AZE': 'Azerbaijani',
+  'BHR': 'Bahraini', 'BGD': 'Bangladeshi', 'BLR': 'Belarusian', 'BEL': 'Belgian', 'BTN': 'Bhutanese',
+  'BOL': 'Bolivian', 'BIH': 'Bosnian', 'BRA': 'Brazilian', 'BRN': 'Bruneian', 'BGR': 'Bulgarian',
+  'KHM': 'Cambodian', 'CMR': 'Cameroonian', 'CAN': 'Canadian', 'TCD': 'Chadian', 'CHL': 'Chilean',
+  'CHN': 'Chinese', 'COL': 'Colombian', 'CRI': 'Costa Rican', 'HRV': 'Croatian', 'CUB': 'Cuban',
+  'CYP': 'Cypriot', 'CZE': 'Czech', 'DNK': 'Danish', 'ECU': 'Ecuadorian', 'EGY': 'Egyptian',
+  'EST': 'Estonian', 'ETH': 'Ethiopian', 'FIN': 'Finnish', 'FRA': 'French', 'GEO': 'Georgian',
+  'DEU': 'German', 'GHA': 'Ghanaian', 'GRC': 'Greek', 'GTM': 'Guatemalan', 'HND': 'Honduran',
+  'HKG': 'Hong Konger', 'HUN': 'Hungarian', 'ISL': 'Icelandic', 'IND': 'Indian', 'IDN': 'Indonesian',
+  'IRN': 'Iranian', 'IRQ': 'Iraqi', 'IRL': 'Irish', 'ISR': 'Israeli', 'ITA': 'Italian',
+  'JPN': 'Japanese', 'JOR': 'Jordanian', 'KAZ': 'Kazakhstani', 'KEN': 'Kenyan', 'KWT': 'Kuwaiti',
+  'KGZ': 'Kyrgyzstani', 'LVA': 'Latvian', 'LBN': 'Lebanese', 'LBY': 'Libyan', 'LTU': 'Lithuanian',
+  'LUX': 'Luxembourger', 'MYS': 'Malaysian', 'MDV': 'Maldivian', 'MLT': 'Maltese', 'MEX': 'Mexican',
+  'MDA': 'Moldovan', 'MCO': 'Monacan', 'MNG': 'Mongolian', 'MAR': 'Moroccan', 'MMR': 'Myanmar',
+  'NPL': 'Nepalese', 'NLD': 'Dutch', 'NZL': 'New Zealander', 'NGA': 'Nigerian', 'PRK': 'North Korean',
+  'NOR': 'Norwegian', 'OMN': 'Omani', 'PAK': 'Pakistani', 'PSE': 'Palestinian', 'PAN': 'Panamanian',
+  'PER': 'Peruvian', 'PHL': 'Filipino', 'POL': 'Polish', 'PRT': 'Portuguese', 'QAT': 'Qatari',
+  'ROU': 'Romanian', 'RUS': 'Russian', 'SAU': 'Saudi', 'SRB': 'Serbian', 'SGP': 'Singaporean',
+  'SVK': 'Slovak', 'SVN': 'Slovenian', 'SOM': 'Somali', 'ZAF': 'South African', 'KOR': 'South Korean',
+  'ESP': 'Spanish', 'LKA': 'Sri Lankan', 'SDN': 'Sudanese', 'SWE': 'Swedish', 'CHE': 'Swiss',
+  'SYR': 'Syrian', 'TWN': 'Taiwanese', 'TJK': 'Tajikistani', 'TZA': 'Tanzanian', 'THA': 'Thai',
+  'TUN': 'Tunisian', 'TUR': 'Turkish', 'TKM': 'Turkmen', 'ARE': 'Emirati', 'UGA': 'Ugandan',
+  'UKR': 'Ukrainian', 'GBR': 'British', 'USA': 'American', 'URY': 'Uruguayan', 'UZB': 'Uzbekistani',
+  'VEN': 'Venezuelan', 'VNM': 'Vietnamese', 'YEM': 'Yemeni', 'ZMB': 'Zambian', 'ZWE': 'Zimbabwean'
+};
+
+// Nationality options for dropdown
+const NATIONALITIES = [
+  "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan", "Argentine", "Armenian",
+  "Australian", "Austrian", "Azerbaijani", "Bahraini", "Bangladeshi", "Belarusian", "Belgian",
+  "Bhutanese", "Bolivian", "Bosnian", "Brazilian", "British", "Bruneian", "Bulgarian", "Cambodian",
+  "Cameroonian", "Canadian", "Chadian", "Chilean", "Chinese", "Colombian", "Costa Rican", "Croatian",
+  "Cuban", "Cypriot", "Czech", "Danish", "Dutch", "Ecuadorian", "Egyptian", "Emirati", "Estonian",
+  "Ethiopian", "Filipino", "Finnish", "French", "Georgian", "German", "Ghanaian", "Greek",
+  "Guatemalan", "Honduran", "Hungarian", "Icelandic", "Indian", "Indonesian", "Iranian", "Iraqi",
+  "Irish", "Israeli", "Italian", "Japanese", "Jordanian", "Kazakhstani", "Kenyan", "Kuwaiti",
+  "Kyrgyzstani", "Latvian", "Lebanese", "Libyan", "Lithuanian", "Luxembourger", "Malaysian",
+  "Maldivian", "Maltese", "Mexican", "Moldovan", "Mongolian", "Moroccan", "Nepalese", "New Zealander",
+  "Nigerian", "North Korean", "Norwegian", "Omani", "Pakistani", "Palestinian", "Panamanian",
+  "Peruvian", "Polish", "Portuguese", "Qatari", "Romanian", "Russian", "Saudi", "Serbian",
+  "Singaporean", "Slovak", "Slovenian", "Somali", "South African", "South Korean", "Spanish",
+  "Sri Lankan", "Sudanese", "Swedish", "Swiss", "Syrian", "Taiwanese", "Tajikistani", "Tanzanian",
+  "Thai", "Tunisian", "Turkish", "Turkmen", "Ugandan", "Ukrainian", "Uruguayan", "Uzbekistani",
+  "Venezuelan", "Vietnamese", "Yemeni", "Zambian", "Zimbabwean"
+];
+
+// Gender options
+const GENDERS = ["Male", "Female"];
+
+// Passport types
+const PASSPORT_TYPES = ["Normal", "Diplomatic", "Service", "Special", "Official"];
+
+// Empty form template
+const EMPTY_FORM = {
+  passport_no: '',
+  passport_type: '',
+  first_name_en: '',
+  surname_en: '',
+  first_name_ar: '',
+  father_name_en: '',
+  father_name_ar: '',
+  grandfather_name_en: '',
+  grandfather_name_ar: '',
+  surname_ar: '',
+  mother_name_en: '',
+  mother_name_ar: '',
+  mother_father_name_en: '',
+  mother_father_name_ar: '',
+  nationality: '',
+  gender: '',
+  birth_date: '',
+  place_of_issue: '',
+  issue_date: '',
+  expiry_date: '',
+  profession: '',
+  country_of_residence: '',
+  applicant_type: ''
+};
+
 export const PassportScanner = () => {
   const navigate = useNavigate();
   const videoRef = useRef(null);
@@ -25,7 +107,7 @@ export const PassportScanner = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [scanning, setScanning] = useState(false);
-  const [extractedData, setExtractedData] = useState(null);
+  const [formData, setFormData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' = back camera
 
