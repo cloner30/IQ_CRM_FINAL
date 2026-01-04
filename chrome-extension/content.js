@@ -1958,21 +1958,21 @@ async function searchByApprovalNumber(approvalNumber) {
     await sleep(1000);
   }
   
-  // Find the "Book Approve Number" input field by label (most reliable method)
-  // Based on HTML structure: label "Book Approve Number" is in SearchInput_52
-  let approvalInput = findInputByLabel('Book Approve Number');
+  // Find the "App Number" input field by label (most reliable method)
+  // Based on HTML structure: label "App Number" is in SearchInput_61
+  let appNumberInput = findInputByLabel('App Number');
   
   // Fallback selectors if label search fails
-  if (!approvalInput) {
-    // Try by widget ID (SearchInput_52 is Book Approve Number based on HTML)
-    const searchItem = document.querySelector('#mxui_widget_SearchInput_52');
+  if (!appNumberInput) {
+    // Try by widget ID (SearchInput_61 is App Number based on HTML)
+    const searchItem = document.querySelector('#mxui_widget_SearchInput_61');
     if (searchItem) {
-      approvalInput = searchItem.querySelector('input.form-control');
+      appNumberInput = searchItem.querySelector('input.form-control');
     }
   }
   
-  if (!approvalInput) {
-    console.error('Could not find Book Approve Number input field');
+  if (!appNumberInput) {
+    console.error('Could not find App Number input field');
     // Log all available search fields for debugging
     const allLabels = document.querySelectorAll('.mx-grid-search-label label');
     console.log('Available search fields:');
@@ -1982,21 +1982,21 @@ async function searchByApprovalNumber(approvalNumber) {
     return false;
   }
   
-  console.log('Found Book Approve Number input field');
+  console.log('Found App Number input field');
   
   // Clear and fill the input
-  approvalInput.value = '';
-  approvalInput.focus();
+  appNumberInput.value = '';
+  appNumberInput.focus();
   await sleep(100);
   
   // Simulate typing
   for (const char of approvalNumber) {
-    approvalInput.value += char;
-    approvalInput.dispatchEvent(new Event('input', { bubbles: true }));
+    appNumberInput.value += char;
+    appNumberInput.dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(50);
   }
   
-  approvalInput.dispatchEvent(new Event('change', { bubbles: true }));
+  appNumberInput.dispatchEvent(new Event('change', { bubbles: true }));
   await sleep(500);
   
   // Click Search button
