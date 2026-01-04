@@ -523,21 +523,49 @@ function fillDateField(selector, value) {
   
   console.log(`Filling date field ${selector} with: ${formattedDate}`);
   
-  // Extract the key part from selector (e.g., "cLEVRDatePicker4" or "DatePicker4")
+  // Extract the FULL ID pattern from selector (e.g., "SNP_Beneficiary_Company.cLEVRDatePicker4")
   const selectorId = selector.match(/id\*="([^"]+)"/)?.[1] || '';
-  const keyPart = selectorId.split('.').pop(); // Get last part like "cLEVRDatePicker4"
-  console.log(`Looking for date field with key: ${keyPart}`);
+  console.log(`Looking for date field with FULL ID containing: ${selectorId}`);
   
-  // Log all inputs to help debug
+  // Find all inputs
   const allInputs = document.querySelectorAll('input');
   console.log(`Total inputs on page: ${allInputs.length}`);
   
-  // Method 1: Search by partial ID match
+  // Method 1: Search by FULL ID match (most specific)
   for (const input of allInputs) {
     const id = input.id || '';
     
-    // Check various patterns
-    if (keyPart && id.toLowerCase().includes(keyPart.toLowerCase())) {
+    // Check if input ID contains the FULL selector ID pattern
+    if (selectorId && id.includes(selectorId)) {
+      console.log(`✓ Found date field by FULL ID match: ${id}`);
+      return setInputValue(input, formattedDate);
+    }
+  }
+  
+  // Method 2: Try matching component prefix + picker name separately
+  // E.g., for "SNP_Beneficiary_Company.cLEVRDatePicker4", match both parts
+  const [componentName, pickerName] = selectorId.split('.');
+  if (componentName && pickerName) {
+    for (const input of allInputs) {
+      const id = input.id || '';
+      // Must contain BOTH the component name and picker name
+      if (id.includes(componentName) && id.includes(pickerName)) {
+        console.log(`✓ Found date field by component+picker match: ${id}`);
+        return setInputValue(input, formattedDate);
+      }
+    }
+  }
+  
+  // Method 3: Direct querySelector as last resort
+  const directInput = document.querySelector(selector);
+  if (directInput) {
+    console.log(`✓ Found date field by direct selector`);
+    return setInputValue(directInput, formattedDate);
+  }
+  
+  console.log(`Date field not found: ${selector}`);
+  return false;
+}
       console.log(`Found date input by key match: ${id}`);
       return setInputValue(input, formattedDate);
     }
