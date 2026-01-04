@@ -264,6 +264,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Passport Scanner page loads correctly with mobile-friendly dark theme. Features: group selection dropdown, camera view area, Start Camera button, Upload button, back navigation. Backend OCR endpoint tested and working with nationality mapping from 3-letter codes to full names."
+      - working: true
+        agent: "main"
+        comment: "BUG FIX: Fixed MRZ parsing issue where given names (e.g., 'RAJESH KUMAR') were being incorrectly split with second word going to father_name_en. Father name is NOT in MRZ and must be entered manually. Now: (1) full given names stored in first_name_en, (2) father_name_en NOT auto-filled, (3) UI updated to show '*Manual' label on Father Name and Grandfather Name fields with 'Enter manually' placeholder."
 
   - task: "Add Country of Residence and Applicant Type fields"
     implemented: true
