@@ -566,58 +566,8 @@ function fillDateField(selector, value) {
   console.log(`Date field not found: ${selector}`);
   return false;
 }
-      console.log(`Found date input by key match: ${id}`);
-      return setInputValue(input, formattedDate);
-    }
-    
-    // Also check if ID contains "DatePicker" and matches the number
-    const pickerMatch = keyPart.match(/DatePicker(\d+)/i);
-    if (pickerMatch) {
-      const pickerNum = pickerMatch[1];
-      if (id.toLowerCase().includes('datepicker') && id.includes(pickerNum)) {
-        console.log(`Found date input by picker number: ${id}`);
-        return setInputValue(input, formattedDate);
-      }
-    }
-  }
-  
-  // Method 2: Find by looking for date picker containers with the pattern
-  const dateContainers = document.querySelectorAll('[class*="datepicker"], [class*="DatePicker"], .mx-dateinput');
-  for (const container of dateContainers) {
-    const input = container.querySelector('input');
-    if (input) {
-      const containerId = container.id || container.className || '';
-      if (selectorId && (containerId.includes(selectorId) || containerId.includes(keyPart))) {
-        console.log(`Found date input in container: ${containerId}`);
-        return setInputValue(input, formattedDate);
-      }
-    }
-  }
-  
-  // Method 3: Find by looking at mx-name attribute
-  const mxNameInputs = document.querySelectorAll(`[class*="mx-name-${keyPart}"] input, input[class*="${keyPart}"]`);
-  if (mxNameInputs.length > 0) {
-    console.log(`Found date input by mx-name: ${mxNameInputs[0].id}`);
-    return setInputValue(mxNameInputs[0], formattedDate);
-  }
-  
-  // Method 4: Try direct selector (might work if ID matches exactly)
-  const directInput = document.querySelector(selector);
-  if (directInput) {
-    console.log(`Found date input via direct selector`);
-    return setInputValue(directInput, formattedDate);
-  }
-  
-  // Method 5: Search in ALL inputs that look like date fields
-  console.log('Searching all potential date inputs...');
-  for (const input of allInputs) {
-    const id = input.id || '';
-    const className = input.className || '';
-    const placeholder = input.placeholder || '';
-    
-    // Look for date-related patterns
-    if (id.toLowerCase().includes('date') || 
-        className.toLowerCase().includes('date') ||
+
+// Helper to set input value with proper events for Mendix
         placeholder.includes('/') ||
         placeholder.toLowerCase().includes('date')) {
       console.log(`Potential date input found: id="${id}", class="${className}", placeholder="${placeholder}"`);
