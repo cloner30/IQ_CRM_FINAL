@@ -1832,3 +1832,314 @@ function showNotification(message, type = 'success') {
     setTimeout(() => notification.remove(), 300);
   }, 4000);
 }
+
+// ============================================
+// INSURANCE PDF DOWNLOAD FUNCTIONALITY
+// ============================================
+
+async function processInsuranceDownload(data) {
+  const { approvalNumber, groupId, passports, apiUrl, authToken } = data;
+  
+  console.log('Starting insurance download process...');
+  console.log(`Approval Number: ${approvalNumber}`);
+  console.log(`Group ID: ${groupId}`);
+  console.log(`Total passengers: ${passports.length}`);
+  
+  showNotification(`📄 Starting insurance download for ${passports.length} passengers...`);
+  
+  let processed = 0;
+  let failed = 0;
+  let skipped = 0;
+  
+  try {
+    // Step 1: Search by Approval Number
+    const searchSuccess = await searchByApprovalNumber(approvalNumber);
+    if (!searchSuccess) {
+      return { success: false, message: 'Failed to search by approval number' };
+    }
+    
+    await sleep(2000); // Wait for results to load
+    
+    // Step 2: Process all pages
+    let hasMorePages = true;
+    let pageNum = 1;
+    
+    while (hasMorePages) {
+      console.log(`Processing page ${pageNum}...`);
+      showNotification(`📄 Processing page ${pageNum}...`);
+      
+      // Get all rows on current page
+      const rows = document.querySelectorAll('tbody[dojoattachpoint="gridBodyNode"] tr');
+      console.log(`Found ${rows.length} rows on page ${pageNum}`);
+      
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        
+        // Extract passport number from row
+        const passportNo = extractPassportFromRow(row);
+        if (!passportNo) {
+          console.log(`Row ${i}: Could not extract passport number, skipping`);
+          skipped++;
+          continue;
+        }
+        
+        // Check if this passport is in our list
+        const passenger = passports.find(p => p.passport_no === passportNo);
+        if (!passenger) {
+          console.log(`Passport ${passportNo} not in our group, skipping`);
+          skipped++;
+          continue;
+        }
+        
+        console.log(`Processing passenger: ${passenger.name} (${passportNo})`);
+        showNotification(`📄 Processing: ${passenger.name}`);
+        
+        try {
+          // Step 2a: Select the row
+          await selectRow(row);
+          await sleep(500);
+          
+          // Step 2b: Click Insurance Print button
+          const pdfUrl = await clickInsurancePrintAndGetPdf();
+          if (!pdfUrl) {
+            console.log(`Failed to get PDF for ${passportNo}`);
+            failed++;
+            continue;
+          }
+          
+          // Step 2c: Download PDF and upload to server
+          const uploadSuccess = await downloadAndUploadPdf(pdfUrl, passportNo, groupId, apiUrl, authToken);
+          if (uploadSuccess) {
+            processed++;
+            console.log(`✅ Successfully processed ${passportNo}`);
+          } else {
+            failed++;
+            console.log(`❌ Failed to upload PDF for ${passportNo}`);
+          }
+          
+          await sleep(1000); // Small delay between passengers
+          
+        } catch (rowError) {
+          console.error(`Error processing row for ${passportNo}:`, rowError);
+          failed++;
+        }
+      }
+      
+      // Check for next page
+      const nextBtn = document.querySelector('button.mx-name-paging-next:not([disabled])');
+      if (nextBtn) {
+        console.log('Clicking next page...');
+        nextBtn.click();
+        await sleep(2000); // Wait for page to load
+        pageNum++;
+      } else {
+        hasMorePages = false;
+        console.log('No more pages');
+      }
+    }
+    
+    const message = `Completed! Processed: ${processed}, Failed: ${failed}, Skipped: ${skipped}`;
+    console.log(message);
+    showNotification(`✅ ${message}`);
+    
+    return { success: true, processed, failed, skipped, message };
+    
+  } catch (error) {
+    console.error('Insurance download error:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+async function searchByApprovalNumber(approvalNumber) {
+  console.log(`Searching for approval number: ${approvalNumber}`);
+  
+  // First, click the Query button to show search form if hidden
+  const queryBtn = document.querySelector('button.mx-name-searchButton1');
+  if (queryBtn) {
+    queryBtn.click();
+    await sleep(1000);
+  }
+  
+  // Find the "Book Approve Number" input field
+  // Based on HTML: div.mx-name-searchField3 contains the input
+  const approvalInput = document.querySelector('div.mx-name-searchField3 input.form-control') ||
+                        document.querySelector('input[id*="SearchInput_52"] input') ||
+                        findInputByLabel('Book Approve Number');
+  
+  if (!approvalInput) {
+    console.error('Could not find approval number input field');
+    // Try alternative selectors
+    const allInputs = document.querySelectorAll('.mx-grid-search-input input.form-control');
+    console.log('Available search inputs:', allInputs.length);
+    return false;
+  }
+  
+  // Clear and fill the input
+  approvalInput.value = '';
+  approvalInput.focus();
+  await sleep(100);
+  
+  // Simulate typing
+  for (const char of approvalNumber) {
+    approvalInput.value += char;
+    approvalInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(50);
+  }
+  
+  approvalInput.dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(500);
+  
+  // Click Search button
+  const searchBtn = document.querySelector('button.mx-name-search.mx-grid-search-button') ||
+                    document.querySelector('button.mx-grid-search-button');
+  
+  if (!searchBtn) {
+    console.error('Could not find search button');
+    return false;
+  }
+  
+  searchBtn.click();
+  console.log('Search button clicked');
+  
+  await sleep(2000); // Wait for results
+  return true;
+}
+
+function findInputByLabel(labelText) {
+  const labels = document.querySelectorAll('.mx-grid-search-label label');
+  for (const label of labels) {
+    if (label.textContent.includes(labelText)) {
+      const container = label.closest('.mx-grid-search-item');
+      if (container) {
+        return container.querySelector('input.form-control');
+      }
+    }
+  }
+  return null;
+}
+
+function extractPassportFromRow(row) {
+  // Passport number is typically in the second column (index 1)
+  // Based on HTML structure: column46 = App Number, column47 = Passport Number
+  const passportCell = row.querySelector('td.mx-name-column47 .mx-datagrid-data-wrapper') ||
+                       row.querySelector('td:nth-child(2) .mx-datagrid-data-wrapper');
+  
+  if (passportCell) {
+    return passportCell.textContent.trim();
+  }
+  
+  // Fallback: check title attribute
+  const cells = row.querySelectorAll('td');
+  if (cells.length >= 2) {
+    return cells[1].getAttribute('title') || cells[1].textContent.trim();
+  }
+  
+  return null;
+}
+
+async function selectRow(row) {
+  // Click on the row to select it
+  row.click();
+  await sleep(300);
+  
+  // Verify selection by checking for selected class
+  if (!row.classList.contains('selected') && !row.classList.contains('mx-selected')) {
+    // Try clicking a cell
+    const firstCell = row.querySelector('td');
+    if (firstCell) {
+      firstCell.click();
+      await sleep(300);
+    }
+  }
+}
+
+async function clickInsurancePrintAndGetPdf() {
+  // Click Insurance Print button
+  const printBtn = document.querySelector('button.mx-name-actionButton1') ||
+                   Array.from(document.querySelectorAll('button')).find(b => 
+                     b.textContent.toLowerCase().includes('insurance') || 
+                     b.textContent.toLowerCase().includes('inurance'));
+  
+  if (!printBtn) {
+    console.error('Could not find Insurance Print button');
+    return null;
+  }
+  
+  // Store current tabs count
+  const beforeClick = await new Promise(resolve => {
+    chrome.runtime.sendMessage({ action: 'getTabsCount' }, resolve);
+  });
+  
+  printBtn.click();
+  console.log('Insurance Print button clicked');
+  
+  // Wait for new tab to open with PDF
+  await sleep(3000);
+  
+  // Get the PDF URL from the new tab (via background script)
+  const pdfInfo = await new Promise(resolve => {
+    chrome.runtime.sendMessage({ action: 'getNewPdfTab' }, resolve);
+  });
+  
+  return pdfInfo?.url || null;
+}
+
+async function downloadAndUploadPdf(pdfUrl, passportNo, groupId, apiUrl, authToken) {
+  try {
+    // Use background script to download PDF (avoids CORS)
+    const pdfData = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({
+        action: 'downloadPdf',
+        url: pdfUrl
+      }, response => {
+        if (response?.success) {
+          resolve(response.data);
+        } else {
+          reject(new Error(response?.error || 'Failed to download PDF'));
+        }
+      });
+    });
+    
+    // Upload to server
+    const formData = new FormData();
+    const blob = base64ToBlob(pdfData, 'application/pdf');
+    formData.append('file', blob, `${passportNo}.pdf`);
+    formData.append('passport_no', passportNo);
+    formData.append('group_id', groupId);
+    
+    const response = await fetch(`${apiUrl}/api/passports/insurance-pdf-by-passport-no`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Upload failed');
+    }
+    
+    const result = await response.json();
+    console.log('Upload result:', result);
+    
+    // Close the PDF tab
+    chrome.runtime.sendMessage({ action: 'closePdfTab' });
+    
+    return true;
+    
+  } catch (error) {
+    console.error('Download/upload error:', error);
+    return false;
+  }
+}
+
+function base64ToBlob(base64, contentType) {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: contentType });
+}
