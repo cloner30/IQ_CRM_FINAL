@@ -1550,15 +1550,24 @@ async function uploadImages(data) {
       const profileFile = await fetchImageAsFile(data.profile_image_url, `${data.passport_no}_photo.jpg`);
       
       if (profileFile) {
-        // Select "Personal Image" row in the attachment grid
-        const rowSelected = selectAttachmentRow('Personal Image');
+        // STEP 1: Select "Personal Image" row FIRST
+        console.log('=== STEP 1: Selecting Personal Image row ===');
+        let rowSelected = await selectAttachmentRow('Personal Image');
         if (!rowSelected) {
           // Try alternative names
-          selectAttachmentRow('Photo') || selectAttachmentRow('صورة شخصية');
+          rowSelected = await selectAttachmentRow('Photo') || await selectAttachmentRow('صورة شخصية');
         }
-        await sleep(500);
         
-        // Try to upload using the Mendix popup
+        if (!rowSelected) {
+          console.log('Could not select Personal Image row');
+          showNotification('⚠️ Could not find Personal Image row');
+        }
+        
+        // Wait for row selection to be registered
+        await sleep(800);
+        
+        // STEP 2: Then click Upload button
+        console.log('=== STEP 2: Clicking Upload button ===');
         const uploaded = await clickUploadAndSetFile(profileFile, 'Personal Image');
         if (uploaded) {
           results.success.push('Personal Image');
@@ -1572,7 +1581,7 @@ async function uploadImages(data) {
         
         // Close any open popup
         closePopup();
-        await sleep(500);
+        await sleep(800);
       } else {
         // Direct download as last resort
         showNotification('📥 Downloading profile image...');
@@ -1588,7 +1597,7 @@ async function uploadImages(data) {
     }
   }
   
-  await sleep(800);
+  await sleep(1000);
   
   // Upload Passport Image
   if (data.passport_image_url) {
@@ -1597,13 +1606,21 @@ async function uploadImages(data) {
       const passportFile = await fetchImageAsFile(data.passport_image_url, `${data.passport_no}_passport.jpg`);
       
       if (passportFile) {
-        // Select "Passport" row in the attachment grid
-        const rowSelected = selectAttachmentRow('Passport');
+        // STEP 1: Select "Passport" row FIRST
+        console.log('=== STEP 1: Selecting Passport row ===');
+        let rowSelected = await selectAttachmentRow('Passport');
         if (!rowSelected) {
           // Try alternative names
-          selectAttachmentRow('Passport Scan') || selectAttachmentRow('جواز السفر');
+          rowSelected = await selectAttachmentRow('Passport Scan') || await selectAttachmentRow('جواز السفر');
         }
-        await sleep(500);
+        
+        if (!rowSelected) {
+          console.log('Could not select Passport row');
+          showNotification('⚠️ Could not find Passport row');
+        }
+        
+        // Wait for row selection to be registered
+        await sleep(800);
         
         // Try to upload using the Mendix popup
         const uploaded = await clickUploadAndSetFile(passportFile, 'Passport');
