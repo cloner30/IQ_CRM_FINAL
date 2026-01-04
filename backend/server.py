@@ -1127,6 +1127,132 @@ async def upload_relationship_proof(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
+@api_router.post("/groups/{group_id}/passports/{passport_id}/insurance-pdf")
+async def upload_insurance_pdf(
+    group_id: str,
+    passport_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload insurance PDF for a passport"""
+    # Verify group exists
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Verify passport exists
+    passport = await db.passports.find_one({"id": passport_id, "group_id": group_id})
+    if not passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    
+    # Validate file type - allow PDF
+    filename = file.filename.lower()
+    if not filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF files allowed.")
+    
+    content = await file.read()
+    passport_no = passport.get("passport_no", passport_id)
+    
+    try:
+        if s3_enabled and s3_client:
+            # Upload to S3
+            s3_key = f"insurance_pdfs/{group_id}/{passport_no}.pdf"
+            uploaded = await upload_to_s3(content, s3_key, 'application/pdf')
+            if uploaded:
+                # Generate presigned URL for download
+                presigned_url = generate_presigned_url(s3_key)
+                # Update passport with insurance PDF URL
+                await db.passports.update_one(
+                    {"id": passport_id},
+                    {"$set": {"insurance_pdf": f"s3://{s3_key}"}}
+                )
+                return {"success": True, "message": "Insurance PDF uploaded successfully", "url": presigned_url}
+            else:
+                raise HTTPException(status_code=500, detail="S3 upload failed")
+        else:
+            # Fallback to local storage
+            pdf_dir = UPLOADS_DIR / "insurance_pdfs" / group_id
+            pdf_dir.mkdir(parents=True, exist_ok=True)
+            file_path = pdf_dir / f"{passport_no}.pdf"
+            async with aiofiles.open(file_path, 'wb') as out_file:
+                await out_file.write(content)
+            
+            await db.passports.update_one(
+                {"id": passport_id},
+                {"$set": {"insurance_pdf": f"/api/uploads/insurance_pdfs/{group_id}/{passport_no}.pdf"}}
+            )
+            return {"success": True, "message": "Insurance PDF uploaded successfully"}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@api_router.post("/passports/insurance-pdf-by-passport-no")
+async def upload_insurance_pdf_by_passport_no(
+    passport_no: str = Form(...),
+    group_id: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload insurance PDF for a passport by passport number (used by Chrome extension)"""
+    # Verify group exists
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Find passport by passport_no and group_id
+    passport = await db.passports.find_one({"passport_no": passport_no, "group_id": group_id})
+    if not passport:
+        raise HTTPException(status_code=404, detail=f"Passport {passport_no} not found in group")
+    
+    # Validate file type - allow PDF
+    filename = file.filename.lower()
+    if not filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF files allowed.")
+    
+    content = await file.read()
+    
+    try:
+        if s3_enabled and s3_client:
+            # Upload to S3
+            s3_key = f"insurance_pdfs/{group_id}/{passport_no}.pdf"
+            uploaded = await upload_to_s3(content, s3_key, 'application/pdf')
+            if uploaded:
+                # Generate presigned URL for download
+                presigned_url = generate_presigned_url(s3_key)
+                # Update passport with insurance PDF URL
+                await db.passports.update_one(
+                    {"id": passport["id"]},
+                    {"$set": {"insurance_pdf": f"s3://{s3_key}"}}
+                )
+                return {
+                    "success": True, 
+                    "message": f"Insurance PDF uploaded for {passport_no}", 
+                    "url": presigned_url,
+                    "passport_id": passport["id"]
+                }
+            else:
+                raise HTTPException(status_code=500, detail="S3 upload failed")
+        else:
+            # Fallback to local storage
+            pdf_dir = UPLOADS_DIR / "insurance_pdfs" / group_id
+            pdf_dir.mkdir(parents=True, exist_ok=True)
+            file_path = pdf_dir / f"{passport_no}.pdf"
+            async with aiofiles.open(file_path, 'wb') as out_file:
+                await out_file.write(content)
+            
+            await db.passports.update_one(
+                {"id": passport["id"]},
+                {"$set": {"insurance_pdf": f"/api/uploads/insurance_pdfs/{group_id}/{passport_no}.pdf"}}
+            )
+            return {
+                "success": True, 
+                "message": f"Insurance PDF uploaded for {passport_no}",
+                "passport_id": passport["id"]
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
 # API to check if passport holder is a minor
 @api_router.get("/groups/{group_id}/passports/{passport_id}/minor-status")
 async def check_minor_status(group_id: str, passport_id: str, current_user: dict = Depends(get_current_user)):
