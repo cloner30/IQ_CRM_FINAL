@@ -543,11 +543,6 @@ function setDateValue(input, formattedDate) {
     return true;
   }
 }
-  }
-  
-  console.log(`Date field not found: ${selector}`);
-  return false;
-}
 
 // Fill a dropdown/select field
 // IMPORTANT: If value is null, undefined, or empty string - skip filling (leave field blank)
