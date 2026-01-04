@@ -579,19 +579,21 @@ export const PassportScanner = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-slate-400 text-xs">Father Name (EN)</Label>
+                  <Label className="text-slate-400 text-xs">Father Name (EN) <span className="text-yellow-500">*Manual</span></Label>
                   <Input
                     value={formData.father_name_en}
                     onChange={(e) => updateField('father_name_en', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
+                    placeholder="Enter manually"
                   />
                 </div>
                 <div>
-                  <Label className="text-slate-400 text-xs">Grandfather Name (EN)</Label>
+                  <Label className="text-slate-400 text-xs">Grandfather Name (EN) <span className="text-yellow-500">*Manual</span></Label>
                   <Input
                     value={formData.grandfather_name_en}
                     onChange={(e) => updateField('grandfather_name_en', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
+                    placeholder="Enter manually"
                   />
                 </div>
               </div>
