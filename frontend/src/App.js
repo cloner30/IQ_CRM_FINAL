@@ -12,9 +12,10 @@ import { BulkUpload } from "./pages/BulkUpload";
 import { Login } from "./pages/Login";
 import { UsersManagement } from "./pages/UsersManagement";
 import { ClientsManagement } from "./pages/ClientsManagement";
+import { PassportScanner } from "./pages/PassportScanner";
 
 // Protected Route component
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+const ProtectedRoute = ({ children, adminOnly = false, noLayout = false }) => {
   const { isAuthenticated, loading, isAdmin } = useAuth();
 
   if (loading) {
@@ -31,6 +32,11 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 
   if (adminOnly && !isAdmin()) {
     return <Navigate to="/" replace />;
+  }
+
+  // For mobile scanner page, don't wrap with Layout
+  if (noLayout) {
+    return children;
   }
 
   return <Layout>{children}</Layout>;
