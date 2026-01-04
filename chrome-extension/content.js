@@ -452,7 +452,7 @@ function fillTextField(selector, value) {
   return true;
 }
 
-// Fill a date field (datepicker)
+// Fill a date field (datepicker) - Format: m/d/yyyy
 // IMPORTANT: If value is null, undefined, or empty string - skip filling (leave field blank)
 function fillDateField(selector, value) {
   if (value === null || value === undefined || value === '') {
@@ -466,59 +466,43 @@ function fillDateField(selector, value) {
     return false;
   }
   
-  console.log(`Attempting to fill date field ${selector} with: ${formattedDate}`);
+  console.log(`Filling date field ${selector} with: ${formattedDate}`);
   
-  // Extract the ID pattern from selector
+  // Extract the ID pattern from selector (e.g., "cLEVRDatePicker4" from 'input[id*="SNP_Beneficiary_Company.cLEVRDatePicker4"]')
   const selectorId = selector.match(/id\*="([^"]+)"/)?.[1] || '';
+  console.log(`Looking for date field with ID containing: ${selectorId}`);
   
-  // Method 1: Find all date inputs and match by ID pattern
-  const allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
+  // Find all inputs and look for date fields
+  const allInputs = document.querySelectorAll('input');
+  
   for (const input of allInputs) {
     const id = input.id || '';
-    const className = input.className || '';
     
-    // Check if this matches our pattern
+    // Check if this input's ID contains our pattern
     if (selectorId && id.includes(selectorId)) {
-      console.log(`Found date field by ID pattern: ${id}`);
-      return setDateValue(input, formattedDate);
-    }
-    
-    // Also check for datepicker class
-    if (id.includes('DatePicker') || className.includes('datepicker')) {
-      const container = input.closest('.mx-datepicker, .mx-compound-control, [class*="datepicker"]');
-      if (container) {
-        // Check if this container relates to our selector
-        const containerHTML = container.outerHTML || '';
-        if (selectorId && containerHTML.includes(selectorId)) {
-          console.log(`Found date field by container: ${id}`);
-          return setDateValue(input, formattedDate);
-        }
-      }
+      console.log(`Found date input: ${id}`);
+      return setInputValue(input, formattedDate);
     }
   }
   
-  // Method 2: Direct querySelector
+  // Method 2: Try direct selector
   const directInput = document.querySelector(selector);
   if (directInput) {
-    console.log(`Found date field by direct selector`);
-    return setDateValue(directInput, formattedDate);
+    console.log(`Found date input via direct selector`);
+    return setInputValue(directInput, formattedDate);
   }
   
-  // Method 3: Find by looking at sibling labels or nearby text
-  const labels = document.querySelectorAll('label, .control-label, .mx-label');
-  for (const label of labels) {
-    const labelText = label.textContent.toLowerCase();
-    if ((selector.includes('birth') && labelText.includes('birth')) ||
-        (selector.includes('issue') && !selector.includes('place') && labelText.includes('issue')) ||
-        (selector.includes('expiry') && (labelText.includes('expiry') || labelText.includes('expir')))) {
-      // Find the input near this label
-      const container = label.closest('.form-group, .mx-dataview-content, .mx-dateinput');
-      if (container) {
-        const input = container.querySelector('input');
-        if (input) {
-          console.log(`Found date field by label: ${labelText}`);
-          return setDateValue(input, formattedDate);
-        }
+  // Method 3: Look for datepicker by type attribute or class
+  const dateInputs = document.querySelectorAll('input[class*="date"], input[type="text"]');
+  for (const input of dateInputs) {
+    const id = input.id || '';
+    const placeholder = input.placeholder || '';
+    
+    // Check if ID suggests it's a date picker
+    if (id.toLowerCase().includes('datepicker') || id.toLowerCase().includes('date')) {
+      if (selectorId && id.includes(selectorId.split('.').pop())) {
+        console.log(`Found date input by class/type: ${id}`);
+        return setInputValue(input, formattedDate);
       }
     }
   }
@@ -527,35 +511,37 @@ function fillDateField(selector, value) {
   return false;
 }
 
-// Helper function to set date value with proper events
-function setDateValue(input, formattedDate) {
+// Helper to set input value with proper events for Mendix
+function setInputValue(input, value) {
   try {
-    // Focus the input
+    // Focus and click the input
     input.focus();
     input.click();
     
     // Clear existing value
     input.value = '';
     
-    // Use native value setter for React/Mendix compatibility
+    // Use native setter for React/Mendix compatibility
     const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    nativeSetter.call(input, formattedDate);
+    nativeSetter.call(input, value);
     
-    // Dispatch events
+    // Also set directly
+    input.value = value;
+    
+    // Dispatch all necessary events
+    input.dispatchEvent(new Event('focus', { bubbles: true }));
     input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
     input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', keyCode: 9, bubbles: true }));
     input.dispatchEvent(new Event('blur', { bubbles: true }));
     
-    // Also try setting via setAttribute for some frameworks
-    input.setAttribute('value', formattedDate);
-    
-    console.log(`✓ Set date value: ${formattedDate}`);
+    console.log(`✓ Set value: ${value} on input: ${input.id}`);
     return true;
   } catch (err) {
-    console.error(`Error setting date value: ${err.message}`);
-    // Fallback - just set the value
-    input.value = formattedDate;
+    console.error(`Error setting value: ${err.message}`);
+    // Fallback
+    input.value = value;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   }
 }
