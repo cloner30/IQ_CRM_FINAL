@@ -450,54 +450,99 @@ function fillDateField(selector, value) {
     return false;
   }
   
-  // Try multiple methods to find and fill the date field
+  console.log(`Attempting to fill date field ${selector} with: ${formattedDate}`);
   
-  // Method 1: Find by partial ID match (Mendix generates long IDs)
-  const allInputs = document.querySelectorAll('input');
+  // Extract the ID pattern from selector
+  const selectorId = selector.match(/id\*="([^"]+)"/)?.[1] || '';
+  
+  // Method 1: Find all date inputs and match by ID pattern
+  const allInputs = document.querySelectorAll('input[type="text"], input:not([type])');
   for (const input of allInputs) {
     const id = input.id || '';
-    const name = input.name || '';
-    const placeholder = input.placeholder || '';
+    const className = input.className || '';
     
-    // Check if this input matches our selector pattern
-    const selectorId = selector.match(/id\*="([^"]+)"/)?.[1] || '';
-    if (selectorId && (id.includes(selectorId) || name.includes(selectorId))) {
-      input.focus();
-      input.value = formattedDate;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      input.dispatchEvent(new Event('blur', { bubbles: true }));
-      console.log(`Filled date field (method 1): ${formattedDate}`);
-      return true;
+    // Check if this matches our pattern
+    if (selectorId && id.includes(selectorId)) {
+      console.log(`Found date field by ID pattern: ${id}`);
+      return setDateValue(input, formattedDate);
+    }
+    
+    // Also check for datepicker class
+    if (id.includes('DatePicker') || className.includes('datepicker')) {
+      const container = input.closest('.mx-datepicker, .mx-compound-control, [class*="datepicker"]');
+      if (container) {
+        // Check if this container relates to our selector
+        const containerHTML = container.outerHTML || '';
+        if (selectorId && containerHTML.includes(selectorId)) {
+          console.log(`Found date field by container: ${id}`);
+          return setDateValue(input, formattedDate);
+        }
+      }
     }
   }
   
   // Method 2: Direct querySelector
   const directInput = document.querySelector(selector);
   if (directInput) {
-    directInput.focus();
-    directInput.value = formattedDate;
-    directInput.dispatchEvent(new Event('input', { bubbles: true }));
-    directInput.dispatchEvent(new Event('change', { bubbles: true }));
-    directInput.dispatchEvent(new Event('blur', { bubbles: true }));
-    console.log(`Filled date field (method 2): ${formattedDate}`);
-    return true;
+    console.log(`Found date field by direct selector`);
+    return setDateValue(directInput, formattedDate);
   }
   
-  // Method 3: Find mx-datepicker container
-  const container = document.querySelector(selector)?.closest('.mx-datepicker');
-  if (container) {
-    const input = container.querySelector('input');
-    if (input) {
-      input.focus();
-      input.value = formattedDate;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      input.dispatchEvent(new Event('blur', { bubbles: true }));
-      console.log(`Filled date field (method 3): ${formattedDate}`);
-      return true;
+  // Method 3: Find by looking at sibling labels or nearby text
+  const labels = document.querySelectorAll('label, .control-label, .mx-label');
+  for (const label of labels) {
+    const labelText = label.textContent.toLowerCase();
+    if ((selector.includes('birth') && labelText.includes('birth')) ||
+        (selector.includes('issue') && !selector.includes('place') && labelText.includes('issue')) ||
+        (selector.includes('expiry') && (labelText.includes('expiry') || labelText.includes('expir')))) {
+      // Find the input near this label
+      const container = label.closest('.form-group, .mx-dataview-content, .mx-dateinput');
+      if (container) {
+        const input = container.querySelector('input');
+        if (input) {
+          console.log(`Found date field by label: ${labelText}`);
+          return setDateValue(input, formattedDate);
+        }
+      }
     }
+  }
+  
+  console.log(`Date field not found: ${selector}`);
+  return false;
+}
+
+// Helper function to set date value with proper events
+function setDateValue(input, formattedDate) {
+  try {
+    // Focus the input
+    input.focus();
+    input.click();
+    
+    // Clear existing value
+    input.value = '';
+    
+    // Use native value setter for React/Mendix compatibility
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, formattedDate);
+    
+    // Dispatch events
+    input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    
+    // Also try setting via setAttribute for some frameworks
+    input.setAttribute('value', formattedDate);
+    
+    console.log(`✓ Set date value: ${formattedDate}`);
+    return true;
+  } catch (err) {
+    console.error(`Error setting date value: ${err.message}`);
+    // Fallback - just set the value
+    input.value = formattedDate;
+    return true;
+  }
+}
   }
   
   console.log(`Date field not found: ${selector}`);
