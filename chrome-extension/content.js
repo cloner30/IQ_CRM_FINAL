@@ -1056,51 +1056,96 @@ function setSelectValue(select, value) {
 function fillHotelName(value) {
   if (!value) return false;
   
+  console.log(`Trying to fill hotel name: ${value}`);
+  
+  // Log all text inputs for debugging
+  const allInputs = document.querySelectorAll('input[type="text"], input:not([type="hidden"]):not([type="file"]):not([type="checkbox"]):not([type="radio"])');
+  console.log(`Found ${allInputs.length} text inputs on page`);
+  
   // Try multiple selectors for hotel name
   const selectors = [
     'input[id*="textBox37"]',
     'input[id*="hotelName"]',
     'input[id*="HotelName"]',
     'input[id*="hotel"]',
-    'input[id*="accommodation"]'
+    'input[id*="Hotel"]',
+    'input[id*="accommodation"]',
+    'input[id*="Accommodation"]'
   ];
   
   for (const selector of selectors) {
     const input = document.querySelector(selector);
     if (input) {
-      input.focus();
-      input.value = value;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      input.dispatchEvent(new Event('blur', { bubbles: true }));
-      console.log(`✓ Filled hotel name: ${value}`);
-      return true;
+      return setTextInputValue(input, value, 'hotel name by selector');
     }
   }
   
   // Fallback: Find by label text
-  const labels = document.querySelectorAll('label');
+  const labels = document.querySelectorAll('label, .control-label, .mx-label, span');
   for (const label of labels) {
     const text = label.textContent.toLowerCase();
-    if (text.includes('hotel') || text.includes('فندق') || text.includes('اسم')) {
-      const container = label.closest('.form-group, .mx-dataview-content');
-      if (container) {
-        const input = container.querySelector('input[type="text"], input:not([type])');
-        if (input) {
-          input.focus();
-          input.value = value;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-          input.dispatchEvent(new Event('blur', { bubbles: true }));
-          console.log(`✓ Filled hotel name by label: ${value}`);
-          return true;
+    if (text.includes('hotel') || text.includes('فندق') || text.includes('اسم الفندق') || 
+        text.includes('name of hotel') || text.includes('accommodation name')) {
+      console.log(`Found hotel label: "${label.textContent}"`);
+      
+      // Check for 'for' attribute
+      const forId = label.getAttribute('for');
+      if (forId) {
+        const input = document.getElementById(forId);
+        if (input && input.tagName === 'INPUT') {
+          return setTextInputValue(input, value, 'hotel name by for attr');
         }
+      }
+      
+      // Find in container
+      const container = label.closest('.form-group, .mx-dataview-content, [class*="form"]');
+      if (container) {
+        const input = container.querySelector('input[type="text"], input:not([type="hidden"])');
+        if (input) {
+          return setTextInputValue(input, value, 'hotel name in container');
+        }
+      }
+      
+      // Find as sibling
+      let sibling = label.nextElementSibling;
+      while (sibling) {
+        if (sibling.tagName === 'INPUT') {
+          return setTextInputValue(sibling, value, 'hotel name as sibling');
+        }
+        const nestedInput = sibling.querySelector('input');
+        if (nestedInput) {
+          return setTextInputValue(nestedInput, value, 'hotel name nested');
+        }
+        sibling = sibling.nextElementSibling;
       }
     }
   }
   
   console.log(`Hotel name field not found`);
   return false;
+}
+
+// Helper to set text input value
+function setTextInputValue(input, value, source) {
+  try {
+    input.focus();
+    input.value = '';
+    
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeSetter.call(input, value);
+    input.value = value;
+    
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    
+    console.log(`✓ Filled ${source}: ${value}`);
+    return true;
+  } catch (err) {
+    console.error(`Error setting ${source}:`, err);
+    input.value = value;
+    return true;
+  }
 }
 
 // Make fillVisaForm work with both sync and async calls
