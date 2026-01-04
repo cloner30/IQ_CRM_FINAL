@@ -390,8 +390,12 @@ function formatDate(dateStr) {
 }
 
 // Fill a text input field
+// IMPORTANT: If value is null, undefined, or empty string - skip filling (leave field blank)
 function fillTextField(selector, value) {
-  if (!value) return false;
+  if (value === null || value === undefined || value === '') {
+    console.log(`Skipping ${selector} - value is empty/null`);
+    return false;
+  }
   
   const field = document.querySelector(selector);
   if (!field) {
@@ -415,10 +419,19 @@ function fillTextField(selector, value) {
 }
 
 // Fill a date field (datepicker)
+// IMPORTANT: If value is null, undefined, or empty string - skip filling (leave field blank)
 function fillDateField(selector, value) {
-  if (!value) return false;
+  if (value === null || value === undefined || value === '') {
+    console.log(`Skipping date ${selector} - value is empty/null`);
+    return false;
+  }
   
   const formattedDate = formatDate(value);
+  if (!formattedDate) {
+    console.log(`Skipping date ${selector} - formatted date is empty`);
+    return false;
+  }
+  
   const container = document.querySelector(selector)?.closest('.mx-datepicker');
   
   if (container) {
@@ -438,8 +451,12 @@ function fillDateField(selector, value) {
 }
 
 // Fill a dropdown/select field
+// IMPORTANT: If value is null, undefined, or empty string - skip filling (leave field blank)
 function fillDropdown(selector, value, mapping = null) {
-  if (!value) return false;
+  if (value === null || value === undefined || value === '') {
+    console.log(`Skipping dropdown ${selector} - value is empty/null`);
+    return false;
+  }
   
   const select = document.querySelector(selector);
   if (!select) {
@@ -449,6 +466,12 @@ function fillDropdown(selector, value, mapping = null) {
   
   // Map value if mapping provided
   const mappedValue = mapping ? mapping[value] || value : value;
+  
+  // If mapped value is empty, skip
+  if (!mappedValue) {
+    console.log(`Skipping dropdown ${selector} - mapped value is empty`);
+    return false;
+  }
   
   // Find matching option
   const options = Array.from(select.options);
