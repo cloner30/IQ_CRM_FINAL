@@ -170,7 +170,8 @@ const emptyForm = {
   expiry_date: '',
   profession: '',
   country_of_residence: '',
-  applicant_type: ''
+  applicant_type: '',
+  relationship_proof: ''
 };
 
 export const GroupDetail = () => {
