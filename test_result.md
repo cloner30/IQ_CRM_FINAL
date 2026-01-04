@@ -403,3 +403,41 @@ agent_communication:
     message: "AUTHENTICATION & CLIENT MANAGEMENT TESTING COMPLETE: ✅ All 20 authentication and client management tests passed successfully. AUTHENTICATION: Login with admin@admin.com/admin123 works correctly, returns JWT token. Invalid credentials return 401. GET /api/auth/me works with token, returns 403 without token. USER MANAGEMENT: All CRUD operations working (GET/POST/PUT/DELETE /api/users). Created and managed staff user successfully. CLIENT MANAGEMENT: All CRUD operations working (GET/POST/PUT/DELETE /api/clients). Full client data handling working correctly. GROUP-CLIENT LINKING: Groups can be linked to clients, client_name properly returned in group responses. Fixed Group model to include client_name field. All authentication and client management features are production-ready."
   - agent: "testing"
     message: "P0 PRIORITY TESTING COMPLETE: ✅ Both P0 items tested successfully. GROUP EDIT FUNCTIONALITY: All core features working - login, get groups, update group name/description, persistence verification, invalid client_id validation. Only minor issue: empty name validation not implemented. OCR PASSPORT SCANNING API: Fully functional - API key configured, endpoint exists, requires authentication, processes images correctly. OCR.space integration working with proper response structure. Both P0 features are production-ready with only one minor validation issue."
+  - agent: "main"
+    message: "INSURANCE PDF DOWNLOAD FEATURE IMPLEMENTED (v1.5.0): Backend: (1) Added insurance_pdf field to Passport model, (2) Added approval_number and date_of_payment fields to Group model, (3) Created PUT /api/groups/{group_id}/submission-details endpoint to update approval number and payment date, (4) Created POST /api/groups/{group_id}/passports/{passport_id}/insurance-pdf endpoint for direct PDF upload, (5) Created POST /api/passports/insurance-pdf-by-passport-no endpoint for Chrome extension to upload PDF by passport number. Frontend: (1) Added Submission Details section in GroupDetail page with Approval Number and Date of Payment fields, (2) Added Save Details button to save submission details, (3) Added Insurance badge indicator in passport list. Chrome Extension: (1) Added Insurance Download section in popup, (2) Implemented startInsuranceDownload function to search by approval number and process all passengers, (3) Updated background.js to handle PDF download and tab management. Extension version updated to 1.5.0."
+
+  - task: "Submission Details - Approval Number and Payment Date"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py, /app/frontend/src/pages/GroupDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Backend endpoint PUT /api/groups/{group_id}/submission-details tested via curl. Successfully updates approval_number and date_of_payment fields. Frontend shows Submission Details card with input fields and Save Details button. Current values displayed after saving."
+
+  - task: "Insurance PDF Upload Endpoints"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Created two endpoints: (1) POST /api/groups/{group_id}/passports/{passport_id}/insurance-pdf for direct upload, (2) POST /api/passports/insurance-pdf-by-passport-no for Chrome extension. Both upload PDF to S3 and update passport record. Need testing with actual PDF file upload."
+
+  - task: "Chrome Extension Insurance Download Feature"
+    implemented: true
+    working: "NA"
+    file: "/app/chrome-extension/popup.js, content.js, background.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Extension v1.5.0 with Insurance Download feature. Cannot be auto-tested - requires manual testing on actual e-visa site with real approval number. Feature searches by approval number, iterates through passengers, clicks Insurance Print, captures PDF, uploads to S3."
