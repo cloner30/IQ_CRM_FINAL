@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { ArrowLeft, Plus, Upload, FileText, User, Trash2, Edit, Search, CheckCircle, AlertCircle, Image, Eye, Download } from 'lucide-react';
+import { ArrowLeft, Plus, Upload, FileText, User, Trash2, Edit, Search, CheckCircle, AlertCircle, Image, Eye, Download, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../utils/api';
 
@@ -23,6 +23,39 @@ const getImageUrl = (imageUrl) => {
   }
   // Otherwise, prepend the API URL
   return `${API_URL}${imageUrl}`;
+};
+
+// Helper function to calculate age from birth date
+const calculateAge = (birthDateStr) => {
+  if (!birthDateStr) return 99; // Default to adult if no birth date
+  try {
+    const birthDate = new Date(birthDateStr);
+    if (isNaN(birthDate.getTime())) return 99;
+    
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  } catch {
+    return 99;
+  }
+};
+
+// Check if person is a minor (under 18)
+const isMinor = (birthDateStr) => calculateAge(birthDateStr) < 18;
+
+// Get applicant type based on age and gender
+const getApplicantType = (birthDateStr, gender) => {
+  if (!isMinor(birthDateStr)) return ""; // Empty for adults
+  
+  const genderLower = (gender || "").toLowerCase();
+  if (genderLower === "male" || genderLower === "m") return "Son";
+  if (genderLower === "female" || genderLower === "f") return "Daughter";
+  return "";
 };
 
 // Exact nationality values from e-visa form (https://eservice.evisa.iq/)
