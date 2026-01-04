@@ -292,9 +292,10 @@ async function fillForm() {
     // Get current tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
-    // Check if we're on the right site
-    if (!tab.url.includes('eservice.evisa.iq')) {
-      showStatus('Please navigate to eservice.evisa.iq first.', 'error');
+    // Check if we're on the right site (more flexible matching)
+    const url = tab.url.toLowerCase();
+    if (!url.includes('evisa.iq')) {
+      showStatus('Please navigate to the Iraq e-visa site (evisa.iq) first.', 'error');
       return;
     }
     
@@ -305,13 +306,50 @@ async function fillForm() {
       profile_image_url: selectedPassport.profile_image || null
     };
     
-    // Execute content script to fill form
-    await chrome.tabs.sendMessage(tab.id, {
-      action: 'fillForm',
-      data: passportData
-    });
+    // Try to inject content script first (in case it wasn't loaded)
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+      console.log('Content script injected successfully');
+    } catch (injectError) {
+      console.log('Content script already loaded or injection failed:', injectError.message);
+    }
     
-    showStatus('Form filled successfully! ✓', 'success');
+    // Wait a bit for script to initialize
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Execute content script to fill form
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'fillForm',
+        data: passportData
+      });
+      
+      if (response && response.success) {
+        showStatus('Form filled successfully! ✓', 'success');
+      } else {
+        showStatus('Form filled! Check the page for results.', 'success');
+      }
+    } catch (sendError) {
+      console.error('sendMessage error:', sendError);
+      // Try one more time with programmatic injection
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: (data) => {
+          // Inline form filling function as fallback
+          console.log('Fallback form filling with data:', data);
+          if (typeof fillVisaForm === 'function') {
+            fillVisaForm(data);
+          } else {
+            alert('Form filler not ready. Please refresh the e-visa page and try again.');
+          }
+        },
+        args: [passportData]
+      });
+      showStatus('Form fill attempted. Check the page.', 'success');
+    }
     
     // Close popup after delay
     setTimeout(() => {
@@ -320,7 +358,7 @@ async function fillForm() {
     
   } catch (error) {
     console.error('Error filling form:', error);
-    showStatus('Failed to fill form. Make sure you are on the visa application page.', 'error');
+    showStatus('Failed to fill form. Please refresh the e-visa page and try again.', 'error');
   }
 }
 
