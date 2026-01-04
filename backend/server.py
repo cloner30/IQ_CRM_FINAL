@@ -284,6 +284,7 @@ class Passport(BaseModel):
     relationship_proof: Optional[str] = None  # S3 URL for relationship proof (required for minors)
     passport_image: Optional[str] = None
     profile_image: Optional[str] = None
+    insurance_pdf: Optional[str] = None  # S3 URL for insurance PDF
     status: str = "pending"  # pending, done
     status_updated_at: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
