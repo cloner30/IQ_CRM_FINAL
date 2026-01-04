@@ -1048,21 +1048,58 @@ console.log('E-Visa Form Filler content script loaded');
 
 // ==================== IMAGE UPLOAD FUNCTIONS ====================
 
-// Fetch image from URL and convert to File object
+// Fetch image via background script (avoids CORS issues)
 async function fetchImageAsFile(imageUrl, filename) {
   try {
-    console.log(`Fetching image: ${imageUrl}`);
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    console.log(`Fetching image via background script: ${imageUrl}`);
+    
+    // Send message to background script to fetch image
+    const result = await chrome.runtime.sendMessage({
+      action: 'fetchImage',
+      url: imageUrl
+    });
+    
+    if (!result || !result.success) {
+      console.error('Background fetch failed:', result?.error);
+      return null;
     }
+    
+    console.log(`Image fetched successfully, size: ${result.size} bytes`);
+    
+    // Convert base64 data URL to File object
+    const response = await fetch(result.dataUrl);
     const blob = await response.blob();
-    const file = new File([blob], filename, { type: 'image/jpeg' });
+    const file = new File([blob], filename, { type: result.mimeType || 'image/jpeg' });
+    
     console.log(`Created file: ${filename}, size: ${file.size} bytes`);
     return file;
   } catch (error) {
     console.error(`Failed to fetch image: ${error}`);
     return null;
+  }
+}
+
+// Alternative: Download image directly using Chrome downloads API
+async function downloadImageDirect(imageUrl, filename) {
+  try {
+    console.log(`Downloading image directly: ${filename}`);
+    
+    const result = await chrome.runtime.sendMessage({
+      action: 'downloadImage',
+      url: imageUrl,
+      filename: filename
+    });
+    
+    if (result && result.success) {
+      console.log(`Download started: ${filename}`);
+      return true;
+    } else {
+      console.error('Download failed:', result?.error);
+      return false;
+    }
+  } catch (error) {
+    console.error(`Download error: ${error}`);
+    return false;
   }
 }
 
