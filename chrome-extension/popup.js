@@ -385,15 +385,44 @@ async function fillForm() {
       showStatus('Form fill attempted. Check the page.', 'success');
     }
     
-    // Close popup after delay
+    // DON'T close popup - keep it open for next passenger
+    // Auto-advance to next pending passenger after a delay
     setTimeout(() => {
-      window.close();
-    }, 1500);
+      selectNextPendingPassenger();
+    }, 2000);
     
   } catch (error) {
     console.error('Error filling form:', error);
     showStatus('Failed to fill form. Please refresh the e-visa page and try again.', 'error');
   }
+}
+
+// Select the next pending passenger automatically
+function selectNextPendingPassenger() {
+  const passportSelect = document.getElementById('passport-select');
+  const currentIndex = passportSelect.selectedIndex;
+  
+  // Find the next pending (not done) passenger
+  for (let i = currentIndex + 1; i < passportSelect.options.length; i++) {
+    const option = passportSelect.options[i];
+    if (!option.value) continue; // Skip empty option
+    
+    try {
+      const passport = JSON.parse(option.dataset.passport);
+      if (passport.status !== 'done') {
+        passportSelect.selectedIndex = i;
+        selectPassport(passport);
+        showStatus('Ready for next passenger ➡️', 'success');
+        console.log(`Auto-selected next passenger: ${passport.first_name_en} ${passport.surname_en}`);
+        return;
+      }
+    } catch (e) {
+      console.error('Error parsing passport data:', e);
+    }
+  }
+  
+  // If no more pending passengers, show message
+  showStatus('✅ All passengers done! No more pending.', 'success');
 }
 
 async function uploadImages() {
