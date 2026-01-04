@@ -97,6 +97,26 @@
           Mark as Done
         </button>
       </div>
+      
+      <!-- Insurance Download Section -->
+      <div class="insurance-section" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+        <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #374151;">📄 Insurance PDF Download</h3>
+        <p style="font-size: 11px; color: #6b7280; margin-bottom: 8px;">Download insurance PDFs for all passengers in selected group</p>
+        <button id="start-insurance-download" class="btn btn-primary" disabled style="width: 100%;">
+          <span class="btn-icon">📥</span>
+          Start Insurance Download
+        </button>
+        <div id="insurance-status" class="status hidden" style="margin-top: 8px;"></div>
+        <div id="insurance-progress" class="progress-bar hidden" style="margin-top: 8px;">
+          <div class="progress-label">
+            <span>Insurance Progress:</span>
+            <span id="insurance-progress-text">0/0</span>
+          </div>
+          <div class="progress-track">
+            <div id="insurance-progress-fill" class="progress-fill"></div>
+          </div>
+        </div>
+      </div>
 
       <div id="status" class="status hidden"></div>
     </div>
