@@ -580,6 +580,96 @@ function setInputValue(input, value) {
   }
 }
 
+// Log all date-related inputs for debugging
+function logDateInputs() {
+  console.log('=== All potential date inputs on page ===');
+  const allInputs = document.querySelectorAll('input');
+  let dateInputs = [];
+  
+  for (const input of allInputs) {
+    const id = input.id || '';
+    const className = input.className || '';
+    const type = input.type || '';
+    const placeholder = input.placeholder || '';
+    
+    // Look for date-related inputs
+    if (id.toLowerCase().includes('date') || 
+        className.toLowerCase().includes('date') ||
+        id.toLowerCase().includes('picker') ||
+        placeholder.includes('/')) {
+      dateInputs.push({
+        id: id,
+        class: className.substring(0, 50),
+        type: type,
+        placeholder: placeholder
+      });
+    }
+  }
+  
+  console.log(`Found ${dateInputs.length} date-related inputs:`);
+  dateInputs.forEach((inp, i) => {
+    console.log(`${i + 1}. id="${inp.id}" class="${inp.class}" placeholder="${inp.placeholder}"`);
+  });
+}
+
+// Fill date field by finding nearby label
+function fillDateByLabel(labelKeyword, value) {
+  const formattedDate = formatDate(value);
+  if (!formattedDate) return false;
+  
+  console.log(`Trying to find date field by label containing: ${labelKeyword}`);
+  
+  // Find all labels
+  const labels = document.querySelectorAll('label, .control-label, .mx-label, span[class*="label"]');
+  
+  for (const label of labels) {
+    const labelText = label.textContent.toLowerCase();
+    
+    if (labelText.includes(labelKeyword.toLowerCase())) {
+      console.log(`Found label: "${label.textContent}"`);
+      
+      // Try to find associated input
+      // Method 1: Check 'for' attribute
+      const forId = label.getAttribute('for');
+      if (forId) {
+        const input = document.getElementById(forId);
+        if (input) {
+          console.log(`Found input by 'for' attribute: ${input.id}`);
+          return setInputValue(input, formattedDate);
+        }
+      }
+      
+      // Method 2: Find input in same container
+      const container = label.closest('.form-group, .mx-dataview-content, .mx-dateinput, [class*="date"]');
+      if (container) {
+        const input = container.querySelector('input[type="text"], input:not([type="hidden"])');
+        if (input) {
+          console.log(`Found input in same container: ${input.id}`);
+          return setInputValue(input, formattedDate);
+        }
+      }
+      
+      // Method 3: Find next sibling input
+      let sibling = label.nextElementSibling;
+      while (sibling) {
+        if (sibling.tagName === 'INPUT') {
+          console.log(`Found input as sibling: ${sibling.id}`);
+          return setInputValue(sibling, formattedDate);
+        }
+        const nestedInput = sibling.querySelector('input');
+        if (nestedInput) {
+          console.log(`Found nested input: ${nestedInput.id}`);
+          return setInputValue(nestedInput, formattedDate);
+        }
+        sibling = sibling.nextElementSibling;
+      }
+    }
+  }
+  
+  console.log(`Could not find date field by label: ${labelKeyword}`);
+  return false;
+}
+
 // Fill a dropdown/select field
 // IMPORTANT: If value is null, undefined, or empty string - skip filling (leave field blank)
 function fillDropdown(selector, value, mapping = null) {
