@@ -379,9 +379,10 @@ async function uploadImages() {
     // Get current tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
-    // Check if we're on the right site
-    if (!tab.url.includes('eservice.evisa.iq')) {
-      showStatus('Please navigate to eservice.evisa.iq first.', 'error');
+    // Check if we're on the right site (more flexible matching)
+    const url = tab.url.toLowerCase();
+    if (!url.includes('evisa.iq')) {
+      showStatus('Please navigate to the Iraq e-visa site (evisa.iq) first.', 'error');
       return;
     }
     
@@ -392,13 +393,30 @@ async function uploadImages() {
       profile_image_url: selectedPassport.profile_image || null
     };
     
-    // Execute content script to upload images
-    await chrome.tabs.sendMessage(tab.id, {
-      action: 'uploadImages',
-      data: imageData
-    });
+    // Try to inject content script first (in case it wasn't loaded)
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+    } catch (injectError) {
+      console.log('Content script already loaded or injection failed:', injectError.message);
+    }
     
-    showStatus('Images uploaded/downloaded! ✓', 'success');
+    // Wait a bit for script to initialize
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Execute content script to upload images
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'uploadImages',
+        data: imageData
+      });
+      showStatus('Images uploaded/downloaded! ✓', 'success');
+    } catch (sendError) {
+      console.error('sendMessage error:', sendError);
+      showStatus('Failed to upload images. Please refresh the e-visa page and try again.', 'error');
+    }
     
   } catch (error) {
     console.error('Error uploading images:', error);
