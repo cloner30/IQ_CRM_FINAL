@@ -220,6 +220,8 @@ class Group(BaseModel):
     client_id: Optional[str] = None  # Link to client
     client_name: Optional[str] = None  # Client name (populated dynamically)
     passport_count: int = 0
+    approval_number: Optional[str] = None  # Approval number for e-visa submission
+    date_of_payment: Optional[str] = None  # Date of payment for e-visa submission
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class PassportCreate(BaseModel):
