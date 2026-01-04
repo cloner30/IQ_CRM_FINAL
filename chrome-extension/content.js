@@ -926,10 +926,12 @@ function selectAttachmentRow(attachmentName) {
   return false;
 }
 
-// Click Upload button and handle file dialog
-async function clickUploadAndSetFile(file) {
-  return new Promise((resolve) => {
-    // Find the Upload button
+// Click Upload button and handle Mendix file upload popup
+async function clickUploadAndSetFile(file, attachmentType = 'Personal Image') {
+  return new Promise(async (resolve) => {
+    console.log(`Starting upload for attachment type: ${attachmentType}`);
+    
+    // Find the Upload button in the grid toolbar
     const uploadBtn = document.querySelector('button.mx-name-actionButton1');
     if (!uploadBtn) {
       console.log('Upload button not found');
@@ -937,47 +939,108 @@ async function clickUploadAndSetFile(file) {
       return;
     }
     
-    // Create a hidden file input to intercept the file dialog
-    const hiddenInput = document.createElement('input');
-    hiddenInput.type = 'file';
-    hiddenInput.accept = 'image/jpeg,image/jpg';
-    hiddenInput.style.display = 'none';
-    document.body.appendChild(hiddenInput);
-    
-    // Set the file and trigger change
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
-    hiddenInput.files = dataTransfer.files;
-    
-    // Listen for any file input that appears after clicking upload
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (node.nodeType === 1) {
-            const fileInputs = node.querySelectorAll ? node.querySelectorAll('input[type="file"]') : [];
-            for (const input of fileInputs) {
-              setFileInput(input, file);
-              observer.disconnect();
-              resolve(true);
-              return;
-            }
-          }
-        }
-      }
-    });
-    
-    observer.observe(document.body, { childList: true, subtree: true });
-    
-    // Click the upload button
+    // Click the upload button to open the popup
     uploadBtn.click();
     console.log('Clicked Upload button');
     
-    // Timeout after 3 seconds
-    setTimeout(() => {
-      observer.disconnect();
-      hiddenInput.remove();
+    // Wait for the Mendix popup to appear
+    await sleep(800);
+    
+    // Find the popup window (mx-window)
+    const popup = document.querySelector('div.mx-window.mx-window-active[role="dialog"]');
+    if (!popup) {
+      console.log('Upload popup not found');
       resolve(false);
-    }, 3000);
+      return;
+    }
+    console.log('Found upload popup');
+    
+    // Find the file input inside the popup (inside mx-fileinput component)
+    const fileInputContainer = popup.querySelector('.mx-fileinput, .mx-filemanager');
+    if (!fileInputContainer) {
+      console.log('File input container not found in popup');
+      resolve(false);
+      return;
+    }
+    
+    // Find the hidden file input
+    let fileInput = fileInputContainer.querySelector('input[type="file"]');
+    if (!fileInput) {
+      // Try to find any file input in the popup
+      fileInput = popup.querySelector('input[type="file"]');
+    }
+    
+    if (fileInput) {
+      console.log('Found file input element');
+      
+      // Set the file using DataTransfer API
+      try {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        
+        // Trigger events
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+        
+        console.log(`Set file: ${file.name}`);
+        
+        // Wait for the file to be processed
+        await sleep(500);
+        
+        // Look for a save/confirm button in the popup
+        const saveBtn = popup.querySelector('button.mx-button:not(.mx-fileinput-upload-button)');
+        if (saveBtn && (saveBtn.textContent.includes('Save') || saveBtn.textContent.includes('OK') || saveBtn.textContent.includes('حفظ'))) {
+          saveBtn.click();
+          console.log('Clicked save button');
+          await sleep(500);
+        }
+        
+        resolve(true);
+        return;
+      } catch (error) {
+        console.error('Error setting file:', error);
+      }
+    }
+    
+    // Fallback: Try clicking the Browse button and intercepting
+    const browseBtn = popup.querySelector('button.mx-fileinput-upload-button, button:contains("Browse")');
+    if (browseBtn) {
+      console.log('Trying Browse button fallback');
+      
+      // Create observer to catch when file input becomes active
+      const observer = new MutationObserver((mutations) => {
+        const inputs = popup.querySelectorAll('input[type="file"]');
+        for (const input of inputs) {
+          if (!input._processed) {
+            input._processed = true;
+            try {
+              const dt = new DataTransfer();
+              dt.items.add(file);
+              input.files = dt.files;
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+              console.log('Set file via observer');
+              observer.disconnect();
+              resolve(true);
+            } catch (e) {
+              console.error('Observer file set error:', e);
+            }
+          }
+        }
+      });
+      
+      observer.observe(popup, { childList: true, subtree: true, attributes: true });
+      browseBtn.click();
+      
+      // Timeout
+      setTimeout(() => {
+        observer.disconnect();
+        resolve(false);
+      }, 3000);
+    } else {
+      console.log('Browse button not found');
+      resolve(false);
+    }
   });
 }
 
