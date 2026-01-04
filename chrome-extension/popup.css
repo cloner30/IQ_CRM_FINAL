@@ -205,6 +205,24 @@ header h1 {
   cursor: not-allowed;
 }
 
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
 .progress-bar {
   margin-bottom: 12px;
   padding: 10px;
