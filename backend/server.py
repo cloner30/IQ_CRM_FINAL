@@ -246,6 +246,7 @@ class PassportCreate(BaseModel):
     profession: Optional[str] = None
     country_of_residence: Optional[str] = None
     applicant_type: Optional[str] = None
+    relationship_proof: Optional[str] = None  # S3 URL for relationship proof (required for minors)
 
 class Passport(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -274,6 +275,7 @@ class Passport(BaseModel):
     profession: Optional[str] = None
     country_of_residence: Optional[str] = None
     applicant_type: Optional[str] = None
+    relationship_proof: Optional[str] = None  # S3 URL for relationship proof (required for minors)
     passport_image: Optional[str] = None
     profile_image: Optional[str] = None
     status: str = "pending"  # pending, done
