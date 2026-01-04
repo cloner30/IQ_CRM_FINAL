@@ -193,8 +193,27 @@ export const PassportScanner = () => {
 
   const retakePhoto = () => {
     setCapturedImage(null);
-    setExtractedData(null);
+    setFormData(null);
     startCamera();
+  };
+
+  // Convert country code to nationality name
+  const mapNationality = (extracted) => {
+    if (extracted.nationality_code) {
+      const mapped = COUNTRY_CODE_TO_NATIONALITY[extracted.nationality_code.toUpperCase()];
+      if (mapped) return mapped;
+    }
+    if (extracted.nationality) {
+      // Check if it's already a valid nationality
+      if (NATIONALITIES.includes(extracted.nationality)) {
+        return extracted.nationality;
+      }
+      // Try to find a matching nationality
+      const lowerNat = extracted.nationality.toLowerCase();
+      const found = NATIONALITIES.find(n => n.toLowerCase().includes(lowerNat) || lowerNat.includes(n.toLowerCase()));
+      if (found) return found;
+    }
+    return '';
   };
 
   const scanPassport = async () => {
