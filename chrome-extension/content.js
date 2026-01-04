@@ -494,14 +494,8 @@ function fillDropdown(selector, value, mapping = null) {
     return false;
   }
   
-  const select = document.querySelector(selector);
-  if (!select) {
-    console.log(`Dropdown not found: ${selector}`);
-    return false;
-  }
-  
   // Map value if mapping provided
-  const mappedValue = mapping ? mapping[value] || value : value;
+  const mappedValue = mapping ? (mapping[value] || value) : value;
   
   // If mapped value is empty, skip
   if (!mappedValue) {
@@ -509,34 +503,95 @@ function fillDropdown(selector, value, mapping = null) {
     return false;
   }
   
+  console.log(`Trying to fill dropdown ${selector} with value: ${value} -> ${mappedValue}`);
+  
+  // Method 1: Standard select element
+  let select = document.querySelector(selector);
+  
+  // Method 2: Find by partial ID match if direct selector fails
+  if (!select) {
+    const selectorId = selector.match(/id\*="([^"]+)"/)?.[1] || '';
+    if (selectorId) {
+      const allSelects = document.querySelectorAll('select');
+      for (const s of allSelects) {
+        if (s.id && s.id.includes(selectorId)) {
+          select = s;
+          break;
+        }
+      }
+    }
+  }
+  
+  if (!select) {
+    console.log(`Dropdown not found: ${selector}`);
+    return false;
+  }
+  
   // Find matching option
   const options = Array.from(select.options);
   let found = false;
+  let matchedOption = null;
   
+  // Try exact match first
   for (const option of options) {
-    // Try exact match first
-    if (option.value === mappedValue || option.text === mappedValue) {
-      select.value = option.value;
-      found = true;
-      break;
-    }
-    // Try case-insensitive partial match
-    if (option.text.toLowerCase().includes(mappedValue.toLowerCase()) ||
-        mappedValue.toLowerCase().includes(option.text.toLowerCase())) {
-      select.value = option.value;
+    if (option.value === mappedValue || option.text === mappedValue || 
+        option.text.trim() === mappedValue.trim()) {
+      matchedOption = option;
       found = true;
       break;
     }
   }
   
-  if (found) {
+  // Try case-insensitive match
+  if (!found) {
+    const lowerMapped = mappedValue.toLowerCase().trim();
+    for (const option of options) {
+      const lowerText = option.text.toLowerCase().trim();
+      const lowerValue = option.value.toLowerCase().trim();
+      if (lowerText === lowerMapped || lowerValue === lowerMapped) {
+        matchedOption = option;
+        found = true;
+        break;
+      }
+    }
+  }
+  
+  // Try partial match (contains)
+  if (!found) {
+    const lowerMapped = mappedValue.toLowerCase().trim();
+    for (const option of options) {
+      const lowerText = option.text.toLowerCase().trim();
+      if (lowerText.includes(lowerMapped) || lowerMapped.includes(lowerText)) {
+        matchedOption = option;
+        found = true;
+        break;
+      }
+    }
+  }
+  
+  if (found && matchedOption) {
+    // Set the value
+    select.value = matchedOption.value;
+    
+    // Trigger multiple events for Mendix compatibility
+    select.dispatchEvent(new Event('focus', { bubbles: true }));
+    select.dispatchEvent(new Event('input', { bubbles: true }));
     select.dispatchEvent(new Event('change', { bubbles: true }));
-    console.log(`Selected ${selector}: ${value} -> ${select.value}`);
+    select.dispatchEvent(new Event('blur', { bubbles: true }));
+    
+    // Also try to trigger React/Mendix specific events
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+    nativeInputValueSetter.call(select, matchedOption.value);
+    select.dispatchEvent(new Event('input', { bubbles: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    console.log(`✓ Selected ${selector}: "${value}" -> "${matchedOption.text}" (value: ${matchedOption.value})`);
+    return true;
   } else {
-    console.log(`No matching option found for ${selector}: ${value}`);
+    console.log(`✗ No matching option found for ${selector}: ${mappedValue}`);
+    console.log(`Available options:`, options.map(o => `"${o.text}" (${o.value})`).slice(0, 10));
+    return false;
   }
-  
-  return found;
 }
 
 // Main function to fill the visa form
