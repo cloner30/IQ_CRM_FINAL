@@ -212,6 +212,10 @@ class GroupCreate(BaseModel):
     description: Optional[str] = ""
     client_id: Optional[str] = None  # Link to client
 
+class GroupSubmissionDetails(BaseModel):
+    approval_number: Optional[str] = None
+    date_of_payment: Optional[str] = None
+
 class Group(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
