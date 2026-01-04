@@ -72,6 +72,61 @@ const DEFAULT_VALUES = {
 // Hotel name text field selector
 const HOTEL_NAME_SELECTOR = 'input[id*="textBox37"], input[id*="hotelName"], input[id*="HotelName"]';
 
+// Helper function to calculate age from birth date
+function calculateAge(birthDateStr) {
+  if (!birthDateStr) return 99; // Default to adult
+  
+  try {
+    let birthDate;
+    
+    // Handle various date formats
+    if (birthDateStr.includes('-')) {
+      // YYYY-MM-DD format
+      birthDate = new Date(birthDateStr);
+    } else if (birthDateStr.includes('/')) {
+      // m/d/yyyy format
+      const parts = birthDateStr.split('/');
+      if (parts.length === 3) {
+        const month = parseInt(parts[0]) - 1;
+        const day = parseInt(parts[1]);
+        const year = parseInt(parts[2]);
+        birthDate = new Date(year, month, day);
+      }
+    } else {
+      birthDate = new Date(birthDateStr);
+    }
+    
+    if (isNaN(birthDate.getTime())) return 99;
+    
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  } catch {
+    return 99;
+  }
+}
+
+// Check if person is a minor (under 18)
+function isMinor(birthDateStr) {
+  return calculateAge(birthDateStr) < 18;
+}
+
+// Get applicant type based on age and gender
+function getApplicantType(birthDateStr, gender) {
+  if (!isMinor(birthDateStr)) return ""; // Empty for adults
+  
+  const genderLower = (gender || "").toLowerCase();
+  if (genderLower === "male" || genderLower === "m") return "Son";
+  if (genderLower === "female" || genderLower === "f") return "Daughter";
+  return "";
+}
+
 // Nationality mapping (Our app values -> E-visa dropdown text)
 // E-visa uses nationality adjectives like "Ethiopian", "American", etc.
 const NATIONALITY_MAP = {
