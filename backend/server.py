@@ -1026,6 +1026,86 @@ async def bulk_upload_photos(group_id: str, files: List[UploadFile] = File(...))
     
     return results
 
+# Upload relationship proof for a specific passport (required for minors)
+@api_router.post("/groups/{group_id}/passports/{passport_id}/relationship-proof")
+async def upload_relationship_proof(
+    group_id: str,
+    passport_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload relationship proof document for minors"""
+    # Verify group exists
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Verify passport exists
+    passport = await db.passports.find_one({"id": passport_id, "group_id": group_id})
+    if not passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    
+    # Validate file type
+    if not validate_file_extension(file.filename):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only JPG/JPEG allowed.")
+    
+    content = await file.read()
+    passport_no = passport.get("passport_no", passport_id)
+    
+    try:
+        if s3_enabled and s3_client:
+            # Upload to S3
+            s3_key = f"relationship_proofs/{group_id}/{passport_no}.jpg"
+            uploaded = await upload_to_s3(content, s3_key, 'image/jpeg')
+            if uploaded:
+                # Update passport with relationship proof URL
+                await db.passports.update_one(
+                    {"id": passport_id},
+                    {"$set": {"relationship_proof": f"s3://{s3_key}"}}
+                )
+                return {"success": True, "message": "Relationship proof uploaded successfully"}
+            else:
+                raise HTTPException(status_code=500, detail="S3 upload failed")
+        else:
+            # Fallback to local storage
+            proof_dir = UPLOADS_DIR / "relationship_proofs" / group_id
+            proof_dir.mkdir(parents=True, exist_ok=True)
+            file_path = proof_dir / f"{passport_no}.jpg"
+            async with aiofiles.open(file_path, 'wb') as out_file:
+                await out_file.write(content)
+            
+            await db.passports.update_one(
+                {"id": passport_id},
+                {"$set": {"relationship_proof": f"/api/uploads/relationship_proofs/{group_id}/{passport_no}.jpg"}}
+            )
+            return {"success": True, "message": "Relationship proof uploaded successfully"}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+# API to check if passport holder is a minor
+@api_router.get("/groups/{group_id}/passports/{passport_id}/minor-status")
+async def check_minor_status(group_id: str, passport_id: str, current_user: dict = Depends(get_current_user)):
+    """Check if passport holder is a minor and return applicant type"""
+    passport = await db.passports.find_one({"id": passport_id, "group_id": group_id}, {"_id": 0})
+    if not passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    
+    birth_date = passport.get("birth_date")
+    gender = passport.get("gender")
+    
+    age = calculate_age(birth_date)
+    is_minor_flag = age < 18
+    applicant_type = get_applicant_type(birth_date, gender)
+    
+    return {
+        "is_minor": is_minor_flag,
+        "age": age,
+        "applicant_type": applicant_type,
+        "relationship_proof_required": is_minor_flag,
+        "relationship_proof_uploaded": bool(passport.get("relationship_proof"))
+    }
+
 # Serve uploaded files (local fallback or redirect to S3 presigned URL)
 @api_router.get("/uploads/passports/{group_id}/{filename}")
 async def get_passport_image(group_id: str, filename: str):
