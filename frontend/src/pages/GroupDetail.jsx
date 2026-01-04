@@ -226,12 +226,35 @@ export const GroupDetail = () => {
       return;
     }
     
+    // Check if minor and validate relationship proof
+    const minorStatus = isMinor(passportForm.birth_date);
+    if (minorStatus && !relationshipProofFile && !passportForm.relationship_proof) {
+      toast.error('Relationship proof is required for minors (under 18 years). Please upload the document.');
+      return;
+    }
+    
+    // Auto-set applicant type based on age and gender
+    const autoApplicantType = getApplicantType(passportForm.birth_date, passportForm.gender);
+    const formData = { ...passportForm, applicant_type: autoApplicantType };
+    
     setFormLoading(true);
     try {
-      const response = await api.post(`/groups/${groupId}/passports`, passportForm);
-      setPassports([...passports, response.data]);
+      const response = await api.post(`/groups/${groupId}/passports`, formData);
+      const newPassport = response.data;
+      
+      // Upload relationship proof if provided
+      if (relationshipProofFile && minorStatus) {
+        const proofFormData = new FormData();
+        proofFormData.append('file', relationshipProofFile);
+        await api.post(`/groups/${groupId}/passports/${newPassport.id}/relationship-proof`, proofFormData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
+      
+      setPassports([...passports, newPassport]);
       setShowAddPassport(false);
       resetForm();
+      setRelationshipProofFile(null);
       toast.success('Passport added successfully');
       fetchData();
     } catch (error) {
@@ -248,11 +271,33 @@ export const GroupDetail = () => {
       return;
     }
     
+    // Check if minor and validate relationship proof
+    const minorStatus = isMinor(passportForm.birth_date);
+    if (minorStatus && !relationshipProofFile && !passportForm.relationship_proof) {
+      toast.error('Relationship proof is required for minors (under 18 years). Please upload the document.');
+      return;
+    }
+    
+    // Auto-set applicant type based on age and gender
+    const autoApplicantType = getApplicantType(passportForm.birth_date, passportForm.gender);
+    const formData = { ...passportForm, applicant_type: autoApplicantType };
+    
     setFormLoading(true);
     try {
-      await api.put(`/groups/${groupId}/passports/${showEditPassport.id}`, passportForm);
+      await api.put(`/groups/${groupId}/passports/${showEditPassport.id}`, formData);
+      
+      // Upload relationship proof if provided
+      if (relationshipProofFile && minorStatus) {
+        const proofFormData = new FormData();
+        proofFormData.append('file', relationshipProofFile);
+        await api.post(`/groups/${groupId}/passports/${showEditPassport.id}/relationship-proof`, proofFormData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      }
+      
       setShowEditPassport(null);
       resetForm();
+      setRelationshipProofFile(null);
       toast.success('Passport updated successfully');
       fetchData();
     } catch (error) {
