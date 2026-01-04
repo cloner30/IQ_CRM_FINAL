@@ -1097,6 +1097,12 @@ export const GroupDetail = () => {
                         <Image className="w-3 h-3 mr-1" />
                         Photo
                       </span>
+                      {passport.insurance_pdf && (
+                        <span className="status-badge success" title="Insurance PDF downloaded">
+                          <Download className="w-3 h-3 mr-1" />
+                          Insurance
+                        </span>
+                      )}
                     </div>
                     <Button
                       variant="ghost"
