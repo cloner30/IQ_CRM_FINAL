@@ -1269,15 +1269,17 @@ def parse_mrz(text: str) -> dict:
         # Parse Line 1: Type, Country, Name
         if line1.startswith('P'):
             # Extract names from line 1
+            # MRZ format: P<COUNTRY<<SURNAME<<GIVEN<NAMES
+            # Given names section contains first name and middle names, NOT father's name
             name_part = line1[5:] if len(line1) > 5 else ""
             if '<<' in name_part:
                 parts = name_part.split('<<')
                 surname = parts[0].replace('<', ' ').strip()
                 given_names = parts[1].replace('<', ' ').strip() if len(parts) > 1 else ""
                 data['surname_en'] = surname.title()
-                data['first_name_en'] = given_names.split()[0].title() if given_names else ""
-                if len(given_names.split()) > 1:
-                    data['father_name_en'] = given_names.split()[1].title()
+                # Store all given names as first_name_en (user can split manually if needed)
+                # Do NOT auto-fill father_name - it's not in MRZ and requires manual entry
+                data['first_name_en'] = given_names.title() if given_names else ""
         
         # Parse Line 2: Passport No, Nationality, DOB, Gender, Expiry
         if len(line2) >= 28:
