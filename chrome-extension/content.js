@@ -468,42 +468,76 @@ function fillDateField(selector, value) {
   
   console.log(`Filling date field ${selector} with: ${formattedDate}`);
   
-  // Extract the ID pattern from selector (e.g., "cLEVRDatePicker4" from 'input[id*="SNP_Beneficiary_Company.cLEVRDatePicker4"]')
+  // Extract the key part from selector (e.g., "cLEVRDatePicker4" or "DatePicker4")
   const selectorId = selector.match(/id\*="([^"]+)"/)?.[1] || '';
-  console.log(`Looking for date field with ID containing: ${selectorId}`);
+  const keyPart = selectorId.split('.').pop(); // Get last part like "cLEVRDatePicker4"
+  console.log(`Looking for date field with key: ${keyPart}`);
   
-  // Find all inputs and look for date fields
+  // Log all inputs to help debug
   const allInputs = document.querySelectorAll('input');
+  console.log(`Total inputs on page: ${allInputs.length}`);
   
+  // Method 1: Search by partial ID match
   for (const input of allInputs) {
     const id = input.id || '';
     
-    // Check if this input's ID contains our pattern
-    if (selectorId && id.includes(selectorId)) {
-      console.log(`Found date input: ${id}`);
+    // Check various patterns
+    if (keyPart && id.toLowerCase().includes(keyPart.toLowerCase())) {
+      console.log(`Found date input by key match: ${id}`);
       return setInputValue(input, formattedDate);
+    }
+    
+    // Also check if ID contains "DatePicker" and matches the number
+    const pickerMatch = keyPart.match(/DatePicker(\d+)/i);
+    if (pickerMatch) {
+      const pickerNum = pickerMatch[1];
+      if (id.toLowerCase().includes('datepicker') && id.includes(pickerNum)) {
+        console.log(`Found date input by picker number: ${id}`);
+        return setInputValue(input, formattedDate);
+      }
     }
   }
   
-  // Method 2: Try direct selector
+  // Method 2: Find by looking for date picker containers with the pattern
+  const dateContainers = document.querySelectorAll('[class*="datepicker"], [class*="DatePicker"], .mx-dateinput');
+  for (const container of dateContainers) {
+    const input = container.querySelector('input');
+    if (input) {
+      const containerId = container.id || container.className || '';
+      if (selectorId && (containerId.includes(selectorId) || containerId.includes(keyPart))) {
+        console.log(`Found date input in container: ${containerId}`);
+        return setInputValue(input, formattedDate);
+      }
+    }
+  }
+  
+  // Method 3: Find by looking at mx-name attribute
+  const mxNameInputs = document.querySelectorAll(`[class*="mx-name-${keyPart}"] input, input[class*="${keyPart}"]`);
+  if (mxNameInputs.length > 0) {
+    console.log(`Found date input by mx-name: ${mxNameInputs[0].id}`);
+    return setInputValue(mxNameInputs[0], formattedDate);
+  }
+  
+  // Method 4: Try direct selector (might work if ID matches exactly)
   const directInput = document.querySelector(selector);
   if (directInput) {
     console.log(`Found date input via direct selector`);
     return setInputValue(directInput, formattedDate);
   }
   
-  // Method 3: Look for datepicker by type attribute or class
-  const dateInputs = document.querySelectorAll('input[class*="date"], input[type="text"]');
-  for (const input of dateInputs) {
+  // Method 5: Search in ALL inputs that look like date fields
+  console.log('Searching all potential date inputs...');
+  for (const input of allInputs) {
     const id = input.id || '';
+    const className = input.className || '';
     const placeholder = input.placeholder || '';
     
-    // Check if ID suggests it's a date picker
-    if (id.toLowerCase().includes('datepicker') || id.toLowerCase().includes('date')) {
-      if (selectorId && id.includes(selectorId.split('.').pop())) {
-        console.log(`Found date input by class/type: ${id}`);
-        return setInputValue(input, formattedDate);
-      }
+    // Look for date-related patterns
+    if (id.toLowerCase().includes('date') || 
+        className.toLowerCase().includes('date') ||
+        placeholder.includes('/') ||
+        placeholder.toLowerCase().includes('date')) {
+      console.log(`Potential date input found: id="${id}", class="${className}", placeholder="${placeholder}"`);
     }
   }
   
