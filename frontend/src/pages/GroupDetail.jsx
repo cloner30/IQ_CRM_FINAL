@@ -964,7 +964,7 @@ export const GroupDetail = () => {
                   <div className="mt-2 w-32 h-32 rounded-lg bg-slate-100 overflow-hidden border">
                     {showViewPassport.profile_image ? (
                       <img
-                        src={`${process.env.REACT_APP_BACKEND_URL}${showViewPassport.profile_image}`}
+                        src={getImageUrl(showViewPassport.profile_image)}
                         alt="Profile"
                         className="w-full h-full object-cover"
                       />
@@ -980,7 +980,7 @@ export const GroupDetail = () => {
                   <div className="mt-2 w-32 h-32 rounded-lg bg-slate-100 overflow-hidden border">
                     {showViewPassport.passport_image ? (
                       <img
-                        src={`${process.env.REACT_APP_BACKEND_URL}${showViewPassport.passport_image}`}
+                        src={getImageUrl(showViewPassport.passport_image)}
                         alt="Passport"
                         className="w-full h-full object-cover"
                       />
