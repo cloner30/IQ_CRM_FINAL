@@ -19,9 +19,15 @@ import boto3
 from botocore.exceptions import ClientError
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+import httpx
+import base64
+import re
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# OCR.space API Key
+OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
