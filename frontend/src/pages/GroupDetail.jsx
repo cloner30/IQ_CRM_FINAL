@@ -14,6 +14,17 @@ import api from '../utils/api';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+// Helper function to get proper image URL
+const getImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  // If it's already a full URL (S3 presigned), return as is
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl;
+  }
+  // Otherwise, prepend the API URL
+  return `${API_URL}${imageUrl}`;
+};
+
 // Exact nationality values from e-visa form (https://eservice.evisa.iq/)
 const NATIONALITIES = [
   "Afghan", "Albanian", "Algerian", "American", "Argentine", "Armenian", "Australian", "Austrian",
