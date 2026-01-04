@@ -1211,6 +1211,230 @@ async def delete_client(client_id: str, current_user: dict = Depends(get_admin_u
     
     return {"message": "Client deleted successfully"}
 
+# ============ OCR PASSPORT SCANNING ENDPOINT ============
+
+class OCRResult(BaseModel):
+    success: bool
+    extracted_data: Optional[dict] = None
+    raw_text: Optional[str] = None
+    error: Optional[str] = None
+
+def parse_mrz(text: str) -> dict:
+    """Parse Machine Readable Zone (MRZ) from passport"""
+    data = {}
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    
+    # Find MRZ lines (usually start with P< for passport)
+    mrz_lines = []
+    for line in lines:
+        # MRZ lines contain < characters and are typically 44 chars for passport
+        if '<' in line and len(line) >= 30:
+            # Clean the line - remove spaces
+            clean_line = line.replace(' ', '')
+            mrz_lines.append(clean_line)
+    
+    if len(mrz_lines) >= 2:
+        line1 = mrz_lines[0]
+        line2 = mrz_lines[1] if len(mrz_lines) > 1 else ""
+        
+        # Parse Line 1: Type, Country, Name
+        if line1.startswith('P'):
+            # Extract names from line 1
+            name_part = line1[5:] if len(line1) > 5 else ""
+            if '<<' in name_part:
+                parts = name_part.split('<<')
+                surname = parts[0].replace('<', ' ').strip()
+                given_names = parts[1].replace('<', ' ').strip() if len(parts) > 1 else ""
+                data['surname_en'] = surname.title()
+                data['first_name_en'] = given_names.split()[0].title() if given_names else ""
+                if len(given_names.split()) > 1:
+                    data['father_name_en'] = given_names.split()[1].title()
+        
+        # Parse Line 2: Passport No, Nationality, DOB, Gender, Expiry
+        if len(line2) >= 28:
+            # Passport number (positions 0-9)
+            passport_no = line2[0:9].replace('<', '')
+            data['passport_no'] = passport_no
+            
+            # Nationality (positions 10-12)
+            nationality_code = line2[10:13].replace('<', '')
+            data['nationality_code'] = nationality_code
+            
+            # Date of birth (positions 13-19) - YYMMDD
+            dob = line2[13:19]
+            if dob and len(dob) == 6 and dob.isdigit():
+                year = int(dob[0:2])
+                # Assume 19xx for years > 30, 20xx for years <= 30
+                year = 1900 + year if year > 30 else 2000 + year
+                month = dob[2:4]
+                day = dob[4:6]
+                data['birth_date'] = f"{year}-{month}-{day}"
+            
+            # Gender (position 20)
+            gender = line2[20:21]
+            if gender == 'M':
+                data['gender'] = 'Male'
+            elif gender == 'F':
+                data['gender'] = 'Female'
+            
+            # Expiry date (positions 21-27) - YYMMDD
+            exp = line2[21:27]
+            if exp and len(exp) == 6 and exp.isdigit():
+                year = int(exp[0:2])
+                year = 2000 + year  # Expiry is always in 2000s
+                month = exp[2:4]
+                day = exp[4:6]
+                data['expiry_date'] = f"{year}-{month}-{day}"
+    
+    return data
+
+def parse_passport_text(text: str) -> dict:
+    """Parse passport data from OCR text using various patterns"""
+    data = {}
+    text_upper = text.upper()
+    
+    # Try MRZ parsing first
+    mrz_data = parse_mrz(text)
+    if mrz_data:
+        data.update(mrz_data)
+    
+    # Pattern matching for common passport fields
+    patterns = {
+        'passport_no': [
+            r'PASSPORT\s*(?:NO|NUMBER|#)[:\s]*([A-Z0-9]{6,12})',
+            r'(?:NO|NUMBER)[:\s]*([A-Z][0-9]{7,8})',
+            r'\b([A-Z]{1,2}[0-9]{6,8})\b'
+        ],
+        'surname_en': [
+            r'SURNAME[:\s]*([A-Z]+)',
+            r'FAMILY\s*NAME[:\s]*([A-Z]+)'
+        ],
+        'first_name_en': [
+            r'GIVEN\s*NAME[S]?[:\s]*([A-Z]+)',
+            r'FIRST\s*NAME[:\s]*([A-Z]+)',
+            r'NAME[:\s]*([A-Z]+)'
+        ],
+        'nationality': [
+            r'NATIONALITY[:\s]*([A-Z]+)',
+            r'CITIZEN(?:SHIP)?[:\s]*([A-Z]+)'
+        ],
+        'birth_date': [
+            r'(?:DATE\s*OF\s*BIRTH|DOB|BIRTH)[:\s]*(\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4})',
+            r'(\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{4})'
+        ],
+        'expiry_date': [
+            r'(?:DATE\s*OF\s*EXPIRY|EXPIRY|EXPIRES?|VALID\s*UNTIL)[:\s]*(\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4})',
+        ],
+        'place_of_issue': [
+            r'PLACE\s*OF\s*ISSUE[:\s]*([A-Z]+)',
+        ],
+        'gender': [
+            r'SEX[:\s]*(M|F|MALE|FEMALE)',
+            r'GENDER[:\s]*(M|F|MALE|FEMALE)'
+        ]
+    }
+    
+    for field, field_patterns in patterns.items():
+        if field not in data or not data[field]:
+            for pattern in field_patterns:
+                match = re.search(pattern, text_upper)
+                if match:
+                    value = match.group(1).strip()
+                    if field == 'gender':
+                        value = 'Male' if value in ['M', 'MALE'] else 'Female'
+                    elif field in ['surname_en', 'first_name_en', 'nationality', 'place_of_issue']:
+                        value = value.title()
+                    data[field] = value
+                    break
+    
+    return data
+
+@api_router.post("/ocr/scan-passport", response_model=OCRResult)
+async def scan_passport(
+    image: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Scan passport image and extract data using OCR.space API"""
+    
+    if not OCR_SPACE_API_KEY:
+        raise HTTPException(status_code=500, detail="OCR API key not configured")
+    
+    # Read the uploaded image
+    image_data = await image.read()
+    
+    # Convert to base64
+    base64_image = base64.b64encode(image_data).decode('utf-8')
+    
+    # Determine file type
+    content_type = image.content_type or 'image/jpeg'
+    if 'png' in content_type:
+        file_type = 'PNG'
+    elif 'gif' in content_type:
+        file_type = 'GIF'
+    else:
+        file_type = 'JPG'
+    
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                'https://api.ocr.space/parse/image',
+                data={
+                    'apikey': OCR_SPACE_API_KEY,
+                    'base64Image': f'data:{content_type};base64,{base64_image}',
+                    'language': 'eng',
+                    'isOverlayRequired': False,
+                    'detectOrientation': True,
+                    'scale': True,
+                    'OCREngine': 2  # Engine 2 is better for passports
+                }
+            )
+            
+            result = response.json()
+            
+            if result.get('IsErroredOnProcessing'):
+                error_msg = result.get('ErrorMessage', ['Unknown error'])
+                return OCRResult(
+                    success=False,
+                    error=error_msg[0] if isinstance(error_msg, list) else str(error_msg)
+                )
+            
+            # Extract text from result
+            parsed_results = result.get('ParsedResults', [])
+            if not parsed_results:
+                return OCRResult(
+                    success=False,
+                    error="No text detected in image"
+                )
+            
+            raw_text = parsed_results[0].get('ParsedText', '')
+            
+            if not raw_text.strip():
+                return OCRResult(
+                    success=False,
+                    error="No text could be extracted from image"
+                )
+            
+            # Parse the extracted text
+            extracted_data = parse_passport_text(raw_text)
+            
+            return OCRResult(
+                success=True,
+                extracted_data=extracted_data,
+                raw_text=raw_text
+            )
+            
+    except httpx.TimeoutException:
+        return OCRResult(
+            success=False,
+            error="OCR request timed out. Please try again."
+        )
+    except Exception as e:
+        logging.error(f"OCR error: {str(e)}")
+        return OCRResult(
+            success=False,
+            error=f"OCR processing failed: {str(e)}"
+        )
+
 @api_router.get("/")
 async def root():
     return {"message": "Passport Control Admin API"}
