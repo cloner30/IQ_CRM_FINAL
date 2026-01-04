@@ -693,9 +693,54 @@ export const GroupDetail = () => {
                 {APPLICANT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
             </Select>
+            {/* Auto-calculated applicant type info */}
+            {passportForm.birth_date && passportForm.gender && (
+              <p className="text-xs text-slate-500 mt-1">
+                Auto-calculated: {getApplicantType(passportForm.birth_date, passportForm.gender) || "(Adult - None)"}
+              </p>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Minor Alert & Relationship Proof Upload */}
+      {passportForm.birth_date && isMinor(passportForm.birth_date) && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-yellow-800">Minor Detected (Under 18)</h4>
+              <p className="text-sm text-yellow-700 mt-1">
+                Age: {calculateAge(passportForm.birth_date)} years old | 
+                Applicant Type: {getApplicantType(passportForm.birth_date, passportForm.gender) || "Select gender"}
+              </p>
+              <p className="text-sm text-yellow-700 mt-2 font-medium">
+                Relationship Proof is REQUIRED for minors
+              </p>
+              
+              <div className="mt-3">
+                <Label className="text-yellow-800 mb-2 block">Upload Relationship Proof (JPG) *</Label>
+                <Input
+                  type="file"
+                  accept=".jpg,.jpeg"
+                  onChange={(e) => setRelationshipProofFile(e.target.files[0])}
+                  className="bg-white border-yellow-300"
+                  data-testid="relationship-proof-input"
+                />
+                {relationshipProofFile && (
+                  <p className="text-xs text-green-600 mt-1">✓ Selected: {relationshipProofFile.name}</p>
+                )}
+                {passportForm.relationship_proof && !relationshipProofFile && (
+                  <p className="text-xs text-green-600 mt-1">✓ Already uploaded</p>
+                )}
+                {!relationshipProofFile && !passportForm.relationship_proof && (
+                  <p className="text-xs text-red-600 mt-1">⚠ Required: Please upload relationship proof document</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <DialogFooter className="pt-4">
         <Button type="button" variant="outline" onClick={() => { isEdit ? setShowEditPassport(null) : setShowAddPassport(false); resetForm(); }}>
