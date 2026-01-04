@@ -568,17 +568,6 @@ function fillDateField(selector, value) {
 }
 
 // Helper to set input value with proper events for Mendix
-        placeholder.includes('/') ||
-        placeholder.toLowerCase().includes('date')) {
-      console.log(`Potential date input found: id="${id}", class="${className}", placeholder="${placeholder}"`);
-    }
-  }
-  
-  console.log(`Date field not found: ${selector}`);
-  return false;
-}
-
-// Helper to set input value with proper events for Mendix
 function setInputValue(input, value) {
   try {
     // Focus and click the input
