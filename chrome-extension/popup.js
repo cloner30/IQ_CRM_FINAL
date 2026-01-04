@@ -9,6 +9,8 @@ let currentGroupId = null;
 let currentGroup = null; // Store current group data (including approval_number)
 let lastSelectedGroupId = null; // Remember last selected group
 let insuranceDownloadInProgress = false; // Track insurance download state
+let insuranceDownloadPaused = false; // Track pause state
+let currentTabId = null; // Track the tab we're working with
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', async () => {
