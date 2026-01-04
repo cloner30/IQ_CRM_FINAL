@@ -6,7 +6,9 @@ let authToken = '';
 let currentUser = null;
 let allPassports = []; // Store all passports for filtering
 let currentGroupId = null;
+let currentGroup = null; // Store current group data (including approval_number)
 let lastSelectedGroupId = null; // Remember last selected group
+let insuranceDownloadInProgress = false; // Track insurance download state
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', async () => {
