@@ -177,8 +177,11 @@ function setupEventListeners() {
   // Mark as Done button
   document.getElementById('mark-done-btn').addEventListener('click', markAsDone);
   
-  // Insurance Download button
+  // Insurance Download buttons
   document.getElementById('start-insurance-download').addEventListener('click', startInsuranceDownload);
+  document.getElementById('pause-insurance-download').addEventListener('click', pauseInsuranceDownload);
+  document.getElementById('resume-insurance-download').addEventListener('click', resumeInsuranceDownload);
+  document.getElementById('stop-insurance-download').addEventListener('click', stopInsuranceDownload);
 }
 
 async function loadGroups() {
