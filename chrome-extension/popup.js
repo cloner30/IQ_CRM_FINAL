@@ -636,10 +636,7 @@ async function startInsuranceDownload() {
     return;
   }
   
-  if (!allPassports || allPassports.length === 0) {
-    showInsuranceStatus('No passengers in this group.', 'error');
-    return;
-  }
+  // Note: We no longer require passengers - they will be created automatically from the e-visa page
   
   if (insuranceDownloadInProgress) {
     showInsuranceStatus('Insurance download already in progress...', 'loading');
@@ -664,25 +661,25 @@ async function startInsuranceDownload() {
   
   try {
     // Send message to content script to start insurance download
+    // Passports list is optional - new records will be created from e-visa page data
     const response = await chrome.tabs.sendMessage(tab.id, {
       action: 'startInsuranceDownload',
       data: {
         approvalNumber: currentGroup.approval_number,
         groupId: currentGroupId,
-        passports: allPassports.map(p => ({
-          id: p.id,
-          passport_no: p.passport_no,
-          name: `${p.first_name_en} ${p.surname_en}`
-        })),
         apiUrl: apiUrl,
         authToken: authToken
       }
     });
     
     if (response && response.success) {
-      showInsuranceStatus(`✅ Insurance download completed! ${response.processed || 0} PDFs saved.`, 'success');
-      // Refresh passports to show updated insurance_pdf status
-      await loadPassports(currentGroupId);
+      let statusMsg = `✅ Completed! ${response.processed || 0} PDFs saved.`;
+      if (response.created) {
+        statusMsg += ` (${response.created} new passengers created)`;
+      }
+      showInsuranceStatus(statusMsg, 'success');
+      // Refresh passports to show updated data
+      await loadGroupAndPassports(currentGroupId);
     } else {
       showInsuranceStatus(`Download completed with issues: ${response?.message || 'Unknown error'}`, 'error');
     }
