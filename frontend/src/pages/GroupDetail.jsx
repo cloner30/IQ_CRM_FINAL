@@ -190,6 +190,7 @@ export const GroupDetail = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [groupStats, setGroupStats] = useState({ total: 0, done: 0, pending: 0, progress_percent: 0 });
+  const [relationshipProofFile, setRelationshipProofFile] = useState(null);  // For relationship proof upload
 
   const fetchData = useCallback(async () => {
     try {
