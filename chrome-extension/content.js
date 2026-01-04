@@ -4,8 +4,13 @@
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'fillForm') {
-    fillVisaForm(request.data);
-    sendResponse({ success: true });
+    fillVisaForm(request.data).then(() => {
+      sendResponse({ success: true });
+    }).catch(err => {
+      console.error('Fill form error:', err);
+      sendResponse({ success: false, error: err.message });
+    });
+    return true; // Keep channel open for async response
   }
   if (request.action === 'uploadImages') {
     uploadImages(request.data);
