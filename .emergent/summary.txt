@@ -2,75 +2,81 @@
   The user wants to build a web application with an ADMIN LTE THEME to manage passport data for different groups.
 
   PRODUCT REQUIREMENTS:
-  - **Group Management**: Users can create groups.
+  - **Group Management**: Users can create, edit, and manage groups.
+  - **Client Management**: A new layer of Clients was added. Groups can be associated with a Client.
   - **Passport Data**: Each group will store passport details for multiple individuals.
   - **Bulk Operations**:
-    - Bulk upload of passport images (JPG, JPEG).
-    - Bulk upload of profile pictures (JPG, JPEG).
-    - The system should map the uploaded images to the correct passport record using the passport number as the filename.
+    - Bulk upload of passport images and profile pictures to AWS S3.
     - Bulk upload of a name list from an Excel file.
   - **Data Export**: Implement CSV export for passport data within a group.
-  - **Data Editing**: Allow editing of existing passport records.
-  - **Chrome Extension**: Create a Chrome browser extension to automatically fill an external e-visa form () with the passport data stored in this application. The form is filled one passenger at a time.
+  - **Data Editing**: Allow editing of existing passport and group records.
+  - **Chrome Extension**: A Chrome extension to auto-fill an external e-visa form (). The extension must now handle authentication, image uploads, and complex form interactions.
   - **Cloud Storage**: Use AWS S3 for storing uploaded images.
-  - **Status Tracking**: Implement a system to track which passengers' e-visa forms have been processed.
+  - **Status Tracking**: Track which passengers' e-visa forms have been processed, with status updates possible from both the web app and the Chrome extension.
+  - **User Authentication & Roles**: Implement a role-based user authentication system (Admin, Staff) to protect the application. An App Admin manages companies/clients, and client users manage their own data.
+  - **OCR Passport Scanning**: A mobile-friendly page to scan passports using the device camera, extract data via OCR, and populate the new passport form.
+  - **Minor Handling**: For passengers under 18, automatically determine their applicant type (Son/Daughter) and require a Relationship Proof document to be uploaded.
+  - **Insurance PDF Management**: A new feature to manage and download insurance documents for a group after their e-visa submission is complete.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application (FastAPI, React, MongoDB) with an AdminLTE theme is in place. The core features are fully implemented: group and passport management, bulk image/Excel uploads, CSV export, and data editing.
-
-Key additions in this session include:
-1.  **AWS S3 Integration**: All passport and profile images are now uploaded to a private S3 bucket, and the application serves them via pre-signed URLs.
-2.  **Chrome Extension (v1.1.0)**: A comprehensive Chrome extension has been built. It can:
-    *   Auto-fill all text fields and dropdowns on the target e-visa form.
-    *   Automate the upload of passport and profile pictures from S3 to the e-visa form.
-    *   A download link for the extension is available at .
-3.  **Passenger Status Tracking**: A system to track e-visa submission status has been added. Users can now Mark as Done a passenger, filter by Pending or Done, and see a progress bar for the group. This is implemented in both the web app and the Chrome extension popup.
+The application is a full-stack system (FastAPI, React, MongoDB) with an AdminLTE theme. It includes role-based JWT authentication, management of clients, groups, and passports, and full integration with AWS S3 for image storage. A key component is a heavily developed Chrome extension (latest version 1.4.7) designed to automate form filling on a third-party e-visa website. The extension handles login, data fetching, form filling (including complex Mendix UI elements), and image uploads. A passport scanner page utilizes an OCR service to extract MRZ data. The system also includes logic to detect minor applicants and conditionally require a relationship proof document.
 
 **Last working item**:
-- **Last item agent was working**: Implementing a passenger status tracking system. This involved adding  and  fields to the backend, creating an API endpoint to update the status, and integrating UI elements (filters, progress bar, Mark as Done button) into both the React frontend and the Chrome extension.
-- **Status**: USER VERIFICATION PENDING
-- **Agent Testing Done**: Y (Agent performed manual tests and component-level verification via screenshots after implementation, but a full testing agent cycle was not run on this specific feature.)
-- **Which testing method agent to use?**: both (To verify the new API endpoint and the frontend UI changes for status tracking.)
+- **Last item agent was working**: Planning the implementation for a new feature request: Insurance PDF Download. The user specified that an Approval Number and Date of Payment will be entered for a group in the web app. The next step is to build a page to iterate through passengers in that group, open a new tab to a PDF link for each, and programmatically save that PDF to AWS S3, associating it with the passenger record. The agent was awaiting a confirmed plan of action from the user.
+- **Status**: NOT STARTED
+- **Agent Testing Done**: N
+- **Which testing method agent to use?**: both (The new UI for entering approval numbers and the PDF download page will require frontend testing. The backend logic for updating the group model, storing PDF links, and handling S3 uploads will require backend testing.)
 - **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
-There are no known bugs or issues. The agent is waiting for the user to verify the newly implemented status tracking feature.
+- **Issue 1: Chrome Extension Stability and Functionality (P0)**
+  - **Description**: The Chrome extension has undergone numerous rapid fixes (v1.3.3 to v1.4.7) to address issues with the dynamic Mendix UI of the target e-visa site. Several key features were recently fixed but have not been confirmed by the user.
+  - **Status**: USER VERIFICATION PENDING
+  - **Next debug checklist**: The user needs to test the latest version (v1.4.7) and confirm the following are resolved:
+    1.  **Date Filling**: Do date fields (Birth, Issue, Expiry) fill correctly without overriding each other?
+    2.  **Dropdown Filling**: Do the accommodation-related dropdowns (Accommodation Type, Governate) and the Hotel Name field fill correctly?
+    3.  **Image Uploads**: Does the extension correctly select the Personal Image or Passport row before clicking upload, preventing failures?
+    4.  **Remember Group**: Does the extension remember the last selected group between uses?
+  - **Is recurring issue?**: Y (Date and dropdown filling have been recurring problems due to the target site's dynamic nature).
+  - **Should Test frontend/backend/both after fix?**: Frontend (Chrome Extension).
 
 **In progress Task List**:
-There are no tasks currently in progress.
+None.
 
 **Upcoming and Future Tasks**
-
 **Upcoming Tasks:**
-- **P0: User Verification of Status Tracking**: The user needs to test the Mark as Done functionality, status filters (Pending/Done), and progress bar in both the main web application and the Chrome extension to confirm it meets their needs for tracking hundreds of passengers.
+- **P0: Implement Insurance PDF Download Feature**:
+    - **Backend**:
+        - Add  and  to the  model in .
+        - Add  to the  model.
+        - Create a new endpoint (e.g., ) to update the approval number and payment date.
+        - Plan a mechanism to handle the PDF download. This is complex; options include a new backend endpoint that fetches the PDF and uploads it to S3, or extending the Chrome extension to handle it.
+    - **Frontend**:
+        - Add form fields to the  page to allow users to input the Approval Number and Date of Payment for a group.
+        - Create a new page or component for downloading insurance documents, which lists passengers and includes a Download Insurance button.
+- **P1: Full User Verification**:
+    - After the user confirms the Chrome extension fixes, they should verify the Minor Detection and Relationship Proof upload flow end-to-end.
 
 **Future Tasks:**
-- **P1: User Authentication**: Implement a secure login system (e.g., JWT) to protect the passport data.
-- **P2: OCR/MRZ Reading**: Integrate a library to automatically extract passport data from uploaded scans to reduce manual data entry.
+- **P2: Multi-Tenancy Architecture**: Refactor the data model to support a top-level App Admin who manages multiple companies, which in turn have their own clients and groups.
+- **P3: Refactor **: Break down the monolithic  into a structured FastAPI application with separate directories for routes, models, and services.
 
 **Completed work in this session**
-- **New Passport Fields**: Added , , , , , and  to the passport schema and integrated them across the full stack (backend, frontend, import/export).
-- **Chrome Extension (v1.1.0)**:
-    - Created the complete extension structure (, , ).
-    - Implemented form filling for all text and dropdown fields.
-    - Implemented automated image upload (fetches from S3 via pre-signed URL and injects into file inputs).
-    - Created a backend endpoint () to serve the packaged  file.
-- **AWS S3 Integration**:
-    - Migrated all image storage from the local  directory to a private AWS S3 bucket.
-    - Updated upload endpoints to push files to S3.
-    - Updated GET endpoints to return temporary, pre-signed URLs for secure image access.
-    - Added user-provided AWS credentials to .
-- **Passenger Status Tracking**:
-    - Added  and  to the passport model.
-    - Created a  endpoint.
-    - Added a progress bar, status filter (Pending/Done), status badges, and a Mark as Done button to the  page.
-    - Integrated status display and the Mark as Done button into the Chrome extension's popup.
-- **Dropdown Value Synchronization**: Ensured all relevant dropdowns in the web app (e.g., Nationality, Passport Type, Profession) use the exact same values as the target e-visa website for seamless extension functionality.
+- **Verified Previous P0 Items**: Fully tested and confirmed that the **Passport Scanner** OCR fixes and the **Group Edit** functionality are working correctly.
+- **Bug Fix (MRZ Parsing)**: Corrected logic in  to stop incorrectly assigning part of a person's given name to the father name field.
+- **Enhancement (Passport Form Defaults)**: The Passport Scanner form now auto-calculates the issue date from the expiry date, defaults the passport type, and auto-fills location fields based on nationality.
+- **Bug Fix (Bulk Image Upload)**: Fixed a critical bug where bulk-uploaded images were not being linked to passport records. Updated the filename parsing logic in  to correctly extract passport numbers from filenames with suffixes like  or .
+- **Feature (Minor Detection & Relationship Proof)**: Implemented a full-stack feature to detect applicants under 18, require a Relationship Proof document upload, and automatically set the Applicant Type (Son/Daughter) in both the web app and the Chrome extension.
+- **Chrome Extension Overhaul (v1.3.3 -> v1.4.7)**:
+    - **CORS Fix**: Implemented a background script () to handle S3 image fetching, bypassing browser CORS restrictions.
+    - **Date/Dropdown Filling**: Iteratively improved the logic to handle the target site's dynamic Mendix UI, adding multiple fallback methods using labels and more specific selectors.
+    - **Image Upload Flow**: Reworked the image upload logic to correctly select the target row (Personal Image or Passport) before initiating the upload, improving reliability.
+    - **UX Improvements**: The extension now remembers the last selected group and automatically advances to the next passenger after a form is filled, streamlining the workflow.
 
 **Earlier issues found/mentioned but not fixed**
-None.
+None. All reported issues have been addressed, pending user verification.
 
 **Known issue recurrence from previous fork**
 None.
@@ -79,77 +85,71 @@ None.
 
 
 **Key Technical Concepts**
-- **Frameworks**: FastAPI (Python), React (JavaScript).
-- **Database**: MongoDB.
-- **Cloud Storage**: **AWS S3** for image storage using the  library.
-- **Security**: Using **pre-signed URLs** to provide temporary, secure access to private S3 objects.
-- **Browser Extension**: Chrome extension development, including , content scripts for DOM manipulation, popup scripts, and inter-script messaging.
-- **File Handling**:  for Excel,  module for export,  for uploads.
+- **Chrome Extension Architecture**: Expanded to use a  service worker for privileged operations (like cross-origin ) and a  script for DOM manipulation. Communication happens via .
+- **Dynamic DOM Interaction**: Extensive use of robust query selectors, label-based searching, and timed delays () in the Chrome extension to interact with a non-static, framework-generated (Mendix) frontend.
+- **Client-Side Age Calculation**: Using JavaScript's  object to dynamically calculate a person's age from their date of birth to trigger conditional UI/logic.
 
 **key DB schema**
-- **groups**: 
-- **passports**: 
+- **groups**:  (New fields requested)
+- **passports**:  (New fields added/requested)
 
 **changes in tech stack**
-- Added  to  for AWS S3 integration.
+- No new technologies were added. The session focused on refining the existing stack and deepening the Chrome extension's capabilities.
 
 **All files of reference**
-- : Heavily modified to add S3 logic, new passport fields, status tracking endpoint, and extension download endpoint.
-- : Heavily modified to add new form fields, status filters/UI, progress bar, and Mark as Done functionality.
-- : The entire directory containing the source code for the Chrome browser extension.
-- : Updated to include , , , and .
-- : The packaged extension file ready for distribution.
+- : Updated for minor detection logic, relationship proof endpoint, and improved filename parsing.
+- : Major changes to implement the minor detection UI, relationship proof upload, and associated form logic.
+- : Updated with new form field defaults and dropdowns.
+- : The most heavily modified file, with numerous fixes for date, dropdown, and image upload functionality.
+- : Updated for user experience enhancements (remembering selected group, auto-advancing).
+- : New file created to solve CORS issues with S3 image fetching.
+- : Updated to increment versions (up to 1.4.7) and register the new background script.
 
 **Areas that need refactoring**:
--  is now over 800 lines long. It should be refactored into smaller, more focused modules (e.g., , , ) to improve maintainability.
+- ****: Remains critically oversized and needs to be broken into a proper FastAPI project structure.
+- ****: This file has grown to over 1500 lines and contains a large amount of complex, intertwined logic for DOM manipulation. It should be broken down into smaller modules (e.g., , , ).
 
 **key api endpoints**
-- : **(NEW)** Updates the visa processing status of a passport.
-- : **(NEW)** Allows downloading of the packaged Chrome extension ZIP file.
-- : **(NEW)** Checks the status of the S3 integration.
-- : **(Updated)** Now uploads files to S3 instead of local storage.
-- : **(Updated)** Now uploads files to S3 instead of local storage.
-- : **(Updated)** Now returns S3 pre-signed URLs for  and .
+- : **(NEW)** Uploads the relationship proof image for a minor.
 
 **Critical Info for New Agent**
-- The user's AWS credentials have been received and are configured in . The S3 integration is live.
-- The highest priority is to support the user in verifying the new passenger status tracking feature. Be prepared to debug or make adjustments based on their feedback.
-- The Chrome extension () is now feature-complete based on user requests, including automated image uploads and status tracking. The user may have further feedback after testing it.
-- A download endpoint for the extension exists. You can provide the user with the download link and installation instructions if they ask for the file again.
+- **The Next Major Task** is implementing the Insurance PDF Download feature. A clear plan is needed for how to programmatically capture a PDF opened in a new tab and upload it to S3.
+- **Chrome Extension is Fragile**: The extension's stability is highly dependent on the selectors and structure of the external e-visa website. Any changes to that site could break the extension. The latest version, **1.4.7**, contains numerous unverified fixes and must be tested by the user before any new development.
+- **Download Link**: The extension download link is generated via the  endpoint.
 
 **documents and test reports created in this job**
--  (Updated)
--  (Updated)
--  (Created and updated multiple times)
+-  (Continuously updated with test plans and results)
+- User-provided  (Analyzed to understand the e-visa site's file upload mechanism)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (Request):** Asked for a way to track which of the 100+ passengers in a group have been processed. (Status: Addressed)
-2.  **Agent (ask_human):** Proposed two options for the tracking system: manual marking or automatic detection. (Status: Addressed)
-3.  **User (Decision):** Chose manual Mark as Done with a timestamp. (Status: Addressed)
-4.  **User (Question):** Asked how the extension will help with uploading passport/profile pictures. (Status: Addressed)
-5.  **Agent (ask_human):** Explained the challenges and asked if the user wanted to automate image uploads, with a warning about potential fragility. (Status: Addressed)
-6.  **User (Confirmation):** Confirmed they want the automated image upload feature. (Status: Addressed)
-7.  **User (Request):** Provided AWS credentials and asked to integrate S3 for image uploads. (Status: Addressed)
-8.  **Agent (ask_human):** Asked for clarification on S3 bucket creation and access policy. (Status: Addressed)
-9.  **User (Decision):** Confirmed agent should create a new private bucket and use pre-signed URLs. (Status: Addressed)
-10. **User (Request):** Asked for the final dropdown values in the app to exactly match the e-visa form's values. (Status: Addressed)
+1.  **User (Feature Request)**: Asked for a way to download insurance PDFs for a group, involving an approval number and payment date.
+2.  **Agent (Clarification)**: Asked the user to confirm the plan of action for the insurance download feature.
+3.  **User (Clarification)**: Confirmed that the Approval Number and Date of Payment are at the group level and will be updated in the web app, not the extension.
+4.  **Agent (Clarification)**: Asked for a final plan of action for the new feature request.
+5.  **User (Bug)**: Reported that the extension was filling the Issue Date into the Date of Birth field. (Status: Addressed in v1.4.4, pending verification)
+6.  **User (Bug)**: Reported that the extension was clicking Upload directly without first selecting the correct row (Personal Image/Passport). (Status: Addressed in v1.4.5, pending verification)
+7.  **User (Enhancement)**: Requested that the extension remember the selected group to avoid re-selecting it. (Status: Addressed in v1.4.6, pending verification)
+8.  **User (Bug Log)**: Provided console logs showing date fields were not being found by the extension. (Status: Addressed in v1.4.7, pending verification)
+9.  **User (Bug Log)**: Provided console logs showing image uploads failing due to CORS. (Status: Addressed in v1.4.0, pending verification)
+10. **User (Bug Log)**: Provided console logs showing dropdowns and hotel name field not being filled. (Status: Addressed in v1.4.1, pending verification)
 
 **Project Health Check:**
-- **Broken**: None
-- **Mocked**: None
+- **Broken**: The Chrome extension's date filling, dropdown filling, and image upload flows are potentially broken and awaiting user verification of the latest fixes.
+- **Mocked**: None.
 
 **3rd Party Integrations**
-- **AWS S3**: Used for all image storage.  SDK is installed. Requires , , and  in the environment.
+- **AWS S3**: Used for storing all passport images, profile photos, and relationship proofs. Requires user-provided keys configured in the environment.
+- **ocr.space**: Used by the backend for the Passport Scanner page. Requires a user-provided API key.
 
 **Testing status**
-- **Testing agent used after significant changes**: YES (Used after initial feature completion, but not after the final status tracking was added.)
+- **Testing agent used after significant changes**: YES, at the beginning of the session to validate fixes from the previous fork.
 - **Troubleshoot agent used after agent stuck in loop**: NO
-- **Test files created**: 
-- **Known regressions**: None
+- **Test files created**: Test definitions were updated in .
+- **Known regressions**: None confirmed, but the entire Chrome extension is a candidate for regression due to its fragility.
 
 **Credentials to test flow:**
-- No application login is required.
-- AWS credentials are set in .
+- **Username**: 
+- **Password**: 
 
 **What agent forgot to execute**
-The agent successfully executed all user requests. However, after implementing the final feature (status tracking), it would have been best practice to run the  testing subagent to ensure full regression testing before handing off for user verification.</analysis>
+- The agent has not yet created a concrete implementation plan for the new Insurance PDF Download feature, as it was in the process of gathering requirements and seeking user confirmation when the session concluded. The immediate next step is to propose a technical plan for this feature.</analysis>
