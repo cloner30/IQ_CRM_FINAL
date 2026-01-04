@@ -6,6 +6,7 @@ let authToken = '';
 let currentUser = null;
 let allPassports = []; // Store all passports for filtering
 let currentGroupId = null;
+let lastSelectedGroupId = null; // Remember last selected group
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', async () => {
@@ -14,10 +15,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadSettings() {
-  const result = await chrome.storage.sync.get(['apiUrl', 'authToken', 'user']);
+  const result = await chrome.storage.sync.get(['apiUrl', 'authToken', 'user', 'lastSelectedGroupId']);
   apiUrl = result.apiUrl || '';
   authToken = result.authToken || '';
   currentUser = result.user || null;
+  lastSelectedGroupId = result.lastSelectedGroupId || null;
   
   if (!apiUrl) {
     document.getElementById('setup-required').classList.remove('hidden');
