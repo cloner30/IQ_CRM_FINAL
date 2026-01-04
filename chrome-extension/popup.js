@@ -196,6 +196,18 @@ async function loadGroups() {
       groupSelect.appendChild(option);
     });
     
+    // Auto-select last used group if available
+    if (lastSelectedGroupId) {
+      const optionExists = Array.from(groupSelect.options).some(opt => opt.value === lastSelectedGroupId);
+      if (optionExists) {
+        groupSelect.value = lastSelectedGroupId;
+        currentGroupId = lastSelectedGroupId;
+        console.log(`Auto-selected last group: ${lastSelectedGroupId}`);
+        // Automatically load passports for the last selected group
+        await loadPassports(lastSelectedGroupId);
+      }
+    }
+    
     hideStatus();
   } catch (error) {
     console.error('Error loading groups:', error);
@@ -206,6 +218,12 @@ async function loadGroups() {
 async function loadPassports(groupId) {
   const passportSelect = document.getElementById('passport-select');
   showStatus('Loading passengers...', 'loading');
+  
+  // Save selected group to storage
+  currentGroupId = groupId;
+  lastSelectedGroupId = groupId;
+  await chrome.storage.sync.set({ lastSelectedGroupId: groupId });
+  console.log(`Saved group selection: ${groupId}`);
   
   try {
     const response = await apiRequest(`/api/groups/${groupId}/passports`);
