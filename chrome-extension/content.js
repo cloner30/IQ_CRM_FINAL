@@ -56,8 +56,21 @@ const DROPDOWN_MAPPING = {
   passport_type: 'select[id*="SNP_Passport_Company.dropDown4"]',
   place_of_issue: 'select[id*="SNP_Passport_Company.referenceSelector13"]',
   country_of_residence: 'select[id*="SNP_Beneficiary_Company.referenceSelector2"]',
-  applicant_type: 'select[id*="dynamicEnumPicker1"]'
+  applicant_type: 'select[id*="dynamicEnumPicker1"]',
+  // Accommodation fields
+  accommodation_type: 'select[id*="dropDown3"]',
+  governorate: 'select[id*="referenceSelector8"]'
 };
+
+// Default values for accommodation
+const DEFAULT_VALUES = {
+  accommodation_type: 'Hotel',
+  governorate: 'Najaf',
+  hotel_name: 'الخيمه بلاز'
+};
+
+// Hotel name text field selector
+const HOTEL_NAME_SELECTOR = 'input[id*="textBox37"], input[id*="hotelName"], input[id*="HotelName"]';
 
 // Nationality mapping (Our app values -> E-visa dropdown text)
 // E-visa uses nationality adjectives like "Ethiopian", "American", etc.
