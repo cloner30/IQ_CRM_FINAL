@@ -296,19 +296,28 @@ export const PassportScanner = () => {
         // Map nationality from code to name
         const nationality = mapNationality(extracted);
         
+        // Get country from nationality for place of issue and country of residence
+        const country = nationality ? (NATIONALITY_TO_COUNTRY[nationality] || '') : '';
+        
+        // Calculate issue date from expiry date (expiry - 10 years + 1 day)
+        const expiryDate = extracted.expiry_date || '';
+        const issueDate = calculateIssueDate(expiryDate);
+        
         // Merge extracted data with empty form template
         const mergedData = {
           ...EMPTY_FORM,
           passport_no: extracted.passport_no || '',
+          passport_type: 'Normal',  // Default to Normal
           first_name_en: extracted.first_name_en || '',
           surname_en: extracted.surname_en || '',
-          father_name_en: extracted.father_name_en || '',
+          father_name_en: '',  // Must be entered manually
           nationality: nationality,
           gender: extracted.gender || '',
           birth_date: extracted.birth_date || '',
-          expiry_date: extracted.expiry_date || '',
-          place_of_issue: extracted.place_of_issue || '',
-          issue_date: extracted.issue_date || '',
+          expiry_date: expiryDate,
+          issue_date: issueDate,  // Calculated from expiry date
+          place_of_issue: country,  // Auto-fill from nationality
+          country_of_residence: country,  // Auto-fill from nationality
         };
         
         setFormData(mergedData);
