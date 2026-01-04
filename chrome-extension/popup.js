@@ -169,6 +169,9 @@ function setupEventListeners() {
   
   // Mark as Done button
   document.getElementById('mark-done-btn').addEventListener('click', markAsDone);
+  
+  // Insurance Download button
+  document.getElementById('start-insurance-download').addEventListener('click', startInsuranceDownload);
 }
 
 async function loadGroups() {
