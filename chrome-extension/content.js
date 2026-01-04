@@ -2017,23 +2017,54 @@ function findInputByLabel(labelText) {
   return null;
 }
 
-function extractPassportFromRow(row) {
-  // Passport number is typically in the second column (index 1)
-  // Based on HTML structure: column46 = App Number, column47 = Passport Number
+// Extract both passport number and full name from a table row
+function extractDataFromRow(row) {
+  const result = {
+    passportNo: null,
+    fullNameEn: null
+  };
+  
+  // Based on HTML structure columns:
+  // column46 = App Number (index 0)
+  // column47 = Passport Number (index 1)
+  // column48 = Issue Date (index 2)
+  // column49 = Entry Expiry Date (index 3)
+  // column50 = Stay Expiry Date (index 4)
+  // column51 = Full Name Arabic (index 5)
+  // column52 = Full Name English (index 6)
+  
+  // Extract Passport Number (column 2, index 1)
   const passportCell = row.querySelector('td.mx-name-column47 .mx-datagrid-data-wrapper') ||
                        row.querySelector('td:nth-child(2) .mx-datagrid-data-wrapper');
-  
   if (passportCell) {
-    return passportCell.textContent.trim();
+    result.passportNo = passportCell.textContent.trim();
+  } else {
+    // Fallback: check title attribute
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 2) {
+      result.passportNo = cells[1].getAttribute('title') || cells[1].textContent.trim();
+    }
   }
   
-  // Fallback: check title attribute
-  const cells = row.querySelectorAll('td');
-  if (cells.length >= 2) {
-    return cells[1].getAttribute('title') || cells[1].textContent.trim();
+  // Extract Full Name English (column 7, index 6)
+  const nameCell = row.querySelector('td.mx-name-column52 .mx-datagrid-data-wrapper') ||
+                   row.querySelector('td:nth-child(7) .mx-datagrid-data-wrapper');
+  if (nameCell) {
+    result.fullNameEn = nameCell.textContent.trim();
+  } else {
+    // Fallback: check title attribute
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 7) {
+      result.fullNameEn = cells[6].getAttribute('title') || cells[6].textContent.trim();
+    }
   }
   
-  return null;
+  return result;
+}
+
+// Keep old function for backward compatibility
+function extractPassportFromRow(row) {
+  return extractDataFromRow(row).passportNo;
 }
 
 async function selectRow(row) {
