@@ -1622,7 +1622,8 @@ async function uploadImages(data) {
         // Wait for row selection to be registered
         await sleep(800);
         
-        // Try to upload using the Mendix popup
+        // STEP 2: Then click Upload button
+        console.log('=== STEP 2: Clicking Upload button ===');
         const uploaded = await clickUploadAndSetFile(passportFile, 'Passport');
         if (uploaded) {
           results.success.push('Passport');
