@@ -1153,22 +1153,6 @@ function closePopup() {
     console.log('Closed popup');
   }
 }
-    }
-  }
-  
-  // Show final status
-  if (results.success.length > 0) {
-    showNotification(`✓ Uploaded: ${results.success.join(', ')}`);
-  }
-  if (results.failed.length > 0) {
-    setTimeout(() => {
-      showNotification(`⚠ Manual upload needed: ${results.failed.join(', ')}`, 'warning');
-    }, 2000);
-  }
-  
-  console.log('Image upload complete:', results);
-  return results;
-}
 
 // Download file as fallback
 function downloadFile(file, filename) {
