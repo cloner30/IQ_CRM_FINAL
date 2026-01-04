@@ -379,8 +379,23 @@ def validate_excel_extension(filename: str) -> bool:
     return ext in EXCEL_EXTENSIONS
 
 def extract_passport_number(filename: str) -> str:
-    """Extract passport number from filename (without extension)"""
-    return Path(filename).stem.upper()
+    """Extract passport number from filename (without extension)
+    Handles common suffixes like PP, PIC, PHOTO, SCAN, etc.
+    """
+    stem = Path(filename).stem.upper()
+    
+    # Remove common suffixes that users might add to filenames
+    suffixes_to_remove = ['PP', 'PIC', 'PHOTO', 'SCAN', 'IMG', 'IMAGE', 'PASSPORT', 'PROFILE', '_PP', '_PIC', '_PHOTO', '_SCAN', '-PP', '-PIC', '-PHOTO', '-SCAN']
+    
+    for suffix in suffixes_to_remove:
+        if stem.endswith(suffix):
+            stem = stem[:-len(suffix)]
+            break
+    
+    # Also remove any trailing underscores or dashes
+    stem = stem.rstrip('_-')
+    
+    return stem
 
 # Group endpoints
 @api_router.get("/groups", response_model=List[Group])
