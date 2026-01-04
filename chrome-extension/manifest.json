@@ -16,7 +16,8 @@
     "https://*.evisa.iq/*",
     "http://*.evisa.iq/*",
     "https://*.amazonaws.com/*",
-    "https://passport-control-uploads-*.s3.amazonaws.com/*"
+    "https://*.s3.amazonaws.com/*",
+    "https://*.s3.*.amazonaws.com/*"
   ],
   "background": {
     "service_worker": "background.js"
