@@ -725,12 +725,79 @@ async function fillVisaForm(data) {
   if (data.applicant_type) {
     totalFields++;
     if (fillDropdown(DROPDOWN_MAPPING.applicant_type, data.applicant_type, APPLICANT_TYPE_MAP)) filledCount++;
+    await delay(200);
   }
+  
+  // ========== DEFAULT ACCOMMODATION VALUES ==========
+  // Accommodation Type - Default: Hotel
+  totalFields++;
+  if (fillDropdown(DROPDOWN_MAPPING.accommodation_type, DEFAULT_VALUES.accommodation_type)) filledCount++;
+  await delay(200);
+  
+  // Governorate - Default: Najaf
+  totalFields++;
+  if (fillDropdown(DROPDOWN_MAPPING.governorate, DEFAULT_VALUES.governorate)) filledCount++;
+  await delay(200);
+  
+  // Hotel Name - Default: الخيمه بلاز
+  totalFields++;
+  if (fillHotelName(DEFAULT_VALUES.hotel_name)) filledCount++;
   
   // Show notification
   showNotification(`Form filled! ${filledCount}/${totalFields} fields populated.`);
   
   console.log(`Form fill complete: ${filledCount}/${totalFields} fields filled`);
+}
+
+// Fill hotel name field
+function fillHotelName(value) {
+  if (!value) return false;
+  
+  // Try multiple selectors for hotel name
+  const selectors = [
+    'input[id*="textBox37"]',
+    'input[id*="hotelName"]',
+    'input[id*="HotelName"]',
+    'input[id*="hotel"]',
+    'input[id*="accommodation"]'
+  ];
+  
+  for (const selector of selectors) {
+    const input = document.querySelector(selector);
+    if (input) {
+      input.focus();
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.dispatchEvent(new Event('blur', { bubbles: true }));
+      console.log(`✓ Filled hotel name: ${value}`);
+      return true;
+    }
+  }
+  
+  // Fallback: Find by label text
+  const labels = document.querySelectorAll('label');
+  for (const label of labels) {
+    const text = label.textContent.toLowerCase();
+    if (text.includes('hotel') || text.includes('فندق') || text.includes('اسم')) {
+      const container = label.closest('.form-group, .mx-dataview-content');
+      if (container) {
+        const input = container.querySelector('input[type="text"], input:not([type])');
+        if (input) {
+          input.focus();
+          input.value = value;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          input.dispatchEvent(new Event('blur', { bubbles: true }));
+          console.log(`✓ Filled hotel name by label: ${value}`);
+          return true;
+        }
+      }
+    }
+  }
+  
+  console.log(`Hotel name field not found`);
+  return false;
 }
 
 // Make fillVisaForm work with both sync and async calls
