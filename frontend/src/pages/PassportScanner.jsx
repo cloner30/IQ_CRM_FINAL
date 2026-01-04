@@ -862,30 +862,45 @@ export const PassportScanner = () => {
                 </div>
                 <div>
                   <Label className="text-slate-400 text-xs">Place of Issue</Label>
-                  <Input
-                    value={formData.place_of_issue}
-                    onChange={(e) => updateField('place_of_issue', e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white mt-1"
-                  />
+                  <Select value={formData.place_of_issue} onValueChange={(v) => updateField('place_of_issue', v)}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-slate-400 text-xs">Profession</Label>
-                  <Input
-                    value={formData.profession}
-                    onChange={(e) => updateField('profession', e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white mt-1"
-                  />
+                  <Select value={formData.profession} onValueChange={(v) => updateField('profession', v)}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                      <SelectValue placeholder="Select profession" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PROFESSIONS.map(p => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-slate-400 text-xs">Country of Residence</Label>
-                  <Input
-                    value={formData.country_of_residence}
-                    onChange={(e) => updateField('country_of_residence', e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white mt-1"
-                  />
+                  <Select value={formData.country_of_residence} onValueChange={(v) => updateField('country_of_residence', v)}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
