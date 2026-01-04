@@ -595,66 +595,89 @@ function fillDropdown(selector, value, mapping = null) {
 }
 
 // Main function to fill the visa form
-function fillVisaForm(data) {
+async function fillVisaForm(data) {
   console.log('Starting form fill with data:', data);
   
   let filledCount = 0;
   let totalFields = 0;
   
-  // Fill text fields
+  // Helper to add delay
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  // Fill text fields first
   for (const [field, selector] of Object.entries(FIELD_MAPPING)) {
     totalFields++;
-    if (data[field]) {
+    const value = data[field];
+    if (value !== null && value !== undefined && value !== '') {
       if (field.includes('date')) {
-        if (fillDateField(selector, data[field])) filledCount++;
+        if (fillDateField(selector, value)) filledCount++;
       } else {
-        if (fillTextField(selector, data[field])) filledCount++;
+        if (fillTextField(selector, value)) filledCount++;
       }
     }
+    await delay(50); // Small delay between fields
   }
   
-  // Fill dropdowns
-  setTimeout(() => {
-    // Nationality
-    if (data.nationality) {
-      fillDropdown(DROPDOWN_MAPPING.nationality, data.nationality, NATIONALITY_MAP);
-    }
-    
-    // Gender (E-visa uses: Male, Female)
-    if (data.gender) {
-      fillDropdown(DROPDOWN_MAPPING.gender, data.gender);
-    }
-    
-    // Profession (E-visa uses: Physician, Engineer, other)
-    if (data.profession) {
-      fillDropdown(DROPDOWN_MAPPING.profession, data.profession, PROFESSION_MAP);
-    }
-    
-    // Passport Type (E-visa uses: Normal, Temporary, Diplomatic, Special, TravelDoc, UN, passage)
-    if (data.passport_type) {
-      fillDropdown(DROPDOWN_MAPPING.passport_type, data.passport_type, PASSPORT_TYPE_MAP);
-    }
-    
-    // Place of Issue (uses country names - dropdown has full country names)
-    if (data.place_of_issue) {
-      fillDropdown(DROPDOWN_MAPPING.place_of_issue, data.place_of_issue, COUNTRY_MAP);
-    }
-    
-    // Country of Residence (uses country names - dropdown has full country names)
-    if (data.country_of_residence) {
-      fillDropdown(DROPDOWN_MAPPING.country_of_residence, data.country_of_residence, COUNTRY_MAP);
-    }
-    
-    // Applicant Type (E-visa uses: "", "Son", "Daughter")
-    if (data.applicant_type) {
-      fillDropdown(DROPDOWN_MAPPING.applicant_type, data.applicant_type, APPLICANT_TYPE_MAP);
-    }
-  }, 500);
+  // Fill dropdowns with delays for Mendix to process
+  await delay(300);
+  
+  // Nationality
+  if (data.nationality) {
+    totalFields++;
+    if (fillDropdown(DROPDOWN_MAPPING.nationality, data.nationality, NATIONALITY_MAP)) filledCount++;
+    await delay(200);
+  }
+  
+  // Gender (E-visa uses: Male, Female)
+  if (data.gender) {
+    totalFields++;
+    if (fillDropdown(DROPDOWN_MAPPING.gender, data.gender)) filledCount++;
+    await delay(200);
+  }
+  
+  // Profession (E-visa uses: Physician, Engineer, other)
+  if (data.profession) {
+    totalFields++;
+    if (fillDropdown(DROPDOWN_MAPPING.profession, data.profession, PROFESSION_MAP)) filledCount++;
+    await delay(200);
+  }
+  
+  // Passport Type (E-visa uses: Normal, Temporary, Diplomatic, Special, TravelDoc, UN, passage)
+  if (data.passport_type) {
+    totalFields++;
+    if (fillDropdown(DROPDOWN_MAPPING.passport_type, data.passport_type, PASSPORT_TYPE_MAP)) filledCount++;
+    await delay(200);
+  }
+  
+  // Place of Issue (uses country names)
+  if (data.place_of_issue) {
+    totalFields++;
+    if (fillDropdown(DROPDOWN_MAPPING.place_of_issue, data.place_of_issue, COUNTRY_MAP)) filledCount++;
+    await delay(200);
+  }
+  
+  // Country of Residence (uses country names)
+  if (data.country_of_residence) {
+    totalFields++;
+    if (fillDropdown(DROPDOWN_MAPPING.country_of_residence, data.country_of_residence, COUNTRY_MAP)) filledCount++;
+    await delay(200);
+  }
+  
+  // Applicant Type (E-visa uses: "", "Son", "Daughter")
+  if (data.applicant_type) {
+    totalFields++;
+    if (fillDropdown(DROPDOWN_MAPPING.applicant_type, data.applicant_type, APPLICANT_TYPE_MAP)) filledCount++;
+  }
   
   // Show notification
-  showNotification(`Form filled! ${filledCount} fields populated.`);
+  showNotification(`Form filled! ${filledCount}/${totalFields} fields populated.`);
   
   console.log(`Form fill complete: ${filledCount}/${totalFields} fields filled`);
+}
+
+// Make fillVisaForm work with both sync and async calls
+function fillVisaFormWrapper(data) {
+  fillVisaForm(data).catch(err => console.error('Form fill error:', err));
 }
 
 // Show a notification on the page
