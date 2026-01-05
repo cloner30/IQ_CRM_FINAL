@@ -15,8 +15,8 @@ import { ClientsManagement } from "./pages/ClientsManagement";
 import { PassportScanner } from "./pages/PassportScanner";
 
 // Protected Route component
-const ProtectedRoute = ({ children, adminOnly = false, noLayout = false }) => {
-  const { isAuthenticated, loading, isAdmin } = useAuth();
+const ProtectedRoute = ({ children, adminOnly = false, userManagement = false, noLayout = false }) => {
+  const { isAuthenticated, loading, isAdmin, canManageUsers } = useAuth();
 
   if (loading) {
     return (
@@ -31,6 +31,10 @@ const ProtectedRoute = ({ children, adminOnly = false, noLayout = false }) => {
   }
 
   if (adminOnly && !isAdmin()) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (userManagement && !canManageUsers()) {
     return <Navigate to="/" replace />;
   }
 
