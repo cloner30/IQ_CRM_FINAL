@@ -27,13 +27,14 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Search, Users, Shield, User } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Users, Shield, User, Building2 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 export const UsersManagement = () => {
-  const { token, user: currentUser } = useAuth();
+  const { token, user: currentUser, isSuperAdmin } = useAuth();
   const [users, setUsers] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -42,11 +43,15 @@ export const UsersManagement = () => {
     email: '',
     name: '',
     password: '',
-    role: 'staff'
+    role: 'staff',
+    client_id: ''
   });
 
   useEffect(() => {
     fetchUsers();
+    if (isSuperAdmin()) {
+      fetchClients();
+    }
   }, []);
 
   const fetchUsers = async () => {
@@ -67,8 +72,30 @@ export const UsersManagement = () => {
     }
   };
 
+  const fetchClients = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/clients`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch clients:', error);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validation for client_admin and staff roles
+    if (['client_admin', 'staff'].includes(formData.role) && !formData.client_id && isSuperAdmin()) {
+      toast.error('Please select a client for this user');
+      return;
+    }
     
     try {
       const url = editingUser 
@@ -81,6 +108,11 @@ export const UsersManagement = () => {
       const payload = { ...formData };
       if (editingUser && !payload.password) {
         delete payload.password;
+      }
+      
+      // Handle empty client_id
+      if (!payload.client_id) {
+        payload.client_id = null;
       }
       
       const response = await fetch(url, {
@@ -135,7 +167,8 @@ export const UsersManagement = () => {
       email: user.email,
       name: user.name,
       password: '',
-      role: user.role
+      role: user.role,
+      client_id: user.client_id || ''
     });
     setIsDialogOpen(true);
   };
@@ -151,14 +184,74 @@ export const UsersManagement = () => {
       email: '',
       name: '',
       password: '',
-      role: 'staff'
+      role: 'staff',
+      client_id: currentUser?.client_id || ''
     });
   };
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (user.client_name && user.client_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  const getRoleBadgeClass = (role) => {
+    switch (role) {
+      case 'super_admin':
+      case 'admin':
+        return 'bg-red-100 text-red-800';
+      case 'client_admin':
+        return 'bg-amber-100 text-amber-800';
+      case 'staff':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getRoleIcon = (role) => {
+    switch (role) {
+      case 'super_admin':
+      case 'admin':
+        return <Shield className="w-3 h-3 mr-1" />;
+      case 'client_admin':
+        return <Building2 className="w-3 h-3 mr-1" />;
+      default:
+        return <User className="w-3 h-3 mr-1" />;
+    }
+  };
+
+  const getRoleDisplayName = (role) => {
+    switch (role) {
+      case 'super_admin':
+        return 'Super Admin';
+      case 'admin':
+        return 'Admin';
+      case 'client_admin':
+        return 'Client Admin';
+      case 'staff':
+        return 'Staff';
+      default:
+        return role;
+    }
+  };
+
+  // Get available roles based on current user
+  const getAvailableRoles = () => {
+    if (isSuperAdmin()) {
+      return [
+        { value: 'super_admin', label: 'Super Admin' },
+        { value: 'client_admin', label: 'Client Admin' },
+        { value: 'staff', label: 'Staff' }
+      ];
+    } else {
+      // Client admin can only create client_admin and staff
+      return [
+        { value: 'client_admin', label: 'Client Admin' },
+        { value: 'staff', label: 'Staff' }
+      ];
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -166,7 +259,11 @@ export const UsersManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-          <p className="text-muted-foreground mt-1">Manage system users and their roles</p>
+          <p className="text-muted-foreground mt-1">
+            {isSuperAdmin() 
+              ? 'Manage all system users and their roles' 
+              : 'Manage users in your organization'}
+          </p>
         </div>
         <Button onClick={openNewDialog}>
           <Plus className="w-4 h-4 mr-2" />
@@ -175,7 +272,7 @@ export const UsersManagement = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-card border rounded-xl p-4 flex items-center gap-4">
           <div className="p-3 bg-primary/10 rounded-lg">
             <Users className="w-6 h-6 text-primary" />
@@ -185,13 +282,24 @@ export const UsersManagement = () => {
             <p className="text-2xl font-bold">{users.length}</p>
           </div>
         </div>
+        {isSuperAdmin() && (
+          <div className="bg-card border rounded-xl p-4 flex items-center gap-4">
+            <div className="p-3 bg-red-500/10 rounded-lg">
+              <Shield className="w-6 h-6 text-red-500" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Super Admins</p>
+              <p className="text-2xl font-bold">{users.filter(u => u.role === 'super_admin' || u.role === 'admin').length}</p>
+            </div>
+          </div>
+        )}
         <div className="bg-card border rounded-xl p-4 flex items-center gap-4">
           <div className="p-3 bg-amber-500/10 rounded-lg">
-            <Shield className="w-6 h-6 text-amber-500" />
+            <Building2 className="w-6 h-6 text-amber-500" />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Admins</p>
-            <p className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</p>
+            <p className="text-sm text-muted-foreground">Client Admins</p>
+            <p className="text-2xl font-bold">{users.filter(u => u.role === 'client_admin').length}</p>
           </div>
         </div>
         <div className="bg-card border rounded-xl p-4 flex items-center gap-4">
@@ -224,6 +332,7 @@ export const UsersManagement = () => {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
+              {isSuperAdmin() && <TableHead>Client</TableHead>}
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -231,11 +340,11 @@ export const UsersManagement = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">Loading...</TableCell>
+                <TableCell colSpan={isSuperAdmin() ? 6 : 5} className="text-center py-8">Loading...</TableCell>
               </TableRow>
             ) : filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={isSuperAdmin() ? 6 : 5} className="text-center py-8 text-muted-foreground">
                   No users found
                 </TableCell>
               </TableRow>
@@ -245,15 +354,20 @@ export const UsersManagement = () => {
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      user.role === 'admin' 
-                        ? 'bg-amber-100 text-amber-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {user.role === 'admin' ? <Shield className="w-3 h-3 mr-1" /> : <User className="w-3 h-3 mr-1" />}
-                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeClass(user.role)}`}>
+                      {getRoleIcon(user.role)}
+                      {getRoleDisplayName(user.role)}
                     </span>
                   </TableCell>
+                  {isSuperAdmin() && (
+                    <TableCell>
+                      {user.client_name ? (
+                        <span className="text-sm">{user.client_name}</span>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell className="text-muted-foreground">
                     {new Date(user.created_at).toLocaleDateString()}
                   </TableCell>
@@ -270,7 +384,7 @@ export const UsersManagement = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(user.id)}
-                        disabled={user.id === currentUser?.id}
+                        disabled={user.id === currentUser?.id || (!isSuperAdmin() && (user.role === 'super_admin' || user.role === 'admin'))}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -335,11 +449,33 @@ export const UsersManagement = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
+                  {getAvailableRoles().map(role => (
+                    <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Client selection - only for super_admin and when role requires it */}
+            {isSuperAdmin() && ['client_admin', 'staff'].includes(formData.role) && (
+              <div className="space-y-2">
+                <Label htmlFor="client">Client</Label>
+                <Select
+                  value={formData.client_id}
+                  onValueChange={(value) => setFormData({ ...formData, client_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map(client => (
+                      <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
