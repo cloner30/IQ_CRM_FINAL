@@ -35,9 +35,9 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 
 # Register Arabic font
-FONT_PATH = Path(__file__).parent / 'fonts' / 'Amiri-Regular.ttf'
+FONT_PATH = Path(__file__).parent / 'fonts' / 'NotoSansArabic-Regular.ttf'
 if FONT_PATH.exists():
-    pdfmetrics.registerFont(TTFont('Amiri', str(FONT_PATH)))
+    pdfmetrics.registerFont(TTFont('ArabicFont', str(FONT_PATH)))
 
 # Nationality to Arabic mapping
 NATIONALITY_TO_ARABIC = {
