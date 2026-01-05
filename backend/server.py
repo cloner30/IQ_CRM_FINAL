@@ -362,20 +362,23 @@ class UserCreate(BaseModel):
     email: str
     password: str
     name: str
-    role: str = "staff"  # "admin" or "staff"
+    role: str = "staff"  # "super_admin", "client_admin", or "staff"
+    client_id: Optional[str] = None  # Required for client_admin and staff
 
 class UserUpdate(BaseModel):
     email: Optional[str] = None
     name: Optional[str] = None
     role: Optional[str] = None
     password: Optional[str] = None
+    client_id: Optional[str] = None
 
 class User(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     email: str
     name: str
-    role: str = "staff"
+    role: str = "staff"  # "super_admin", "client_admin", or "staff"
+    client_id: Optional[str] = None  # Links user to a client (None for super_admin)
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class UserLogin(BaseModel):
