@@ -959,7 +959,7 @@ export const GroupDetail = () => {
           <div className="flex gap-3">
             <Button
               variant="outline"
-              onClick={handleExportPassengerListPdf}
+              onClick={openPdfExportDialog}
               disabled={exportingPdf || passports.length === 0}
               data-testid="export-pdf-btn"
             >
