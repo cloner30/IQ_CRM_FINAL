@@ -513,7 +513,11 @@ export const GroupDetail = () => {
       (statusFilter === 'pending' && (p.status === 'pending' || !p.status)) ||
       (statusFilter === 'done' && p.status === 'done');
     
-    return matchesSearch && matchesStatus;
+    const matchesVisaStatus = 
+      visaStatusFilter === 'all' || 
+      p.visa_status === visaStatusFilter;
+    
+    return matchesSearch && matchesStatus && matchesVisaStatus;
   });
 
   if (loading) {
