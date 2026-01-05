@@ -78,10 +78,35 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return user
 
 async def get_admin_user(current_user: dict = Depends(get_current_user)):
-    """Check if current user is admin"""
-    if current_user.get("role") != "admin":
+    """Check if current user is super_admin (for backward compatibility, also accepts 'admin')"""
+    if current_user.get("role") not in ["super_admin", "admin"]:
+        raise HTTPException(status_code=403, detail="Super Admin access required")
+    return current_user
+
+async def get_client_admin_or_above(current_user: dict = Depends(get_current_user)):
+    """Check if current user is client_admin or super_admin"""
+    if current_user.get("role") not in ["super_admin", "admin", "client_admin"]:
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
+
+def can_access_client(user: dict, client_id: str) -> bool:
+    """Check if user can access a specific client's data"""
+    # Super admin can access everything
+    if user.get("role") in ["super_admin", "admin"]:
+        return True
+    # Client users can only access their own client
+    return user.get("client_id") == client_id
+
+def get_user_client_filter(user: dict) -> dict:
+    """Get MongoDB filter based on user's client access"""
+    # Super admin sees all
+    if user.get("role") in ["super_admin", "admin"]:
+        return {}
+    # Client users see only their client's data
+    if user.get("client_id"):
+        return {"client_id": user.get("client_id")}
+    # No client_id means no access to any client data
+    return {"client_id": None}
 
 # AWS S3 Configuration
 AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
