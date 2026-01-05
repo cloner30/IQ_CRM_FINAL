@@ -942,6 +942,15 @@ export const GroupDetail = () => {
           <div className="flex gap-3">
             <Button
               variant="outline"
+              onClick={handleExportPassengerListPdf}
+              disabled={exportingPdf || passports.length === 0}
+              data-testid="export-pdf-btn"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              {exportingPdf ? 'Exporting...' : 'Passenger List'}
+            </Button>
+            <Button
+              variant="outline"
               onClick={handleExportCSV}
               disabled={exporting || passports.length === 0}
               data-testid="export-csv-btn"
