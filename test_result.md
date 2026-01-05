@@ -441,3 +441,20 @@ agent_communication:
       - working: "NA"
         agent: "main"
         comment: "Extension v1.5.0 with Insurance Download feature. Cannot be auto-tested - requires manual testing on actual e-visa site with real approval number. Feature searches by approval number, iterates through passengers, clicks Insurance Print, captures PDF, uploads to S3."
+
+
+  - task: "Minor Applicant Logic Modification"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/GroupDetail.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented updated minor handling: (1) Relationship proof is now optional (not blocking form submission), (2) Added parent-linking dropdown to select an adult passenger from the same group, (3) Added 'Proof Pending' badge in passport list for minors without relationship proof. Backend already had parent_passport_id field. Frontend changes made to GroupDetail.jsx - updated openEditDialog to include parent_passport_id and relationship_proof fields, added getAdultPassengers() helper function, updated Minor Alert section with parent dropdown and changed wording to optional, added Proof Pending badge in passport list row. Screenshot verified showing: Minor Detected section with 'Link to Parent (Optional)' dropdown and 'Upload Relationship Proof (JPG) - Optional' with note 'You can upload relationship proof later'."
+
+agent_communication:
+  - agent: "main"
+    message: "MINOR APPLICANT LOGIC MODIFICATION COMPLETE: (1) Made relationship proof optional - form can now be submitted without it, shows warning instead of blocking, (2) Added parent-linking dropdown in Minor Detected section that shows adult passengers from the same group, (3) Added 'Proof Pending' orange badge in passport list for minors missing relationship proof. Screenshot shows the updated UI with 'Link to Parent (Optional)' dropdown and 'Upload Relationship Proof (JPG) - Optional' text. Need testing to verify: (a) form submission works without relationship proof, (b) parent_passport_id is correctly saved to database, (c) 'Proof Pending' badge appears for minors without proof."
