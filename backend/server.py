@@ -543,6 +543,20 @@ async def get_group(group_id: str, current_user: dict = Depends(get_current_user
 
 @api_router.put("/groups/{group_id}", response_model=Group)
 async def update_group(group_id: str, group_data: GroupCreate, current_user: dict = Depends(get_current_user)):
+    # First check if group exists and user has access
+    existing_group = await db.groups.find_one({"id": group_id}, {"_id": 0})
+    if not existing_group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if not can_access_client(current_user, existing_group.get("client_id")):
+        raise HTTPException(status_code=403, detail="Access denied to this group")
+    
+    # For client users, don't allow changing client_id
+    if current_user.get("role") not in ["super_admin", "admin"]:
+        group_data_dict = group_data.model_dump()
+        group_data_dict["client_id"] = existing_group.get("client_id")
+        group_data = GroupCreate(**group_data_dict)
+    
     # Validate client_id if provided
     if group_data.client_id:
         client = await db.clients.find_one({"id": group_data.client_id})
@@ -578,6 +592,10 @@ async def update_group_submission_details(
     group = await db.groups.find_one({"id": group_id})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check access
+    if not can_access_client(current_user, group.get("client_id")):
+        raise HTTPException(status_code=403, detail="Access denied to this group")
     
     # Build update dict with only non-None values
     update_data = {}
