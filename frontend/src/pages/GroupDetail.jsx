@@ -297,7 +297,7 @@ export const GroupDetail = () => {
   const handleMarkAllVisaIssued = async () => {
     setUpdatingVisaStatus(true);
     try {
-      const response = await api.put(`/groups/${groupId}/passports/mark-all-visa-issued`);
+      const response = await api.post(`/groups/${groupId}/passports/mark-all-visa-issued`);
       toast.success(`Marked ${response.data.updated} passports as Visa Issued`);
       fetchData();
     } catch (error) {
