@@ -179,6 +179,7 @@ const emptyForm = {
   profession: '',
   country_of_residence: '',
   applicant_type: '',
+  parent_passport_id: '',
   relationship_proof: ''
 };
 
