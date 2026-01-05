@@ -1293,25 +1293,28 @@ function fillHotelName(value) {
   return false;
 }
 
-// Helper to set text input value
+// Helper to set text input value - UPPERCASE for text fields
 function setTextInputValue(input, value, source) {
   try {
     input.focus();
     input.value = '';
     
+    // Convert to UPPERCASE for text input
+    const upperValue = String(value).toUpperCase();
+    
     const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    nativeSetter.call(input, value);
-    input.value = value;
+    nativeSetter.call(input, upperValue);
+    input.value = upperValue;
     
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     input.dispatchEvent(new Event('blur', { bubbles: true }));
     
-    console.log(`✓ Filled ${source}: ${value}`);
+    console.log(`✓ Filled ${source}: ${upperValue}`);
     return true;
   } catch (err) {
     console.error(`Error setting ${source}:`, err);
-    input.value = value;
+    input.value = String(value).toUpperCase();
     return true;
   }
 }
