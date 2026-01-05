@@ -836,12 +836,31 @@ export const GroupDetail = () => {
                 Age: {calculateAge(passportForm.birth_date)} years old | 
                 Applicant Type: {getApplicantType(passportForm.birth_date, passportForm.gender) || "Select gender"}
               </p>
-              <p className="text-sm text-yellow-700 mt-2 font-medium">
-                Relationship Proof is REQUIRED for minors
-              </p>
+              
+              {/* Parent Linking Dropdown */}
+              <div className="mt-3">
+                <Label className="text-yellow-800 mb-2 block">Link to Parent (Optional)</Label>
+                <Select 
+                  value={passportForm.parent_passport_id || "none"} 
+                  onValueChange={(v) => setPassportForm({ ...passportForm, parent_passport_id: v === "none" ? "" : v })}
+                >
+                  <SelectTrigger className="bg-white border-yellow-300" data-testid="select-parent-passport">
+                    <SelectValue placeholder="Select parent from group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">(No parent selected)</SelectItem>
+                    {getAdultPassengers().map(adult => (
+                      <SelectItem key={adult.id} value={adult.id}>
+                        {adult.first_name_en} {adult.surname_en} - {adult.passport_no}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-yellow-600 mt-1">Link this minor to an adult passenger in the same group</p>
+              </div>
               
               <div className="mt-3">
-                <Label className="text-yellow-800 mb-2 block">Upload Relationship Proof (JPG) *</Label>
+                <Label className="text-yellow-800 mb-2 block">Upload Relationship Proof (JPG) - Optional</Label>
                 <Input
                   type="file"
                   accept=".jpg,.jpeg"
@@ -856,7 +875,7 @@ export const GroupDetail = () => {
                   <p className="text-xs text-green-600 mt-1">✓ Already uploaded</p>
                 )}
                 {!relationshipProofFile && !passportForm.relationship_proof && (
-                  <p className="text-xs text-red-600 mt-1">⚠ Required: Please upload relationship proof document</p>
+                  <p className="text-xs text-amber-600 mt-1">⚠ Note: You can upload relationship proof later</p>
                 )}
               </div>
             </div>
