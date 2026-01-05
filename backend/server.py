@@ -590,7 +590,8 @@ async def update_group_submission_details(
     submission_data: GroupSubmissionDetails, 
     current_user: dict = Depends(get_current_user)
 ):
-    """Update approval number and date of payment for a group"""
+    """Update approval number and date of payment for a group.
+    When date_of_payment is set, all passports with visa_status='form_submitted' are updated to 'payment_done'."""
     # Check if group exists
     group = await db.groups.find_one({"id": group_id})
     if not group:
@@ -611,6 +612,17 @@ async def update_group_submission_details(
         await db.groups.update_one(
             {"id": group_id},
             {"$set": update_data}
+        )
+    
+    # When date_of_payment is set, update all form_submitted passports to payment_done
+    if submission_data.date_of_payment:
+        now = datetime.now(timezone.utc).isoformat()
+        await db.passports.update_many(
+            {"group_id": group_id, "visa_status": "form_submitted"},
+            {"$set": {
+                "visa_status": "payment_done",
+                "visa_status_updated_at": now
+            }}
         )
     
     # Fetch and return updated group
