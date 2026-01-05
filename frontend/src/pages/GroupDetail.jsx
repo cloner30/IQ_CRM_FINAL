@@ -197,13 +197,18 @@ export const GroupDetail = () => {
   const [passportForm, setPassportForm] = useState({ ...emptyForm });
   const [formLoading, setFormLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [groupStats, setGroupStats] = useState({ total: 0, done: 0, pending: 0, progress_percent: 0 });
+  const [groupStats, setGroupStats] = useState({ total: 0, done: 0, pending: 0, progress_percent: 0, visa_stats: {} });
   const [relationshipProofFile, setRelationshipProofFile] = useState(null);  // For relationship proof upload
   
   // Submission details state
   const [approvalNumber, setApprovalNumber] = useState('');
   const [dateOfPayment, setDateOfPayment] = useState('');
   const [savingSubmissionDetails, setSavingSubmissionDetails] = useState(false);
+  
+  // Visa status state
+  const [selectedPassports, setSelectedPassports] = useState([]);
+  const [updatingVisaStatus, setUpdatingVisaStatus] = useState(false);
+  const [visaStatusFilter, setVisaStatusFilter] = useState('all');
 
   const fetchData = useCallback(async () => {
     try {
@@ -245,11 +250,79 @@ export const GroupDetail = () => {
       });
       setGroup(response.data);
       toast.success('Submission details saved successfully');
+      // Refresh data to get updated visa statuses
+      fetchData();
     } catch (error) {
       console.error('Error saving submission details:', error);
       toast.error(error.response?.data?.detail || 'Failed to save submission details');
     } finally {
       setSavingSubmissionDetails(false);
+    }
+  };
+  
+  // Update single passport visa status
+  const handleUpdateVisaStatus = async (passportId, newStatus) => {
+    try {
+      await api.put(`/passports/${passportId}/visa-status?visa_status=${newStatus}`);
+      toast.success('Visa status updated');
+      fetchData();
+    } catch (error) {
+      console.error('Error updating visa status:', error);
+      toast.error(error.response?.data?.detail || 'Failed to update visa status');
+    }
+  };
+  
+  // Bulk update visa status
+  const handleBulkVisaStatus = async (newStatus) => {
+    if (selectedPassports.length === 0) {
+      toast.error('Please select passports first');
+      return;
+    }
+    
+    setUpdatingVisaStatus(true);
+    try {
+      await api.put(`/groups/${groupId}/passports/bulk-visa-status?visa_status=${newStatus}`, selectedPassports);
+      toast.success(`Updated ${selectedPassports.length} passports to ${VISA_STATUS_CONFIG[newStatus]?.label || newStatus}`);
+      setSelectedPassports([]);
+      fetchData();
+    } catch (error) {
+      console.error('Error bulk updating visa status:', error);
+      toast.error(error.response?.data?.detail || 'Failed to update visa status');
+    } finally {
+      setUpdatingVisaStatus(false);
+    }
+  };
+  
+  // Mark all as visa issued
+  const handleMarkAllVisaIssued = async () => {
+    setUpdatingVisaStatus(true);
+    try {
+      const response = await api.put(`/groups/${groupId}/passports/mark-all-visa-issued`);
+      toast.success(`Marked ${response.data.updated} passports as Visa Issued`);
+      fetchData();
+    } catch (error) {
+      console.error('Error marking all as visa issued:', error);
+      toast.error(error.response?.data?.detail || 'Failed to mark as visa issued');
+    } finally {
+      setUpdatingVisaStatus(false);
+    }
+  };
+  
+  // Toggle passport selection
+  const togglePassportSelection = (passportId) => {
+    setSelectedPassports(prev => 
+      prev.includes(passportId) 
+        ? prev.filter(id => id !== passportId)
+        : [...prev, passportId]
+    );
+  };
+  
+  // Select all passports
+  const selectAllPassports = () => {
+    if (selectedPassports.length === filteredPassports.length) {
+      setSelectedPassports([]);
+    } else {
+      setSelectedPassports(filteredPassports.map(p => p.id));
     }
   };
 
