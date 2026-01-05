@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passenger List - {{ group_name }}</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #fff;
+            margin: 0;
+            padding: 20px;
+            color: #000;
+        }
+        .page-container {
+            background-color: #fff;
+            width: 297mm;
+            min-height: 210mm;
+            margin: 0 auto;
+            padding: 10mm 15mm;
+            box-sizing: border-box;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* --- Header Styling --- */
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+        }
+        .header-text-col {
+            flex: 1;
+            text-align: right;
+        }
+        .header-title {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 15px;
+            text-align: right;
+        }
+        .info-row {
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            line-height: 1.4;
+        }
+        .header-media-col {
+            display: flex;
+            align-items: flex-end;
+            margin-right: 20px;
+        }
+        .ref-number {
+            font-weight: bold;
+            font-size: 16px;
+            margin-left: 15px;
+            white-space: nowrap;
+            margin-bottom: 10px;
+        }
+        
+        /* Placeholder styling */
+        .placeholder-box {
+            border: 2px dashed #aaa;
+            background-color: #f0f0f0;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            text-align: center;
+            font-weight: normal;
+        }
+        
+        /* Specific sizes for placeholders */
+        .photo-placeholder {
+            width: 100px;
+            height: 120px;
+        }
+        .stamp-placeholder {
+            width: 140px;
+            height: 100px;
+            margin: 0 auto 5px auto;
+        }
+        .signature-placeholder {
+            width: 150px;
+            height: 60px;
+            margin: 0 auto 10px auto;
+        }
+
+        /* --- Table Styling --- */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px; 
+            margin-bottom: auto; 
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #fff;
+            font-weight: bold;
+            white-space: nowrap;
+            height: 40px;
+        }
+
+        /* --- Footer Styling --- */
+        .footer-section {
+            margin-top: 20px;
+            width: 100%;
+        }
+        .declarations {
+            margin-bottom: 20px;
+            text-align: right;
+        }
+        .declarations p {
+            margin: 5px 0;
+            font-size: 12px;
+            font-weight: bold;
+            line-height: 1.5;
+        }
+        
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between; 
+            align-items: flex-end; 
+            padding: 10px 20px;
+        }
+        
+        /* Stamp (Right in RTL) */
+        .stamp-container {
+            text-align: center;
+        }
+        .stamp-label {
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 5px;
+        }
+
+        /* Signature (Left in RTL) */
+        .signature-container {
+            text-align: center;
+            min-width: 150px;
+        }
+        .manager-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .manager-name {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        @media print {
+            body { margin: 0; padding: 0; background: #fff; }
+            .page-container { width: 100%; height: 100%; box-shadow: none; margin: 0; padding: 10mm; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="page-container">
+    <div class="header-section">
+        <div class="header-text-col">
+            <div class="header-title">استمارة طلب سمات دخول لغرض زيارة المناطق الدينية والسياحية عبر النافذة الواحد</div>
+            <div class="info-row">1- اسم الشركة: ريبال الجزيرة للسفر والسياحة</div>
+            <div class="info-row">2- العنوان الكامل للشركة داخل العراق: النجف – حي الاشتراكي – امام شارع الروان</div>
+            <div class="info-row">3- اسم مخول الشركة: منتظر عبد الزهرة حسون - رقم البطاقة الموحدة (199075239974) و (تاريخ الاصدار 2023/09/19)</div>
+            <div class="info-row">4- الإقامة داخل العراق: كربلاء - النجف - بغداد / مدة الإقامة المتوقعة 10 أيام</div>
+            <div class="info-row">5- نوع سمة الدخول: زيارة العتبات المقدسة</div>
+            <div class="info-row">6- منفذ الدخول: مطار بغداد - مطار النجف - منفذ زرباطية</div>
+        </div>
+
+        <div class="header-media-col">
+            <div class="ref-number">العدد: {{ passenger_count }}</div>
+            <div class="placeholder-box photo-placeholder">
+                [ PHOTO HERE ]
+            </div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th width="5%">ت<br>No.</th>
+                <th width="15%">الاسم<br>GIVEN NAME</th>
+                <th width="15%">اسم الاب<br>FATHER NAME</th>
+                <th width="15%">اللقب<br>SURNAME</th>
+                <th width="15%">رقم الجواز<br>PASSPORT NO</th>
+                <th width="10%">الجنسية<br>NATIONALITY</th>
+                <th width="10%">تاريخ الميلاد<br>DATE OF BIRTH</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for passenger in passengers %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ passenger.given_name }}</td>
+                <td>{{ passenger.father_name }}</td>
+                <td>{{ passenger.surname }}</td>
+                <td>{{ passenger.passport_no }}</td>
+                <td>{{ passenger.nationality_ar }}</td>
+                <td>{{ passenger.birth_year }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer-section">
+        <div class="declarations">
+            <p>(1) اتعهد بعدم التصرف والتلاعب والاضافة او تغير أو تعديل في بيانات المعلومات المدونة في الاستمارة أعلاه دون علم الجهة ذات العلاقة.</p>
+            <p>(2) اتعهد بأن المعلومات الموجودة في القائمة أعلاه هي مطابقة لما موجود في الجواز للزائر الأجنبي مع رفق نسخة واضحة منه وبخلافه اتحمل كافة التبعات القانونية</p>
+        </div>
+
+        <div class="footer-bottom">
+            <div class="stamp-container">
+                <div class="placeholder-box stamp-placeholder">
+                    [ STAMP IMAGE HERE ]
+                </div>
+                <div class="stamp-label">ختم الشركة</div>
+            </div>
+
+            <div class="signature-container">
+                <div class="placeholder-box signature-placeholder">
+                    [ SIGNATURE IMAGE HERE ]
+                </div>
+                <div class="manager-title">المدير المفوض</div>
+                <div class="manager-name">عزي هادي عباس</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
