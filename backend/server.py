@@ -1158,7 +1158,7 @@ async def export_passenger_list_pdf(group_id: str):
         ('TEXTCOLOR', (0, 0), (-1, 1), colors.black),
         ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTNAME', (0, 1), (-1, 1), 'Amiri'),  # Arabic font for Arabic headers
+        ('FONTNAME', (0, 1), (-1, 1), 'ArabicFont'),  # Arabic font for Arabic headers
         ('FONTSIZE', (0, 0), (-1, 0), 9),
         ('FONTSIZE', (0, 1), (-1, 1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
