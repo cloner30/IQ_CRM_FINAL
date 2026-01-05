@@ -757,14 +757,20 @@ async def delete_passport(group_id: str, passport_id: str, current_user: dict = 
 # Status update endpoint
 @api_router.put("/passports/{passport_id}/status")
 async def update_passport_status(passport_id: str, status: str, current_user: dict = Depends(get_current_user)):
-    """Update passport processing status (pending/done)"""
+    """Update passport processing status (pending/done). When done, visa_status becomes form_submitted."""
     if status not in ["pending", "done"]:
         raise HTTPException(status_code=400, detail="Invalid status. Use 'pending' or 'done'")
     
+    now = datetime.now(timezone.utc).isoformat()
     update_data = {
         "status": status,
-        "status_updated_at": datetime.now(timezone.utc).isoformat() if status == "done" else None
+        "status_updated_at": now if status == "done" else None
     }
+    
+    # When marking as done, also update visa_status to form_submitted
+    if status == "done":
+        update_data["visa_status"] = "form_submitted"
+        update_data["visa_status_updated_at"] = now
     
     result = await db.passports.update_one(
         {"id": passport_id},
@@ -780,14 +786,20 @@ async def update_passport_status(passport_id: str, status: str, current_user: di
 # Bulk status update endpoint
 @api_router.put("/groups/{group_id}/passports/bulk-status")
 async def bulk_update_passport_status(group_id: str, passport_ids: List[str], status: str, current_user: dict = Depends(get_current_user)):
-    """Bulk update passport processing status"""
+    """Bulk update passport processing status. When done, visa_status becomes form_submitted."""
     if status not in ["pending", "done"]:
         raise HTTPException(status_code=400, detail="Invalid status. Use 'pending' or 'done'")
     
+    now = datetime.now(timezone.utc).isoformat()
     update_data = {
         "status": status,
-        "status_updated_at": datetime.now(timezone.utc).isoformat() if status == "done" else None
+        "status_updated_at": now if status == "done" else None
     }
+    
+    # When marking as done, also update visa_status to form_submitted
+    if status == "done":
+        update_data["visa_status"] = "form_submitted"
+        update_data["visa_status_updated_at"] = now
     
     result = await db.passports.update_many(
         {"id": {"$in": passport_ids}, "group_id": group_id},
