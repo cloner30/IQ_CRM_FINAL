@@ -522,6 +522,7 @@ function formatDate(dateStr) {
 
 // Fill a text input field
 // IMPORTANT: If value is null, undefined, or empty string - skip filling (leave field blank)
+// IMPORTANT: All text input values are converted to UPPERCASE
 function fillTextField(selector, value) {
   if (value === null || value === undefined || value === '') {
     console.log(`Skipping ${selector} - value is empty/null`);
@@ -537,15 +538,16 @@ function fillTextField(selector, value) {
   // Clear existing value
   field.value = '';
   
-  // Set new value
-  field.value = value;
+  // Convert text to UPPERCASE and set new value
+  const upperValue = String(value).toUpperCase();
+  field.value = upperValue;
   
   // Trigger events to notify the form
   field.dispatchEvent(new Event('input', { bubbles: true }));
   field.dispatchEvent(new Event('change', { bubbles: true }));
   field.dispatchEvent(new Event('blur', { bubbles: true }));
   
-  console.log(`Filled ${selector} with: ${value}`);
+  console.log(`Filled ${selector} with: ${upperValue}`);
   return true;
 }
 
