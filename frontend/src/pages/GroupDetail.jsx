@@ -8,11 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { ArrowLeft, Plus, Upload, FileText, User, Trash2, Edit, Search, CheckCircle, AlertCircle, Image, Eye, Download, AlertTriangle, Save, Calendar, Hash } from 'lucide-react';
+import { ArrowLeft, Plus, Upload, FileText, User, Trash2, Edit, Search, CheckCircle, AlertCircle, Image, Eye, Download, AlertTriangle, Save, Calendar, Hash, Clock, CreditCard, BadgeCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../utils/api';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+// Visa status configuration
+const VISA_STATUS_CONFIG = {
+  pending: { label: 'Pending', color: 'bg-gray-100 text-gray-800', icon: Clock },
+  form_submitted: { label: 'Form Submitted', color: 'bg-blue-100 text-blue-800', icon: FileText },
+  payment_done: { label: 'Payment Done', color: 'bg-amber-100 text-amber-800', icon: CreditCard },
+  visa_issued: { label: 'Visa Issued', color: 'bg-green-100 text-green-800', icon: BadgeCheck }
+};
 
 // Helper function to get proper image URL
 const getImageUrl = (imageUrl) => {
