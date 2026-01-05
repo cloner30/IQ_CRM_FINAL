@@ -1150,6 +1150,21 @@ export const GroupDetail = () => {
                   data-testid="search-passports"
                 />
               </div>
+              
+              {/* Visa Status Filter */}
+              <div>
+                <Select value={visaStatusFilter} onValueChange={setVisaStatusFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Visa Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Visa Status</SelectItem>
+                    {Object.entries(VISA_STATUS_CONFIG).map(([status, config]) => (
+                      <SelectItem key={status} value={status}>{config.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -1169,12 +1184,41 @@ export const GroupDetail = () => {
             </div>
           ) : (
             <div className="divide-y divide-slate-100" data-testid="passports-list">
-              {filteredPassports.map((passport) => (
+              {/* Select All Header */}
+              <div className="flex items-center gap-4 px-6 py-2 bg-slate-50 border-b">
+                <input
+                  type="checkbox"
+                  checked={selectedPassports.length === filteredPassports.length && filteredPassports.length > 0}
+                  onChange={selectAllPassports}
+                  className="w-4 h-4 rounded border-slate-300"
+                />
+                <span className="text-sm text-slate-600">
+                  {selectedPassports.length > 0 
+                    ? `${selectedPassports.length} selected` 
+                    : 'Select all'}
+                </span>
+              </div>
+              
+              {filteredPassports.map((passport) => {
+                const visaConfig = VISA_STATUS_CONFIG[passport.visa_status || 'pending'];
+                const VisaIcon = visaConfig?.icon || Clock;
+                
+                return (
                 <div
                   key={passport.id}
-                  className="flex items-center gap-6 px-6 py-4 hover:bg-slate-50 transition-colors"
+                  className={`flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors ${
+                    selectedPassports.includes(passport.id) ? 'bg-indigo-50' : ''
+                  }`}
                   data-testid={`passport-row-${passport.id}`}
                 >
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={selectedPassports.includes(passport.id)}
+                    onChange={() => togglePassportSelection(passport.id)}
+                    className="w-4 h-4 rounded border-slate-300"
+                  />
+                  
                   {/* Profile Image */}
                   <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden flex-shrink-0">
                     {passport.profile_image ? (
@@ -1192,14 +1236,14 @@ export const GroupDetail = () => {
 
                   {/* Passport Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <h3 className="font-medium text-slate-900">
                         {passport.first_name_en} {passport.surname_en}
                       </h3>
                       <span className="passport-number" data-testid={`passport-no-${passport.passport_no}`}>
                         {passport.passport_no}
                       </span>
-                      {/* Status Badge */}
+                      {/* Processing Status Badge */}
                       {passport.status === 'done' ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           ✓ Done
@@ -1209,6 +1253,11 @@ export const GroupDetail = () => {
                           Pending
                         </span>
                       )}
+                      {/* Visa Status Badge */}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${visaConfig?.color || 'bg-gray-100 text-gray-800'}`}>
+                        <VisaIcon className="w-3 h-3" />
+                        {visaConfig?.label || 'Unknown'}
+                      </span>
                     </div>
                     <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
                       <span>{passport.nationality}</span>
