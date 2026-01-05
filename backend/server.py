@@ -277,7 +277,8 @@ class PassportCreate(BaseModel):
     profession: Optional[str] = None
     country_of_residence: Optional[str] = None
     applicant_type: Optional[str] = None
-    relationship_proof: Optional[str] = None  # S3 URL for relationship proof (required for minors)
+    parent_passport_id: Optional[str] = None  # Link minor to parent's passport in same group
+    relationship_proof: Optional[str] = None  # S3 URL for relationship proof (for minors)
 
 class Passport(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -306,7 +307,8 @@ class Passport(BaseModel):
     profession: Optional[str] = None
     country_of_residence: Optional[str] = None
     applicant_type: Optional[str] = None
-    relationship_proof: Optional[str] = None  # S3 URL for relationship proof (required for minors)
+    parent_passport_id: Optional[str] = None  # Link minor to parent's passport in same group
+    relationship_proof: Optional[str] = None  # S3 URL for relationship proof (for minors)
     passport_image: Optional[str] = None
     profile_image: Optional[str] = None
     insurance_pdf: Optional[str] = None  # S3 URL for insurance PDF
