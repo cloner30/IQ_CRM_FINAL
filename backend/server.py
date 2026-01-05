@@ -479,8 +479,13 @@ def extract_passport_number(filename: str) -> str:
 # Group endpoints
 @api_router.get("/groups", response_model=List[Group])
 async def get_groups(client_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    query = {}
+    # Start with user's client filter
+    query = get_user_client_filter(current_user)
+    
+    # If specific client_id requested, verify access and use it
     if client_id:
+        if not can_access_client(current_user, client_id):
+            raise HTTPException(status_code=403, detail="Access denied to this client's data")
         query["client_id"] = client_id
     
     groups = await db.groups.find(query, {"_id": 0}).to_list(1000)
@@ -497,6 +502,15 @@ async def get_groups(client_id: Optional[str] = None, current_user: dict = Depen
 
 @api_router.post("/groups", response_model=Group)
 async def create_group(group_data: GroupCreate, current_user: dict = Depends(get_current_user)):
+    # For client users, force client_id to their own client
+    if current_user.get("role") not in ["super_admin", "admin"]:
+        if current_user.get("client_id"):
+            group_data_dict = group_data.model_dump()
+            group_data_dict["client_id"] = current_user.get("client_id")
+            group_data = GroupCreate(**group_data_dict)
+        else:
+            raise HTTPException(status_code=403, detail="User not associated with any client")
+    
     # Validate client_id if provided
     if group_data.client_id:
         client = await db.clients.find_one({"id": group_data.client_id})
@@ -513,6 +527,10 @@ async def get_group(group_id: str, current_user: dict = Depends(get_current_user
     group = await db.groups.find_one({"id": group_id}, {"_id": 0})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check access
+    if not can_access_client(current_user, group.get("client_id")):
+        raise HTTPException(status_code=403, detail="Access denied to this group")
     
     # Add client name
     if group.get("client_id"):
