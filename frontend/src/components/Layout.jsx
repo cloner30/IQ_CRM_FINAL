@@ -6,23 +6,38 @@ import { Button } from './ui/button';
 export const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isSuperAdmin, canManageUsers } = useAuth();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  // Get role display name
+  const getRoleDisplay = (role) => {
+    switch (role) {
+      case 'super_admin':
+      case 'admin':
+        return 'Super Admin';
+      case 'client_admin':
+        return 'Client Admin';
+      case 'staff':
+        return 'Staff';
+      default:
+        return role;
+    }
+  };
+
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard, adminOnly: false },
-    { name: 'Groups', href: '/groups', icon: Users, adminOnly: false },
-    { name: 'Scanner', href: '/scanner', icon: ScanLine, adminOnly: false },
-    { name: 'Clients', href: '/clients', icon: Building2, adminOnly: true },
-    { name: 'Users', href: '/users', icon: UserCog, adminOnly: true },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard, show: true },
+    { name: 'Groups', href: '/groups', icon: Users, show: true },
+    { name: 'Scanner', href: '/scanner', icon: ScanLine, show: true },
+    { name: 'Clients', href: '/clients', icon: Building2, show: isSuperAdmin() },
+    { name: 'Users', href: '/users', icon: UserCog, show: canManageUsers() },
   ];
 
   // Filter navigation based on user role
-  const filteredNavigation = navigation.filter(item => !item.adminOnly || isAdmin());
+  const filteredNavigation = navigation.filter(item => item.show);
 
   return (
     <div className="min-h-screen flex" data-testid="main-layout">
@@ -66,7 +81,7 @@ export const Layout = ({ children }) => {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
               <p className="text-xs text-sidebar-foreground/60 truncate">
-                {user?.role === 'admin' ? 'Administrator' : 'Staff'}
+                {getRoleDisplay(user?.role)}
               </p>
             </div>
           </div>
