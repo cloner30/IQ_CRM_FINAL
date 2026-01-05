@@ -83,7 +83,7 @@ function AppRoutes() {
       <Route path="/scanner" element={<ProtectedRoute noLayout><PassportScanner /></ProtectedRoute>} />
       
       {/* Admin Only Routes */}
-      <Route path="/users" element={<ProtectedRoute adminOnly><UsersManagement /></ProtectedRoute>} />
+      <Route path="/users" element={<ProtectedRoute userManagement><UsersManagement /></ProtectedRoute>} />
       <Route path="/clients" element={<ProtectedRoute adminOnly><ClientsManagement /></ProtectedRoute>} />
     </Routes>
   );
