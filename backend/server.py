@@ -1166,7 +1166,7 @@ async def export_passenger_list_pdf(group_id: str):
         
         # Data rows styling
         ('FONTNAME', (0, 2), (-1, -1), 'Helvetica'),
-        ('FONTNAME', (5, 2), (5, -1), 'Amiri'),  # Arabic font for nationality column
+        ('FONTNAME', (5, 2), (5, -1), 'ArabicFont'),  # Arabic font for nationality column
         ('FONTSIZE', (0, 2), (-1, -1), 8),
         ('ALIGN', (0, 2), (0, -1), 'CENTER'),  # SR NO centered
         ('ALIGN', (1, 2), (4, -1), 'LEFT'),    # Names left aligned
