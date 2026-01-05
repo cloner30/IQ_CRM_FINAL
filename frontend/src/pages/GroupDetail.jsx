@@ -991,6 +991,79 @@ export const GroupDetail = () => {
         </CardContent>
       </Card>
 
+      {/* Visa Status Stats */}
+      <Card className="mb-6">
+        <CardHeader className="border-b border-slate-100 pb-3">
+          <CardTitle className="font-manrope flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BadgeCheck className="w-5 h-5 text-green-600" />
+              Visa Status
+            </div>
+            <div className="flex items-center gap-2">
+              {selectedPassports.length > 0 && (
+                <span className="text-sm font-normal text-slate-500">
+                  {selectedPassports.length} selected
+                </span>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleMarkAllVisaIssued}
+                disabled={updatingVisaStatus || !groupStats.visa_stats?.payment_done}
+                className="text-green-600 border-green-600 hover:bg-green-50"
+              >
+                {updatingVisaStatus ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <BadgeCheck className="w-4 h-4 mr-1" />}
+                Mark All Visa Issued
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            {Object.entries(VISA_STATUS_CONFIG).map(([status, config]) => {
+              const count = groupStats.visa_stats?.[status] || 0;
+              const Icon = config.icon;
+              return (
+                <div 
+                  key={status}
+                  onClick={() => setVisaStatusFilter(visaStatusFilter === status ? 'all' : status)}
+                  className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                    visaStatusFilter === status 
+                      ? 'border-indigo-500 bg-indigo-50' 
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon className="w-4 h-4 text-slate-600" />
+                    <span className="text-sm font-medium text-slate-700">{config.label}</span>
+                  </div>
+                  <span className="text-2xl font-bold text-slate-900">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* Bulk actions */}
+          {selectedPassports.length > 0 && (
+            <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
+              <span className="text-sm text-slate-600 mr-2">Change status to:</span>
+              {Object.entries(VISA_STATUS_CONFIG).map(([status, config]) => (
+                <Button
+                  key={status}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkVisaStatus(status)}
+                  disabled={updatingVisaStatus}
+                  className={`text-xs ${config.color}`}
+                >
+                  {config.label}
+                </Button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Submission Details */}
       <Card className="mb-6" data-testid="submission-details-card">
         <CardHeader className="border-b border-slate-100">
