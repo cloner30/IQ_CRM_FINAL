@@ -1288,6 +1288,13 @@ export const GroupDetail = () => {
                         <VisaIcon className="w-3 h-3" />
                         {visaConfig?.label || 'Unknown'}
                       </span>
+                      {/* Proof Pending Badge for minors without relationship proof */}
+                      {isMinor(passport.birth_date) && !passport.relationship_proof && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                          <AlertTriangle className="w-3 h-3" />
+                          Proof Pending
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
                       <span>{passport.nationality}</span>
