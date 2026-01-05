@@ -1042,8 +1042,7 @@ def render_arabic(text):
     if not text:
         return ""
     try:
-        reshaped = arabic_reshaper.reshape(str(text))
-        return get_display(reshaped)
+        return str(text)
     except:
         return str(text)
 
@@ -1070,10 +1069,10 @@ def get_nationality_arabic(nationality):
         return ""
     return NATIONALITY_TO_ARABIC.get(nationality, nationality)
 
-# PDF Passenger List Export endpoint
+# PDF Passenger List Export endpoint using WeasyPrint + Jinja2
 @api_router.get("/groups/{group_id}/export/passenger-list-pdf")
 async def export_passenger_list_pdf(group_id: str):
-    """Export passenger list as PDF in A4 Landscape format with bilingual headers"""
+    """Export passenger list as PDF in A4 Landscape format with Arabic header/footer"""
     group = await db.groups.find_one({"id": group_id}, {"_id": 0})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -1083,110 +1082,35 @@ async def export_passenger_list_pdf(group_id: str):
     if not passports:
         raise HTTPException(status_code=404, detail="No passports found in this group")
     
-    # Create PDF in memory
-    buffer = BytesIO()
+    # Prepare passenger data for template
+    passengers = []
+    for passport in passports:
+        passengers.append({
+            'given_name': (passport.get('first_name_en', '') or '').upper(),
+            'father_name': (passport.get('father_name_en', '') or '').upper(),
+            'surname': (passport.get('surname_en', '') or '').upper(),
+            'passport_no': (passport.get('passport_no', '') or '').upper(),
+            'nationality_ar': get_nationality_arabic(passport.get('nationality', '')),
+            'birth_year': get_birth_year(passport.get('birth_date', ''))
+        })
     
-    # A4 Landscape
-    page_width, page_height = landscape(A4)
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=landscape(A4),
-        rightMargin=1*cm,
-        leftMargin=1*cm,
-        topMargin=1*cm,
-        bottomMargin=1*cm
+    # Load and render template
+    template = jinja_env.get_template('passenger_list.html')
+    html_content = template.render(
+        group_name=group['name'],
+        passenger_count=len(passengers),
+        passengers=passengers
     )
     
-    elements = []
+    # Generate PDF from HTML
+    pdf_buffer = BytesIO()
+    HTML(string=html_content).write_pdf(pdf_buffer)
+    pdf_buffer.seek(0)
     
-    # Define styles
-    styles = getSampleStyleSheet()
-    
-    # Table headers - bilingual (English on top, Arabic below)
-    headers_en = ['SR NO', 'GIVEN NAME', 'THE FATHER NAME', 'SURNAME', 'PASSPORT NO', 'NATIONALITY', 'DATE OF BIRTH']
-    headers_ar = [render_arabic('ت'), render_arabic('الاسم'), render_arabic('اسم الاب'), render_arabic('اللقب'), render_arabic('رقم الجواز'), render_arabic('الجنسية'), render_arabic('تاريخ الميلاد')]
-    
-    # Build table data
-    table_data = []
-    
-    # Header row 1 - English
-    table_data.append(headers_en)
-    
-    # Header row 2 - Arabic
-    table_data.append(headers_ar)
-    
-    # Data rows
-    for idx, passport in enumerate(passports, start=1):
-        row = [
-            str(idx),  # SR NO
-            passport.get('first_name_en', '') or '',  # GIVEN NAME
-            passport.get('father_name_en', '') or '',  # FATHER NAME
-            passport.get('surname_en', '') or '',  # SURNAME
-            passport.get('passport_no', '') or '',  # PASSPORT NO
-            render_arabic(get_nationality_arabic(passport.get('nationality', ''))),  # NATIONALITY in Arabic
-            get_birth_year(passport.get('birth_date', ''))  # DATE OF BIRTH (year only)
-        ]
-        table_data.append(row)
-    
-    # Calculate column widths (total width = page_width - margins)
-    available_width = page_width - 2*cm
-    col_widths = [
-        0.8*cm,   # SR NO
-        3.5*cm,   # GIVEN NAME
-        3.5*cm,   # FATHER NAME
-        3*cm,     # SURNAME
-        3*cm,     # PASSPORT NO
-        2.5*cm,   # NATIONALITY
-        2.5*cm    # DATE OF BIRTH
-    ]
-    
-    # Create table
-    table = Table(table_data, colWidths=col_widths, repeatRows=2)
-    
-    # Table style
-    table_style = TableStyle([
-        # Header styling (rows 0 and 1)
-        ('BACKGROUND', (0, 0), (-1, 1), colors.Color(0.9, 0.9, 0.9)),
-        ('TEXTCOLOR', (0, 0), (-1, 1), colors.black),
-        ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTNAME', (0, 1), (-1, 1), 'ArabicFont'),  # Arabic font for Arabic headers
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('FONTSIZE', (0, 1), (-1, 1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 1), 8),
-        ('TOPPADDING', (0, 0), (-1, 1), 8),
-        
-        # Data rows styling
-        ('FONTNAME', (0, 2), (-1, -1), 'Helvetica'),
-        ('FONTNAME', (5, 2), (5, -1), 'ArabicFont'),  # Arabic font for nationality column
-        ('FONTSIZE', (0, 2), (-1, -1), 8),
-        ('ALIGN', (0, 2), (0, -1), 'CENTER'),  # SR NO centered
-        ('ALIGN', (1, 2), (4, -1), 'LEFT'),    # Names left aligned
-        ('ALIGN', (5, 2), (5, -1), 'CENTER'),  # Nationality centered
-        ('ALIGN', (6, 2), (6, -1), 'CENTER'),  # DOB centered
-        ('BOTTOMPADDING', (0, 2), (-1, -1), 5),
-        ('TOPPADDING', (0, 2), (-1, -1), 5),
-        
-        # Grid
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        
-        # Alternating row colors for data
-        ('ROWBACKGROUNDS', (0, 2), (-1, -1), [colors.white, colors.Color(0.95, 0.95, 0.95)]),
-    ])
-    
-    table.setStyle(table_style)
-    elements.append(table)
-    
-    # Build PDF
-    doc.build(elements)
-    
-    # Prepare response
-    buffer.seek(0)
     filename = f"{group['name'].replace(' ', '_')}_passenger_list.pdf"
     
     return StreamingResponse(
-        buffer,
+        pdf_buffer,
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
