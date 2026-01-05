@@ -632,7 +632,7 @@ function fillDateField(selector, value) {
 }
 
 // Helper to set input value with proper events for Mendix
-function setInputValue(input, value) {
+function setInputValue(input, value, isTextField = true) {
   try {
     // Focus and click the input
     input.focus();
@@ -641,12 +641,15 @@ function setInputValue(input, value) {
     // Clear existing value
     input.value = '';
     
+    // Convert to UPPERCASE for text fields only (not dates or numbers)
+    const finalValue = isTextField ? String(value).toUpperCase() : value;
+    
     // Use native setter for React/Mendix compatibility
     const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    nativeSetter.call(input, value);
+    nativeSetter.call(input, finalValue);
     
     // Also set directly
-    input.value = value;
+    input.value = finalValue;
     
     // Dispatch all necessary events
     input.dispatchEvent(new Event('focus', { bubbles: true }));
@@ -655,12 +658,13 @@ function setInputValue(input, value) {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', keyCode: 9, bubbles: true }));
     input.dispatchEvent(new Event('blur', { bubbles: true }));
     
-    console.log(`✓ Set value: ${value} on input: ${input.id}`);
+    console.log(`✓ Set value: ${finalValue} on input: ${input.id}`);
     return true;
   } catch (err) {
     console.error(`Error setting value: ${err.message}`);
-    // Fallback
-    input.value = value;
+    // Fallback - also uppercase for text fields
+    const finalValue = isTextField ? String(value).toUpperCase() : value;
+    input.value = finalValue;
     input.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   }
