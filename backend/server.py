@@ -23,21 +23,13 @@ import httpx
 import base64
 import re
 
-# PDF generation imports
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch, cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import arabic_reshaper
-from bidi.algorithm import get_display
+# PDF generation imports - WeasyPrint + Jinja2
+from weasyprint import HTML, CSS
+from jinja2 import Environment, FileSystemLoader
 
-# Register Arabic font
-FONT_PATH = Path(__file__).parent / 'fonts' / 'NotoSansArabic-Regular.ttf'
-if FONT_PATH.exists():
-    pdfmetrics.registerFont(TTFont('ArabicFont', str(FONT_PATH)))
+# Setup Jinja2 template environment
+TEMPLATE_DIR = Path(__file__).parent / 'templates'
+jinja_env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
 
 # Nationality to Arabic mapping
 NATIONALITY_TO_ARABIC = {
