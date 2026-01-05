@@ -517,10 +517,23 @@ export const GroupDetail = () => {
     }
   };
 
+  // Open PDF export dialog
+  const openPdfExportDialog = () => {
+    setPdfRefNumber('');
+    setShowPdfExportDialog(true);
+  };
+
   const handleExportPassengerListPdf = async () => {
+    if (!pdfRefNumber.trim()) {
+      toast.error('Please enter the reference number (العدد)');
+      return;
+    }
+    
     setExportingPdf(true);
+    setShowPdfExportDialog(false);
     try {
       const response = await api.get(`/groups/${groupId}/export/passenger-list-pdf`, {
+        params: { ref_number: pdfRefNumber },
         responseType: 'blob'
       });
       
