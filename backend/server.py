@@ -1071,7 +1071,7 @@ def get_nationality_arabic(nationality):
 
 # PDF Passenger List Export endpoint using WeasyPrint + Jinja2
 @api_router.get("/groups/{group_id}/export/passenger-list-pdf")
-async def export_passenger_list_pdf(group_id: str):
+async def export_passenger_list_pdf(group_id: str, ref_number: str = ""):
     """Export passenger list as PDF in A4 Landscape format with Arabic header/footer"""
     group = await db.groups.find_one({"id": group_id}, {"_id": 0})
     if not group:
@@ -1098,7 +1098,7 @@ async def export_passenger_list_pdf(group_id: str):
     template = jinja_env.get_template('passenger_list.html')
     html_content = template.render(
         group_name=group['name'],
-        passenger_count=len(passengers),
+        ref_number=ref_number or str(len(passengers)),  # Use ref_number or fallback to passenger count
         passengers=passengers
     )
     
