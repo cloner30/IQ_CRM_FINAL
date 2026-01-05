@@ -198,6 +198,7 @@ export const GroupDetail = () => {
   const [passportForm, setPassportForm] = useState({ ...emptyForm });
   const [formLoading, setFormLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [groupStats, setGroupStats] = useState({ total: 0, done: 0, pending: 0, progress_percent: 0, visa_stats: {} });
   const [relationshipProofFile, setRelationshipProofFile] = useState(null);  // For relationship proof upload
   
