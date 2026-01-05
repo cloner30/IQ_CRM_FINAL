@@ -513,6 +513,30 @@ export const GroupDetail = () => {
     }
   };
 
+  const handleExportPassengerListPdf = async () => {
+    setExportingPdf(true);
+    try {
+      const response = await api.get(`/groups/${groupId}/export/passenger-list-pdf`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${group?.name || 'passports'}_passenger_list.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Passenger list PDF exported successfully');
+    } catch (error) {
+      toast.error('Failed to export PDF. Make sure there are passports in this group.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const filteredPassports = passports.filter(p => {
     const matchesSearch = 
       p.passport_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
