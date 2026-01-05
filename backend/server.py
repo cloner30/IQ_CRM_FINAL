@@ -23,6 +23,75 @@ import httpx
 import base64
 import re
 
+# PDF generation imports
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch, cm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import arabic_reshaper
+from bidi.algorithm import get_display
+
+# Register Arabic font
+FONT_PATH = Path(__file__).parent / 'fonts' / 'Amiri-Regular.ttf'
+if FONT_PATH.exists():
+    pdfmetrics.registerFont(TTFont('Amiri', str(FONT_PATH)))
+
+# Nationality to Arabic mapping
+NATIONALITY_TO_ARABIC = {
+    "Afghan": "أفغانية", "Albanian": "ألبانية", "Algerian": "جزائرية", "American": "أمريكية",
+    "Argentine": "أرجنتينية", "Armenian": "أرمينية", "Australian": "أسترالية", "Austrian": "نمساوية",
+    "Azerbaijani": "أذربيجانية", "Bahraini": "بحرينية", "Bangladeshi": "بنغلاديشية",
+    "Barbadians": "باربادوسية", "Belarusians": "بيلاروسية", "Belgian": "بلجيكية",
+    "Belizeans": "بليزية", "Beninese": "بنينية", "Bermudian": "برمودية", "Bhutanese": "بوتانية",
+    "Bolivian": "بوليفية", "Bosnian": "بوسنية", "Batswana": "بوتسوانية", "Brazilian": "برازيلية",
+    "British": "بريطانية", "Bruneian": "بروناوية", "Bulgarian": "بلغارية", "Burkinabe": "بوركينية",
+    "Burundian": "بوروندية", "Cambodian": "كمبودية", "Cameroonian": "كاميرونية", "Canadian": "كندية",
+    "Cape Verde": "الرأس الأخضر", "Chadian": "تشادية", "Chilean": "تشيلية", "Chinese": "صينية",
+    "Colombian": "كولومبية", "Comorian": "قمرية", "Congolese": "كونغولية", "Costa Rican": "كوستاريكية",
+    "Croatian": "كرواتية", "Cuban": "كوبية", "Cypriot": "قبرصية", "Czech": "تشيكية",
+    "Danish": "دنماركية", "Djiboutians": "جيبوتية", "Dominican": "دومينيكانية", "Dutch": "هولندية",
+    "Ecuadorian": "إكوادورية", "Egyptian": "مصرية", "Emirati": "إماراتية", "Eritrean": "إريترية",
+    "Estonian": "إستونية", "Ethiopian": "إثيوبية", "Fijian": "فيجية", "Filipino": "فلبينية",
+    "Finnish": "فنلندية", "French": "فرنسية", "Gabonese": "غابونية", "Gambian": "غامبية",
+    "Georgian": "جورجية", "German": "ألمانية", "Ghanaian": "غانية", "Greek": "يونانية",
+    "Greenland": "غرينلاندية", "Grenadian": "غرينادية", "Guatemalan": "غواتيمالية", "Guinean": "غينية",
+    "Guyanese": "غيانية", "Haitian": "هايتية", "Honduran": "هندوراسية", "Hungarian": "هنغارية",
+    "Icelandic": "آيسلندية", "Indian": "هندية", "Indonesian": "إندونيسية", "Iranian": "إيرانية",
+    "Iraqi": "عراقية", "Irish": "إيرلندية", "Italian": "إيطالية", "Jamaican": "جامايكية",
+    "Japanese": "يابانية", "Jordanian": "أردنية", "Kazakh": "كازاخستانية", "Kenyan": "كينية",
+    "Kiribati": "كيريباتية", "Korean": "كورية", "Kosovoi": "كوسوفية", "Kuwaiti": "كويتية",
+    "Kyrgyz": "قيرغيزية", "Lao": "لاوية", "Latvian": "لاتفية", "Lebanese": "لبنانية",
+    "Lesotho": "ليسوتية", "Liberian": "ليبيرية", "Libyan": "ليبية", "Liechtensteiners": "ليختنشتاينية",
+    "Lithuanian": "ليتوانية", "Luxembourgish": "لوكسمبورغية", "Macedonians": "مقدونية",
+    "Malagasy": "مدغشقرية", "Malawian": "مالاوية", "Malaysian": "ماليزية", "Maldivian": "مالديفية",
+    "Malian": "مالية", "Maltese": "مالطية", "Mauritanian": "موريتانية", "Mauritian": "موريشيوسية",
+    "Mexican": "مكسيكية", "Micronesia": "ميكرونيزية", "Moldavians": "مولدوفية", "Monegasque": "موناكية",
+    "Mongolian": "منغولية", "Montenegrin": "مونتينيغرية", "Moroccan": "مغربية", "Mozambican": "موزمبيقية",
+    "Myanmar": "ميانمارية", "Namibian": "ناميبية", "Naurun": "ناورونية", "Nepalese": "نيبالية",
+    "New Zealand": "نيوزيلندية", "Nicaraguan": "نيكاراغوية", "Niger": "نيجرية", "Nigerian": "نيجيرية",
+    "Norwegian": "نرويجية", "Omani": "عمانية", "Pakistani": "باكستانية", "Palau": "بالاوية",
+    "Palestinian": "فلسطينية", "Panamanian": "بنمية", "Papua New Guinea": "بابوانية",
+    "Paraguayan": "باراغوايية", "Peruvian": "بيروفية", "Philippine": "فلبينية", "Polish": "بولندية",
+    "Portuguese": "برتغالية", "Puerto Rico": "بورتوريكية", "Qatari": "قطرية", "Romanian": "رومانية",
+    "Russian": "روسية", "Rwandan": "رواندية", "Saint Lucia": "سانت لوسية", "Samoa": "ساموائية",
+    "San Marino": "سان مارينية", "Sao Tome": "ساوتومية", "Saudi": "سعودية", "Senegalese": "سنغالية",
+    "Serbian": "صربية", "Seychelles": "سيشيلية", "Sierra Leonean": "سيراليونية",
+    "Singaporean": "سنغافورية", "Slovak": "سلوفاكية", "Slovenia": "سلوفينية",
+    "Solomon Islands": "جزر سليمان", "Somalian": "صومالية", "South African": "جنوب أفريقية",
+    "Spanish": "إسبانية", "Sri Lankan": "سريلانكية", "Sudanese": "سودانية", "Suriname": "سورينامية",
+    "Swazi": "سوازيلندية", "Swedish": "سويدية", "Swiss": "سويسرية", "Syrian": "سورية",
+    "Tajikistani": "طاجيكستانية", "Tanzanian": "تنزانية", "Thai": "تايلاندية",
+    "Timor Leste": "تيمورية", "Togolese": "توغولية", "Tokelau": "توكيلاوية", "Tongan": "تونغية",
+    "Trinidad and Tobago": "ترينيدادية", "Tunisian": "تونسية", "Turkish": "تركية",
+    "Turkmen": "تركمانستانية", "Tuvalu": "توفالية", "Ugandan": "أوغندية", "Ukrainian": "أوكرانية",
+    "Uruguayan": "أوروغوايية", "Uzbekistani": "أوزبكستانية", "Vanuatu": "فانواتية",
+    "Venezuelan": "فنزويلية", "Vietnamese": "فيتنامية", "Yemeni": "يمنية", "Zambian": "زامبية",
+    "Zimbabwean": "زيمبابوية"
+}
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
