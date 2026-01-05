@@ -820,20 +820,115 @@ async def bulk_update_passport_status(group_id: str, passport_ids: List[str], st
     
     return {"updated": result.modified_count}
 
+# Visa status constants
+VALID_VISA_STATUSES = ["pending", "form_submitted", "payment_done", "visa_issued"]
+
+# Visa status update endpoint
+@api_router.put("/passports/{passport_id}/visa-status")
+async def update_passport_visa_status(passport_id: str, visa_status: str, current_user: dict = Depends(get_current_user)):
+    """Update passport visa status"""
+    if visa_status not in VALID_VISA_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid visa status. Use one of: {VALID_VISA_STATUSES}")
+    
+    # Get passport to verify access
+    passport = await db.passports.find_one({"id": passport_id})
+    if not passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    
+    # Get group to check client access
+    group = await db.groups.find_one({"id": passport["group_id"]})
+    if not can_access_client(current_user, group.get("client_id") if group else None):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    update_data = {
+        "visa_status": visa_status,
+        "visa_status_updated_at": now
+    }
+    
+    result = await db.passports.update_one(
+        {"id": passport_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    
+    passport = await db.passports.find_one({"id": passport_id}, {"_id": 0})
+    return process_passport_images(passport)
+
+# Bulk visa status update endpoint
+@api_router.put("/groups/{group_id}/passports/bulk-visa-status")
+async def bulk_update_passport_visa_status(group_id: str, passport_ids: List[str], visa_status: str, current_user: dict = Depends(get_current_user)):
+    """Bulk update passport visa status"""
+    if visa_status not in VALID_VISA_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid visa status. Use one of: {VALID_VISA_STATUSES}")
+    
+    # Verify group access
+    await verify_group_access(group_id, current_user)
+    
+    now = datetime.now(timezone.utc).isoformat()
+    update_data = {
+        "visa_status": visa_status,
+        "visa_status_updated_at": now
+    }
+    
+    result = await db.passports.update_many(
+        {"id": {"$in": passport_ids}, "group_id": group_id},
+        {"$set": update_data}
+    )
+    
+    return {"updated": result.modified_count}
+
+# Mark all as visa issued endpoint
+@api_router.put("/groups/{group_id}/passports/mark-all-visa-issued")
+async def mark_all_passports_visa_issued(group_id: str, current_user: dict = Depends(get_current_user)):
+    """Mark all passports in a group as visa_issued (only those with payment_done status)"""
+    # Verify group access
+    await verify_group_access(group_id, current_user)
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Only update passports that are in payment_done status
+    result = await db.passports.update_many(
+        {"group_id": group_id, "visa_status": "payment_done"},
+        {"$set": {
+            "visa_status": "visa_issued",
+            "visa_status_updated_at": now
+        }}
+    )
+    
+    return {"updated": result.modified_count}
+
 
 # Get group stats endpoint
 @api_router.get("/groups/{group_id}/stats")
-async def get_group_stats(group_id: str):
-    """Get passport processing stats for a group"""
+async def get_group_stats(group_id: str, current_user: dict = Depends(get_current_user)):
+    """Get passport processing and visa stats for a group"""
+    # Verify group access
+    await verify_group_access(group_id, current_user)
+    
     total = await db.passports.count_documents({"group_id": group_id})
     done = await db.passports.count_documents({"group_id": group_id, "status": "done"})
     pending = total - done
+    
+    # Visa status counts
+    visa_pending = await db.passports.count_documents({"group_id": group_id, "visa_status": "pending"})
+    visa_form_submitted = await db.passports.count_documents({"group_id": group_id, "visa_status": "form_submitted"})
+    visa_payment_done = await db.passports.count_documents({"group_id": group_id, "visa_status": "payment_done"})
+    visa_issued = await db.passports.count_documents({"group_id": group_id, "visa_status": "visa_issued"})
     
     return {
         "total": total,
         "done": done,
         "pending": pending,
-        "progress_percent": round((done / total * 100) if total > 0 else 0, 1)
+        "progress_percent": round((done / total * 100) if total > 0 else 0, 1),
+        "visa_stats": {
+            "pending": visa_pending,
+            "form_submitted": visa_form_submitted,
+            "payment_done": visa_payment_done,
+            "visa_issued": visa_issued
+        }
     }
 
 # CSV Export endpoint
