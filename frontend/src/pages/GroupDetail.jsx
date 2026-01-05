@@ -1615,6 +1615,52 @@ export const GroupDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* PDF Export Reference Number Dialog */}
+      <Dialog open={showPdfExportDialog} onOpenChange={setShowPdfExportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-right">تصدير قائمة الركاب</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="ref-number" className="text-right block">العدد (Reference Number)</Label>
+              <Input
+                id="ref-number"
+                type="text"
+                placeholder="Enter reference number..."
+                value={pdfRefNumber}
+                onChange={(e) => setPdfRefNumber(e.target.value)}
+                className="text-right"
+                dir="rtl"
+                data-testid="pdf-ref-number-input"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowPdfExportDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleExportPassengerListPdf}
+              disabled={!pdfRefNumber.trim() || exportingPdf}
+              data-testid="confirm-pdf-export-btn"
+            >
+              {exportingPdf ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export PDF
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
