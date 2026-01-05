@@ -1338,9 +1338,29 @@ export const GroupDetail = () => {
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
+                    
+                    {/* Visa Status Quick Change */}
+                    <Select 
+                      value={passport.visa_status || 'pending'} 
+                      onValueChange={(value) => handleUpdateVisaStatus(passport.id, value)}
+                    >
+                      <SelectTrigger className="w-[140px] h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(VISA_STATUS_CONFIG).map(([status, config]) => (
+                          <SelectItem key={status} value={status}>
+                            <span className="flex items-center gap-1">
+                              <config.icon className="w-3 h-3" />
+                              {config.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </CardContent>
