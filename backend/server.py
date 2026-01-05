@@ -1480,39 +1480,89 @@ async def init_admin():
     """Initialize default admin user if no users exist"""
     user_count = await db.users.count_documents({})
     if user_count > 0:
-        return {"message": "Users already exist", "created": False}
+        # Upgrade existing admin to super_admin if needed
+        await db.users.update_many(
+            {"role": "admin"},
+            {"$set": {"role": "super_admin"}}
+        )
+        return {"message": "Users already exist, upgraded admin to super_admin", "created": False}
     
-    # Create default admin user
+    # Create default super admin user
     admin_user = {
         "id": str(uuid.uuid4()),
         "email": "admin@admin.com",
         "password_hash": get_password_hash("admin123"),
-        "name": "Administrator",
-        "role": "admin",
+        "name": "Super Administrator",
+        "role": "super_admin",
+        "client_id": None,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.users.insert_one(admin_user)
-    return {"message": "Default admin created", "created": True, "email": "admin@admin.com"}
+    return {"message": "Default super admin created", "created": True, "email": "admin@admin.com"}
 
-# ============ USER MANAGEMENT ENDPOINTS (Admin Only) ============
+# ============ USER MANAGEMENT ENDPOINTS ============
+
+VALID_ROLES = ["super_admin", "client_admin", "staff"]
 
 @api_router.get("/users", response_model=List[User])
-async def get_users(current_user: dict = Depends(get_admin_user)):
-    """Get all users (admin only)"""
-    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
+async def get_users(current_user: dict = Depends(get_current_user)):
+    """Get users - super_admin sees all, client_admin sees only their client's users"""
+    if current_user.get("role") in ["super_admin", "admin"]:
+        # Super admin sees all users
+        users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    elif current_user.get("role") == "client_admin":
+        # Client admin sees only users in their client
+        users = await db.users.find(
+            {"client_id": current_user.get("client_id")}, 
+            {"_id": 0, "password_hash": 0}
+        ).to_list(1000)
+    else:
+        # Staff cannot see users
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Add client name for each user
+    for user in users:
+        if user.get("client_id"):
+            client = await db.clients.find_one({"id": user["client_id"]}, {"_id": 0, "name": 1})
+            user["client_name"] = client["name"] if client else "Unknown"
+        else:
+            user["client_name"] = None
+    
     return users
 
 @api_router.post("/users", response_model=User)
-async def create_user(user_data: UserCreate, current_user: dict = Depends(get_admin_user)):
-    """Create a new user (admin only)"""
+async def create_user(user_data: UserCreate, current_user: dict = Depends(get_client_admin_or_above)):
+    """Create a new user - super_admin can create any user, client_admin can create users for their client"""
     # Check if email already exists
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     
     # Validate role
-    if user_data.role not in ["admin", "staff"]:
-        raise HTTPException(status_code=400, detail="Invalid role. Use 'admin' or 'staff'")
+    if user_data.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Use one of: {VALID_ROLES}")
+    
+    # Role-based creation rules
+    if current_user.get("role") in ["super_admin", "admin"]:
+        # Super admin can create any user
+        # For client_admin and staff, client_id is required
+        if user_data.role in ["client_admin", "staff"] and not user_data.client_id:
+            raise HTTPException(status_code=400, detail="client_id is required for client_admin and staff roles")
+        
+        # Validate client exists if provided
+        if user_data.client_id:
+            client = await db.clients.find_one({"id": user_data.client_id})
+            if not client:
+                raise HTTPException(status_code=400, detail="Client not found")
+    elif current_user.get("role") == "client_admin":
+        # Client admin can only create client_admin or staff for their own client
+        if user_data.role not in ["client_admin", "staff"]:
+            raise HTTPException(status_code=403, detail="You can only create client_admin or staff users")
+        
+        # Force client_id to their own client
+        user_data_dict = user_data.model_dump()
+        user_data_dict["client_id"] = current_user.get("client_id")
+        user_data = UserCreate(**user_data_dict)
     
     user = {
         "id": str(uuid.uuid4()),
@@ -1520,6 +1570,7 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_ad
         "password_hash": get_password_hash(user_data.password),
         "name": user_data.name,
         "role": user_data.role,
+        "client_id": user_data.client_id,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.users.insert_one(user)
@@ -1528,19 +1579,56 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_ad
     del user["password_hash"]
     if "_id" in user:
         del user["_id"]
+    
+    # Add client name
+    if user.get("client_id"):
+        client = await db.clients.find_one({"id": user["client_id"]}, {"_id": 0, "name": 1})
+        user["client_name"] = client["name"] if client else "Unknown"
+    else:
+        user["client_name"] = None
+    
     return user
 
 @api_router.get("/users/{user_id}", response_model=User)
-async def get_user(user_id: str, current_user: dict = Depends(get_admin_user)):
-    """Get a specific user (admin only)"""
+async def get_user(user_id: str, current_user: dict = Depends(get_client_admin_or_above)):
+    """Get a specific user"""
     user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Client admin can only see users in their client
+    if current_user.get("role") == "client_admin":
+        if user.get("client_id") != current_user.get("client_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Add client name
+    if user.get("client_id"):
+        client = await db.clients.find_one({"id": user["client_id"]}, {"_id": 0, "name": 1})
+        user["client_name"] = client["name"] if client else "Unknown"
+    else:
+        user["client_name"] = None
+    
     return user
 
 @api_router.put("/users/{user_id}", response_model=User)
-async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = Depends(get_admin_user)):
-    """Update a user (admin only)"""
+async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = Depends(get_client_admin_or_above)):
+    """Update a user"""
+    # Get existing user
+    existing_user = await db.users.find_one({"id": user_id})
+    if not existing_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Client admin can only update users in their client
+    if current_user.get("role") == "client_admin":
+        if existing_user.get("client_id") != current_user.get("client_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
+        # Client admin cannot change role to super_admin
+        if user_data.role == "super_admin":
+            raise HTTPException(status_code=403, detail="Cannot set super_admin role")
+        # Client admin cannot change client_id
+        if user_data.client_id and user_data.client_id != current_user.get("client_id"):
+            raise HTTPException(status_code=403, detail="Cannot change client assignment")
+    
     update_data = {k: v for k, v in user_data.model_dump().items() if v is not None}
     
     if not update_data:
@@ -1557,28 +1645,74 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
         update_data["password_hash"] = get_password_hash(update_data.pop("password"))
     
     # Validate role if being updated
-    if "role" in update_data and update_data["role"] not in ["admin", "staff"]:
-        raise HTTPException(status_code=400, detail="Invalid role. Use 'admin' or 'staff'")
+    if "role" in update_data and update_data["role"] not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Use one of: {VALID_ROLES}")
     
     result = await db.users.update_one({"id": user_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     
     user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    
+    # Add client name
+    if user.get("client_id"):
+        client = await db.clients.find_one({"id": user["client_id"]}, {"_id": 0, "name": 1})
+        user["client_name"] = client["name"] if client else "Unknown"
+    else:
+        user["client_name"] = None
+    
     return user
 
 @api_router.delete("/users/{user_id}")
-async def delete_user(user_id: str, current_user: dict = Depends(get_admin_user)):
-    """Delete a user (admin only)"""
+async def delete_user(user_id: str, current_user: dict = Depends(get_client_admin_or_above)):
+    """Delete a user"""
     # Prevent deleting yourself
     if current_user["id"] == user_id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    
+    # Get user to check access
+    user_to_delete = await db.users.find_one({"id": user_id})
+    if not user_to_delete:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Client admin can only delete users in their client
+    if current_user.get("role") == "client_admin":
+        if user_to_delete.get("client_id") != current_user.get("client_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
+        # Cannot delete super_admin
+        if user_to_delete.get("role") in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Cannot delete super admin")
     
     result = await db.users.delete_one({"id": user_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     
     return {"message": "User deleted successfully"}
+
+# ============ CLIENT USER MANAGEMENT ENDPOINTS ============
+
+@api_router.get("/clients/{client_id}/users", response_model=List[User])
+async def get_client_users(client_id: str, current_user: dict = Depends(get_client_admin_or_above)):
+    """Get all users for a specific client"""
+    # Verify client exists
+    client = await db.clients.find_one({"id": client_id})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Check access
+    if not can_access_client(current_user, client_id):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    users = await db.users.find(
+        {"client_id": client_id}, 
+        {"_id": 0, "password_hash": 0}
+    ).to_list(1000)
+    
+    # Add client name
+    for user in users:
+        user["client_name"] = client["name"]
+    
+    return users
 
 # ============ CLIENT MANAGEMENT ENDPOINTS (Admin Only) ============
 
