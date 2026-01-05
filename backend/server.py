@@ -343,6 +343,7 @@ class PassportUpdate(BaseModel):
     profession: Optional[str] = None
     country_of_residence: Optional[str] = None
     applicant_type: Optional[str] = None
+    parent_passport_id: Optional[str] = None  # Link minor to parent
     relationship_proof: Optional[str] = None  # S3 URL for relationship proof
     status: Optional[str] = None
 
