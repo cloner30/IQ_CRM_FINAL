@@ -624,11 +624,31 @@ async def update_group_submission_details(
 
 @api_router.delete("/groups/{group_id}")
 async def delete_group(group_id: str, current_user: dict = Depends(get_current_user)):
+    # Check if group exists and user has access
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if not can_access_client(current_user, group.get("client_id")):
+        raise HTTPException(status_code=403, detail="Access denied to this group")
+    
     await db.passports.delete_many({"group_id": group_id})
     result = await db.groups.delete_one({"id": group_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Group not found")
     return {"message": "Group deleted successfully"}
+
+# Helper function to verify group access
+async def verify_group_access(group_id: str, current_user: dict) -> dict:
+    """Verify that user has access to the group and return the group"""
+    group = await db.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    if not can_access_client(current_user, group.get("client_id")):
+        raise HTTPException(status_code=403, detail="Access denied to this group")
+    
+    return group
 
 # Helper function to process passport images (convert S3 keys to presigned URLs)
 def process_passport_images(passport: dict) -> dict:
@@ -648,6 +668,9 @@ def process_passport_images(passport: dict) -> dict:
 # Passport endpoints
 @api_router.get("/groups/{group_id}/passports", response_model=List[Passport])
 async def get_passports(group_id: str, current_user: dict = Depends(get_current_user)):
+    # Verify group access
+    await verify_group_access(group_id, current_user)
+    
     passports = await db.passports.find({"group_id": group_id}, {"_id": 0}).to_list(1000)
     # Process S3 images to presigned URLs
     processed_passports = [process_passport_images(p) for p in passports]
@@ -655,9 +678,8 @@ async def get_passports(group_id: str, current_user: dict = Depends(get_current_
 
 @api_router.post("/groups/{group_id}/passports", response_model=Passport)
 async def create_passport(group_id: str, passport_data: PassportCreate, current_user: dict = Depends(get_current_user)):
-    group = await db.groups.find_one({"id": group_id})
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+    # Verify group access
+    group = await verify_group_access(group_id, current_user)
     
     existing = await db.passports.find_one({
         "group_id": group_id,
