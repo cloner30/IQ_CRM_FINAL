@@ -202,6 +202,10 @@ export const GroupDetail = () => {
   const [groupStats, setGroupStats] = useState({ total: 0, done: 0, pending: 0, progress_percent: 0, visa_stats: {} });
   const [relationshipProofFile, setRelationshipProofFile] = useState(null);  // For relationship proof upload
   
+  // PDF Export popup state
+  const [showPdfExportDialog, setShowPdfExportDialog] = useState(false);
+  const [pdfRefNumber, setPdfRefNumber] = useState('');
+  
   // Submission details state
   const [approvalNumber, setApprovalNumber] = useState('');
   const [dateOfPayment, setDateOfPayment] = useState('');
