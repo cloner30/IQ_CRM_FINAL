@@ -859,7 +859,7 @@ async def update_passport_visa_status(passport_id: str, visa_status: str, curren
 
 # Bulk visa status update endpoint
 @api_router.put("/groups/{group_id}/passports/bulk-visa-status")
-async def bulk_update_passport_visa_status(group_id: str, passport_ids: List[str], visa_status: str, current_user: dict = Depends(get_current_user)):
+async def bulk_update_passport_visa_status(group_id: str, passport_ids: List[str] = Body(...), visa_status: str = Query(...), current_user: dict = Depends(get_current_user)):
     """Bulk update passport visa status"""
     if visa_status not in VALID_VISA_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid visa status. Use one of: {VALID_VISA_STATUSES}")
