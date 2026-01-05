@@ -310,7 +310,10 @@ class Passport(BaseModel):
     passport_image: Optional[str] = None
     profile_image: Optional[str] = None
     insurance_pdf: Optional[str] = None  # S3 URL for insurance PDF
-    status: str = "pending"  # pending, done
+    visa_pdf: Optional[str] = None  # S3 URL for visa copy
+    status: str = "pending"  # pending, done (form filling status)
+    visa_status: str = "pending"  # pending, form_submitted, payment_done, visa_issued
+    visa_status_updated_at: Optional[str] = None
     status_updated_at: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
