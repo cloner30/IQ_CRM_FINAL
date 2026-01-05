@@ -334,11 +334,10 @@ export const GroupDetail = () => {
       return;
     }
     
-    // Check if minor and validate relationship proof
+    // Check if minor - show warning but don't block
     const minorStatus = isMinor(passportForm.birth_date);
     if (minorStatus && !relationshipProofFile && !passportForm.relationship_proof) {
-      toast.error('Relationship proof is required for minors (under 18 years). Please upload the document.');
-      return;
+      toast.warning('Note: Relationship proof is pending for this minor. You can upload it later.');
     }
     
     // Auto-set applicant type based on age and gender
@@ -379,11 +378,10 @@ export const GroupDetail = () => {
       return;
     }
     
-    // Check if minor and validate relationship proof
+    // Check if minor - show warning but don't block
     const minorStatus = isMinor(passportForm.birth_date);
     if (minorStatus && !relationshipProofFile && !passportForm.relationship_proof) {
-      toast.error('Relationship proof is required for minors (under 18 years). Please upload the document.');
-      return;
+      toast.warning('Note: Relationship proof is pending for this minor. You can upload it later.');
     }
     
     // Auto-set applicant type based on age and gender
