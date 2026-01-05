@@ -881,7 +881,7 @@ async def bulk_update_passport_visa_status(group_id: str, passport_ids: List[str
     return {"updated": result.modified_count}
 
 # Mark all as visa issued endpoint
-@api_router.put("/groups/{group_id}/passports/mark-all-visa-issued")
+@api_router.post("/groups/{group_id}/passports/mark-all-visa-issued")
 async def mark_all_passports_visa_issued(group_id: str, current_user: dict = Depends(get_current_user)):
     """Mark all passports in a group as visa_issued (only those with payment_done status)"""
     # Verify group access
