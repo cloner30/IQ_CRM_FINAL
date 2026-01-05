@@ -471,9 +471,21 @@ export const GroupDetail = () => {
       expiry_date: passport.expiry_date || '',
       profession: passport.profession || '',
       country_of_residence: passport.country_of_residence || '',
-      applicant_type: passport.applicant_type || ''
+      applicant_type: passport.applicant_type || '',
+      parent_passport_id: passport.parent_passport_id || '',
+      relationship_proof: passport.relationship_proof || ''
     });
     setShowEditPassport(passport);
+  };
+  
+  // Get list of adult passengers in the group (for parent linking dropdown)
+  const getAdultPassengers = () => {
+    return passports.filter(p => {
+      // Exclude current passport being edited (if any)
+      if (showEditPassport && p.id === showEditPassport.id) return false;
+      // Only include adults (18+)
+      return !isMinor(p.birth_date);
+    });
   };
 
   const handleExportCSV = async () => {
