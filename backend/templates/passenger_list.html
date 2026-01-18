@@ -7,25 +7,25 @@
     <style>
         @page {
             size: A4 landscape;
-            margin: 0;
+            margin: 15mm 15mm 15mm 15mm;
+        }
+        @page :first {
+            margin-top: 10mm;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #fff;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             color: #000;
         }
         .page-container {
             background-color: #fff;
-            width: 297mm;
-            min-height: 210mm;
+            width: 100%;
             margin: 0 auto;
-            padding: 10mm 15mm;
+            padding: 0;
             box-sizing: border-box;
             position: relative;
-            display: flex;
-            flex-direction: column;
         }
         
         /* --- Header Styling --- */
