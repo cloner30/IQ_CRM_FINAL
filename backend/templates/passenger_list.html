@@ -5,13 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Passenger List - {{ group_name }}</title>
     <style>
+        /* Running stamp element - will be placed in page margin */
+        .running-stamp {
+            position: running(pageStamp);
+        }
+        .running-stamp img {
+            width: 140px;
+            height: 100px;
+            object-fit: contain;
+        }
+        
         @page {
             size: A4 landscape;
-            margin: 15mm 15mm 15mm 15mm;
+            margin: 15mm 25mm 15mm 15mm;
+            
+            /* Place stamp in right-middle margin on all pages except last */
+            @right-middle {
+                content: element(pageStamp);
+            }
         }
         @page :first {
             margin-top: 10mm;
         }
+        @page :last {
+            /* No stamp in margin on last page - footer has it */
+            @right-middle {
+                content: none;
+            }
+        }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #fff;
@@ -26,21 +48,6 @@
             padding: 0;
             box-sizing: border-box;
             position: relative;
-        }
-        
-        /* --- Repeating Stamp on Every Page (Right side, middle-bottom) --- */
-        .page-stamp {
-            position: fixed;
-            right: 5mm;
-            bottom: 50mm;
-            text-align: center;
-            z-index: 100;
-        }
-        .page-stamp img {
-            width: 80px;
-            height: 60px;
-            object-fit: contain;
-            opacity: 0.85;
         }
         
         /* --- Header Styling --- */
