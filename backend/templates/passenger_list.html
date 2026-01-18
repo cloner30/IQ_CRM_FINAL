@@ -218,6 +218,23 @@
         </thead>
         <tbody>
             {% for passenger in passengers %}
+            {% if loop.index == 12 and show_page_stamp %}
+            {# Add stamp at row 12 - this will be on page 1, while page 2 has footer stamp #}
+            <tr class="stamp-row">
+                <td style="position: relative;">
+                    {{ loop.index }}
+                    <div class="inline-stamp">
+                        <img src="file:///app/backend/templates/images/stamp.png" alt="Stamp">
+                    </div>
+                </td>
+                <td>{{ passenger.given_name }}</td>
+                <td>{{ passenger.father_name }}</td>
+                <td>{{ passenger.surname }}</td>
+                <td>{{ passenger.passport_no }}</td>
+                <td>{{ passenger.nationality_ar }}</td>
+                <td>{{ passenger.birth_year }}</td>
+            </tr>
+            {% else %}
             <tr>
                 <td>{{ loop.index }}</td>
                 <td>{{ passenger.given_name }}</td>
@@ -227,6 +244,7 @@
                 <td>{{ passenger.nationality_ar }}</td>
                 <td>{{ passenger.birth_year }}</td>
             </tr>
+            {% endif %}
             {% endfor %}
         </tbody>
     </table>
