@@ -23,8 +23,7 @@ import httpx
 import base64
 import re
 
-# PDF generation imports - WeasyPrint + Jinja2
-from weasyprint import HTML, CSS
+# Jinja2 for PDF template
 from jinja2 import Environment, FileSystemLoader
 
 # Setup Jinja2 template environment
