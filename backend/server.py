@@ -1101,10 +1101,14 @@ async def export_passenger_list_pdf(group_id: str, ref_number: str = ""):
         passengers=passengers
     )
     
-    # Generate PDF from HTML
-    pdf_buffer = BytesIO()
-    HTML(string=html_content).write_pdf(pdf_buffer)
-    pdf_buffer.seek(0)
+    # Generate PDF from HTML (lazy import WeasyPrint)
+    try:
+        from weasyprint import HTML
+        pdf_buffer = BytesIO()
+        HTML(string=html_content).write_pdf(pdf_buffer)
+        pdf_buffer.seek(0)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
     
     filename = f"{group['name'].replace(' ', '_')}_passenger_list.pdf"
     
