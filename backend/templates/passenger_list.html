@@ -29,12 +29,12 @@
             position: relative;
         }
         
-        /* Repeating stamp - positioned between SR NO and NAMES column, around rows 10-13 */
-        /* Only shows on pages that are NOT the last page */
+        /* Repeating stamp - positioned between SR NO (ت) and GIVEN NAME (الاسم) columns */
+        /* Only shows on multi-page PDFs (not on last page since footer has stamp) */
         .page-stamp {
             position: fixed;
-            right: 240mm;  /* Position between SR NO and GIVEN NAME columns */
-            top: 115mm;    /* Around row 10-13 area */
+            right: 15mm;   /* Position on right side, between SR NO and GIVEN NAME */
+            top: 110mm;    /* Around row 10-13 area */
             z-index: 100;
         }
         .page-stamp img {
