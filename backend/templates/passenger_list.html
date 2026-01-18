@@ -29,18 +29,21 @@
             position: relative;
         }
         
-        /* Repeating stamp - positioned between SR NO (ت) and GIVEN NAME (الاسم) columns */
-        /* Only shows on multi-page PDFs (not on last page since footer has stamp) */
-        .page-stamp {
-            position: fixed;
-            right: 15mm;   /* Position on right side, between SR NO and GIVEN NAME */
-            top: 110mm;    /* Around row 10-13 area */
+        /* Inline stamp that appears within the table at specific rows */
+        .inline-stamp {
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
             z-index: 100;
         }
-        .page-stamp img {
-            width: 140px;
-            height: 100px;
+        .inline-stamp img {
+            width: 120px;
+            height: 85px;
             object-fit: contain;
+        }
+        .stamp-row {
+            position: relative;
         }
         
         /* Hide the fixed stamp on last page using string-set trick */
