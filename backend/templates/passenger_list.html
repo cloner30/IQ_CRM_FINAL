@@ -183,10 +183,12 @@
 </head>
 <body>
 
-<!-- Running stamp - appears on all pages EXCEPT last page (via @page :last rule) -->
-<div class="running-stamp">
+{% if show_page_stamp %}
+<!-- Page stamp - only shown when there are multiple pages (not on single page PDF) -->
+<div class="page-stamp">
     <img src="file:///app/backend/templates/images/stamp.png" alt="Company Stamp">
 </div>
+{% endif %}
 
 <div class="page-container">
     <div class="header-section">
