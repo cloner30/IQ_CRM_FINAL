@@ -28,6 +28,21 @@
             position: relative;
         }
         
+        /* --- Repeating Stamp on Every Page (Right side, middle-bottom) --- */
+        .page-stamp {
+            position: fixed;
+            right: 15mm;
+            bottom: 30mm;
+            text-align: center;
+            z-index: 100;
+        }
+        .page-stamp img {
+            width: 100px;
+            height: 70px;
+            object-fit: contain;
+            opacity: 0.9;
+        }
+        
         /* --- Header Styling --- */
         .header-section {
             display: flex;
