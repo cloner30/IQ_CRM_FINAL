@@ -222,12 +222,7 @@
             {% if loop.index == 12 and show_page_stamp %}
             {# Add stamp at row 12 - this will be on page 1, while page 2 has footer stamp #}
             <tr class="stamp-row">
-                <td style="position: relative;">
-                    {{ loop.index }}
-                    <div class="inline-stamp">
-                        <img src="file:///app/backend/templates/images/stamp.png" alt="Stamp">
-                    </div>
-                </td>
+                <td>{{ loop.index }}<div class="inline-stamp"><img src="file:///app/backend/templates/images/stamp.png" alt="Stamp"></div></td>
                 <td>{{ passenger.given_name }}</td>
                 <td>{{ passenger.father_name }}</td>
                 <td>{{ passenger.surname }}</td>
