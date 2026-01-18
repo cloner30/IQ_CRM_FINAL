@@ -32,9 +32,8 @@
         /* Inline stamp that appears within the table at specific rows */
         .inline-stamp {
             position: absolute;
-            right: -10px;
-            top: 50%;
-            transform: translateY(-50%);
+            right: -5px;
+            top: 0;
             z-index: 100;
         }
         .inline-stamp img {
@@ -45,9 +44,11 @@
         .stamp-row {
             position: relative;
         }
+        .stamp-row td {
+            border: 1px solid #000 !important;  /* Ensure borders are visible */
+        }
         
-        /* Hide the fixed stamp on last page using string-set trick */
-        @page :last {
+        /* --- Header Styling --- */
             /* We'll use margin adjustment to indicate last page */
         }
         
