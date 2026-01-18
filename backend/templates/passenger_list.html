@@ -204,30 +204,40 @@
         </div>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th width="5%">ت<br>No.</th>
-                <th width="15%">الاسم<br>GIVEN NAME</th>
-                <th width="15%">اسم الاب<br>FATHER NAME</th>
-                <th width="15%">اللقب<br>SURNAME</th>
-                <th width="15%">رقم الجواز<br>PASSPORT NO</th>
-                <th width="10%">الجنسية<br>NATIONALITY</th>
-                <th width="10%">تاريخ الميلاد<br>DATE OF BIRTH</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for passenger in passengers %}
-            {% if loop.index == 12 and show_page_stamp %}
-            {# Add stamp at row 12 - this will be on page 1, while page 2 has footer stamp #}
-            <tr class="stamp-row">
-                <td>{{ loop.index }}<div class="inline-stamp"><img src="file:///app/backend/templates/images/stamp.png" alt="Stamp"></div></td>
-                <td>{{ passenger.given_name }}</td>
-                <td>{{ passenger.father_name }}</td>
-                <td>{{ passenger.surname }}</td>
-                <td>{{ passenger.passport_no }}</td>
-                <td>{{ passenger.nationality_ar }}</td>
-                <td>{{ passenger.birth_year }}</td>
+    <div class="table-wrapper">
+        {% if show_page_stamp %}
+        <div class="table-stamp">
+            <img src="file:///app/backend/templates/images/stamp.png" alt="Stamp">
+        </div>
+        {% endif %}
+        
+        <table>
+            <thead>
+                <tr>
+                    <th width="5%">ت<br>No.</th>
+                    <th width="15%">الاسم<br>GIVEN NAME</th>
+                    <th width="15%">اسم الاب<br>FATHER NAME</th>
+                    <th width="15%">اللقب<br>SURNAME</th>
+                    <th width="15%">رقم الجواز<br>PASSPORT NO</th>
+                    <th width="10%">الجنسية<br>NATIONALITY</th>
+                    <th width="10%">تاريخ الميلاد<br>DATE OF BIRTH</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for passenger in passengers %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ passenger.given_name }}</td>
+                    <td>{{ passenger.father_name }}</td>
+                    <td>{{ passenger.surname }}</td>
+                    <td>{{ passenger.passport_no }}</td>
+                    <td>{{ passenger.nationality_ar }}</td>
+                    <td>{{ passenger.birth_year }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
             </tr>
             {% else %}
             <tr>
