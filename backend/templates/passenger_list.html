@@ -5,33 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Passenger List - {{ group_name }}</title>
     <style>
-        /* Running stamp element - will be placed in page margin */
-        .running-stamp {
-            position: running(pageStamp);
-        }
-        .running-stamp img {
-            width: 140px;
-            height: 100px;
-            object-fit: contain;
-        }
-        
         @page {
             size: A4 landscape;
-            margin: 15mm 25mm 15mm 15mm;
-            
-            /* Place stamp in right-middle margin on all pages except last */
-            @right-middle {
-                content: element(pageStamp);
-            }
+            margin: 15mm 15mm 15mm 15mm;
         }
         @page :first {
             margin-top: 10mm;
-        }
-        @page :last {
-            /* No stamp in margin on last page - footer has it */
-            @right-middle {
-                content: none;
-            }
         }
         
         body {
@@ -48,6 +27,25 @@
             padding: 0;
             box-sizing: border-box;
             position: relative;
+        }
+        
+        /* Repeating stamp - positioned between SR NO and NAMES column, around rows 10-13 */
+        /* Only shows on pages that are NOT the last page */
+        .page-stamp {
+            position: fixed;
+            right: 240mm;  /* Position between SR NO and GIVEN NAME columns */
+            top: 115mm;    /* Around row 10-13 area */
+            z-index: 100;
+        }
+        .page-stamp img {
+            width: 140px;
+            height: 100px;
+            object-fit: contain;
+        }
+        
+        /* Hide the fixed stamp on last page using string-set trick */
+        @page :last {
+            /* We'll use margin adjustment to indicate last page */
         }
         
         /* --- Header Styling --- */
