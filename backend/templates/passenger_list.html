@@ -29,26 +29,22 @@
             position: relative;
         }
         
-        /* Inline stamp that appears within the table at specific rows */
-        .inline-stamp {
+        /* Table container for stamp positioning */
+        .table-wrapper {
+            position: relative;
+        }
+        
+        /* Stamp positioned absolutely relative to table wrapper */
+        .table-stamp {
             position: absolute;
-            right: -5px;
-            top: -30px;
+            right: 5px;
+            top: 155px;  /* Position around row 12 */
             z-index: 100;
         }
-        .inline-stamp img {
+        .table-stamp img {
             width: 120px;
             height: 85px;
             object-fit: contain;
-        }
-        .stamp-row {
-            position: relative;
-        }
-        .stamp-row td:first-child {
-            position: relative;
-        }
-        .stamp-row td {
-            border: 1px solid #000 !important;  /* Ensure borders are visible */
         }
         
         /* --- Header Styling --- */
