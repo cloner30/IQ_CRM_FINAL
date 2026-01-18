@@ -1093,12 +1093,19 @@ async def export_passenger_list_pdf(group_id: str, ref_number: str = ""):
             'birth_year': get_birth_year(passport.get('birth_date', ''))
         })
     
+    # Calculate if we need page stamps (multiple pages = more than ~18 passengers)
+    # Page stamp should only appear on non-last pages
+    # If single page (<=18 passengers), no page stamp needed (footer has stamp)
+    # If multiple pages, show page stamp on all pages except last
+    show_page_stamp = len(passengers) > 18
+    
     # Load and render template
     template = jinja_env.get_template('passenger_list.html')
     html_content = template.render(
         group_name=group['name'],
-        ref_number=ref_number or str(len(passengers)),  # Use ref_number or fallback to passenger count
-        passengers=passengers
+        ref_number=ref_number or str(len(passengers)),
+        passengers=passengers,
+        show_page_stamp=show_page_stamp
     )
     
     # Generate PDF from HTML (lazy import WeasyPrint)
