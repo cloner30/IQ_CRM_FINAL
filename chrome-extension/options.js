@@ -129,7 +129,7 @@ async function checkAuthStatus() {
     // Update user info display
     document.getElementById('user-name').textContent = result.user.name || 'User';
     document.getElementById('user-email').textContent = result.user.email || '';
-    document.getElementById('user-role').textContent = result.user.role === 'admin' ? '👑 Admin' : '👤 Staff';
+    document.getElementById('user-role').textContent = result.user.role?.replace(/_/g, ' ') || 'User';
     document.getElementById('user-avatar').textContent = (result.user.name || 'U').charAt(0).toUpperCase();
     
     // Verify token is still valid

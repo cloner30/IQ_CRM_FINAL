@@ -1,62 +1,92 @@
+import { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Users, LayoutDashboard, Upload, Settings, Building2, UserCog, LogOut, ScanLine } from 'lucide-react';
+import { Users, LayoutDashboard, Building2, UserCog, LogOut, ScanLine, Truck, DollarSign, Bell, Download } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
+import api from '../utils/api';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+const ROLE_LABELS = {
+  system_admin: 'System Admin',
+  system_staff: 'System Staff',
+  system_accounts: 'System Accounts',
+  client_admin: 'Client Admin',
+  client_staff: 'Client Staff',
+  client_accounts: 'Client Accounts',
+  vendor_admin: 'Vendor Admin',
+  vendor_staff: 'Vendor Staff',
+  vendor_accounts: 'Vendor Accounts',
+  super_admin: 'System Admin',
+  admin: 'System Admin',
+  staff: 'Staff',
+};
 
 export const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAdmin, isSuperAdmin, canManageUsers } = useAuth();
+  const { user, logout, isAdmin, isSuperAdmin, canManageUsers, isVendor, canManageVendors, canAccessFinancial, canViewOperational } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await api.get('/notifications/unread-count');
+        setUnreadCount(res.data.count);
+      } catch { /* ignore */ }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadNotifications = async () => {
+    try {
+      const res = await api.get('/notifications');
+      setNotifications(res.data);
+      setShowNotifs(true);
+    } catch { /* ignore */ }
+  };
+
+  const markRead = async (id) => {
+    await api.patch(`/notifications/${id}/read`);
+    setUnreadCount((c) => Math.max(0, c - 1));
+    setNotifications((n) => n.map((x) => x.id === id ? { ...x, read_at: new Date().toISOString() } : x));
+  };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  // Get role display name
-  const getRoleDisplay = (role) => {
-    switch (role) {
-      case 'super_admin':
-      case 'admin':
-        return 'Super Admin';
-      case 'client_admin':
-        return 'Client Admin';
-      case 'staff':
-        return 'Staff';
-      default:
-        return role;
-    }
-  };
-
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard, show: true },
-    { name: 'Groups', href: '/groups', icon: Users, show: true },
-    { name: 'Scanner', href: '/scanner', icon: ScanLine, show: true },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard, show: canViewOperational() && !isVendor() },
+    { name: 'Groups', href: '/groups', icon: Users, show: canViewOperational() && !isVendor() },
+    { name: 'Vendor Portal', href: '/vendor', icon: Truck, show: isVendor() },
+    { name: 'Scanner', href: '/scanner', icon: ScanLine, show: canViewOperational() && !isVendor() },
+    { name: 'Financial', href: '/financial', icon: DollarSign, show: canAccessFinancial() },
     { name: 'Clients', href: '/clients', icon: Building2, show: isSuperAdmin() },
+    { name: 'Vendors', href: '/vendors', icon: Truck, show: canManageVendors() },
     { name: 'Users', href: '/users', icon: UserCog, show: canManageUsers() },
-  ];
-
-  // Filter navigation based on user role
-  const filteredNavigation = navigation.filter(item => item.show);
+  ].filter((item) => item.show);
 
   return (
     <div className="min-h-screen flex" data-testid="main-layout">
-      {/* Sidebar */}
       <aside className="w-64 bg-sidebar flex-shrink-0 flex flex-col" data-testid="sidebar">
         <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
-          <h1 className="text-xl font-manrope font-bold text-sidebar-foreground">
-            Passport Control
-          </h1>
+          <h1 className="text-xl font-manrope font-bold text-sidebar-foreground">ACF CRM</h1>
         </div>
         <nav className="mt-6 px-3 flex-1" data-testid="sidebar-nav">
-          {filteredNavigation.map((item) => {
-            const isActive = location.pathname === item.href || 
+          {navigation.map((item) => {
+            const isActive = location.pathname === item.href ||
               (item.href !== '/' && location.pathname.startsWith(item.href));
             return (
               <NavLink
                 key={item.name}
                 to={item.href}
-                data-testid={`nav-${item.name.toLowerCase()}`}
+                data-testid={`nav-${item.name.toLowerCase().replace(/\s/g, '-')}`}
                 className={`flex items-center gap-3 px-4 py-3 mb-1 rounded-lg font-medium transition-colors ${
                   isActive
                     ? 'bg-sidebar-accent text-sidebar-accent-foreground'
@@ -68,9 +98,16 @@ export const Layout = ({ children }) => {
               </NavLink>
             );
           })}
+          {isAdmin() && (
+            <a
+              href={`${API_URL}/api/download/chrome-extension`}
+              className="flex items-center gap-3 px-4 py-3 mb-1 rounded-lg font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+            >
+              <Download className="w-5 h-5" />
+              Chrome Extension
+            </a>
+          )}
         </nav>
-        
-        {/* User info and logout */}
         <div className="p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-sidebar-accent rounded-full flex items-center justify-center">
@@ -81,12 +118,34 @@ export const Layout = ({ children }) => {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
               <p className="text-xs text-sidebar-foreground/60 truncate">
-                {getRoleDisplay(user?.role)}
+                {ROLE_LABELS[user?.role] || user?.role}
               </p>
             </div>
+            <button className="relative p-1" onClick={loadNotifications}>
+              <Bell className="w-5 h-5 text-sidebar-foreground/70" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
           </div>
-          <Button 
-            variant="ghost" 
+          {showNotifs && notifications.length > 0 && (
+            <div className="mb-3 max-h-40 overflow-y-auto bg-sidebar-accent rounded-lg p-2 text-xs">
+              {notifications.slice(0, 5).map((n) => (
+                <div
+                  key={n.id}
+                  className={`p-2 mb-1 rounded cursor-pointer ${n.read_at ? 'opacity-60' : ''}`}
+                  onClick={() => !n.read_at && markRead(n.id)}
+                >
+                  <p className="font-medium">{n.title}</p>
+                  <p className="text-sidebar-foreground/60">{n.body?.slice(0, 60)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+          <Button
+            variant="ghost"
             className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
             onClick={handleLogout}
           >
@@ -95,12 +154,8 @@ export const Layout = ({ children }) => {
           </Button>
         </div>
       </aside>
-
-      {/* Main Content */}
       <main className="flex-1 bg-background overflow-auto" data-testid="main-content">
-        <div className="p-6 md:p-8">
-          {children}
-        </div>
+        <div className="p-6 md:p-8">{children}</div>
       </main>
     </div>
   );

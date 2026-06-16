@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -66,14 +66,12 @@ export const ClientsManagement = () => {
     email: '',
     mobile_no: '',
     address: '',
-    country: ''
+    country: '',
+    base_price_per_passport: 20,
+    rush_fee: 0,
   });
 
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/api/clients`, {
         headers: {
@@ -89,7 +87,11 @@ export const ClientsManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -157,7 +159,9 @@ export const ClientsManagement = () => {
       email: client.email || '',
       mobile_no: client.mobile_no || '',
       address: client.address || '',
-      country: client.country || ''
+      country: client.country || '',
+      base_price_per_passport: client.base_price_per_passport ?? 20,
+      rush_fee: client.rush_fee ?? 0,
     });
     setIsDialogOpen(true);
   };
@@ -177,7 +181,9 @@ export const ClientsManagement = () => {
       email: '',
       mobile_no: '',
       address: '',
-      country: ''
+      country: '',
+      base_price_per_passport: 20,
+      rush_fee: 0,
     });
   };
 
@@ -409,6 +415,29 @@ export const ClientsManagement = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="base_price">Base Price per Passport (USD)</Label>
+                <Input
+                  id="base_price"
+                  type="number"
+                  step="0.01"
+                  value={formData.base_price_per_passport}
+                  onChange={(e) => setFormData({ ...formData, base_price_per_passport: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rush_fee">Rush Fee (USD)</Label>
+                <Input
+                  id="rush_fee"
+                  type="number"
+                  step="0.01"
+                  value={formData.rush_fee}
+                  onChange={(e) => setFormData({ ...formData, rush_fee: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

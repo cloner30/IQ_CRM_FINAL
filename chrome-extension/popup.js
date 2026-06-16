@@ -187,11 +187,17 @@ function setupEventListeners() {
 async function loadGroups() {
   const groupSelect = document.getElementById('group-select');
   showStatus('Loading groups...', 'loading');
-  
+
   try {
-    const response = await apiRequest('/api/groups');
+    let endpoint = '/api/groups';
+    const vendorRoles = ['vendor_admin', 'vendor_staff', 'vendor_accounts'];
+    if (currentUser && vendorRoles.includes(currentUser.role) && currentUser.vendor_id) {
+      endpoint = `/api/vendors/${currentUser.vendor_id}/groups`;
+    }
+
+    const response = await apiRequest(endpoint);
     if (!response.ok) throw new Error('Failed to fetch groups');
-    
+
     let groups = await response.json();
     
     // Sort groups from newest to oldest (by created_at)
@@ -601,6 +607,7 @@ async function markAsDone() {
     }
     
     showStatus('✓ Marked as Done!', 'success');
+    await maybeUpdateGroupVisaStatus();
     
     // Auto-hide success message after 2 seconds
     setTimeout(() => {
@@ -610,6 +617,22 @@ async function markAsDone() {
   } catch (error) {
     console.error('Error marking as done:', error);
     showStatus(`Failed to mark as done: ${error.message}`, 'error');
+  }
+}
+
+async function maybeUpdateGroupVisaStatus() {
+  if (!currentGroupId || !allPassports.length) return;
+  const allDone = allPassports.every(p => p.status === 'done' || p.visa_status === 'Done' || p.visa_status === 'form_submitted');
+  if (!allDone) return;
+  try {
+    await apiRequest(`/api/groups/${currentGroupId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_status: 'VISA_SUBMITTED', reason: 'All passengers processed via extension' }),
+    });
+    showStatus('Group status updated to Visa Submitted', 'success');
+  } catch (e) {
+    console.warn('Could not update group status:', e);
   }
 }
 

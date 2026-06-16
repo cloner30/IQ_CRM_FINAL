@@ -21,6 +21,7 @@ export const GroupsList = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [deleteGroupId, setDeleteGroupId] = useState(null);
   const navigate = useNavigate();
 
@@ -53,11 +54,13 @@ export const GroupsList = () => {
     }
   };
 
-  const filteredGroups = groups.filter(g => 
-    g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (g.description && g.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (g.client_name && g.client_name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredGroups = groups.filter(g => {
+    const matchesSearch = g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (g.description && g.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (g.client_name && g.client_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesStatus = statusFilter === 'all' || g.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div data-testid="groups-list-page">
@@ -77,9 +80,8 @@ export const GroupsList = () => {
         </Link>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
+      <div className="mb-6 flex gap-4 flex-wrap">
+        <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
             type="text"
@@ -90,6 +92,19 @@ export const GroupsList = () => {
             data-testid="search-input"
           />
         </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm"
+        >
+          <option value="all">All Statuses</option>
+          <option value="DATA_ENTRY">Data Entry</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="PENDING_PROCESS">Pending Process</option>
+          <option value="VISA_SUBMITTED">Visa Submitted</option>
+          <option value="VISA_ISSUED">Visa Issued</option>
+          <option value="COMPLETED">Completed</option>
+        </select>
       </div>
 
       {/* Groups Grid */}
@@ -155,9 +170,22 @@ export const GroupsList = () => {
                 )}
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-slate-500 mb-4 line-clamp-2">
+                <p className="text-sm text-slate-500 mb-2 line-clamp-2">
                   {group.description || 'No description'}
                 </p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {group.departure_date && (
+                    <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
+                      {group.departure_date.slice(0, 10)}
+                    </span>
+                  )}
+                  {group.status && (
+                    <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
+                      {group.status.replace(/_/g, ' ')}
+                    </span>
+                  )}
+                  <span className="text-xs font-mono text-slate-400">{group.id}</span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="status-badge neutral">
                     {group.passport_count || 0} passports

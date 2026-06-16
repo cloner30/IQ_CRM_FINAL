@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -33,6 +33,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 export const UsersManagement = () => {
   const { token, user: currentUser, isSuperAdmin } = useAuth();
+  const superAdmin = isSuperAdmin();
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,18 +44,25 @@ export const UsersManagement = () => {
     email: '',
     name: '',
     password: '',
-    role: 'staff',
-    client_id: ''
+    role: 'client_staff',
+    client_id: '',
+    vendor_id: '',
+    status: 'active',
   });
+  const [vendors, setVendors] = useState([]);
 
-  useEffect(() => {
-    fetchUsers();
-    if (isSuperAdmin()) {
-      fetchClients();
+  const fetchVendors = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/vendors`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) setVendors(await response.json());
+    } catch (error) {
+      console.error('Failed to fetch vendors:', error);
     }
-  }, []);
+  }, [token]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/api/users`, {
         headers: {
@@ -70,9 +78,9 @@ export const UsersManagement = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/api/clients`, {
         headers: {
@@ -86,14 +94,27 @@ export const UsersManagement = () => {
     } catch (error) {
       console.error('Failed to fetch clients:', error);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchUsers();
+    if (superAdmin) {
+      fetchClients();
+      fetchVendors();
+    }
+  }, [fetchUsers, fetchClients, fetchVendors, superAdmin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validation for client_admin and staff roles
-    if (['client_admin', 'staff'].includes(formData.role) && !formData.client_id && isSuperAdmin()) {
+    const clientRoles = ['client_admin', 'client_staff', 'client_accounts'];
+    const vendorRoles = ['vendor_admin', 'vendor_staff', 'vendor_accounts'];
+    if (clientRoles.includes(formData.role) && !formData.client_id && isSuperAdmin()) {
       toast.error('Please select a client for this user');
+      return;
+    }
+    if (vendorRoles.includes(formData.role) && !formData.vendor_id && isSuperAdmin()) {
+      toast.error('Please select a vendor for this user');
       return;
     }
     
@@ -110,10 +131,8 @@ export const UsersManagement = () => {
         delete payload.password;
       }
       
-      // Handle empty client_id
-      if (!payload.client_id) {
-        payload.client_id = null;
-      }
+      if (!payload.client_id) payload.client_id = null;
+      if (!payload.vendor_id) payload.vendor_id = null;
       
       const response = await fetch(url, {
         method,
@@ -168,7 +187,9 @@ export const UsersManagement = () => {
       name: user.name,
       password: '',
       role: user.role,
-      client_id: user.client_id || ''
+      client_id: user.client_id || '',
+      vendor_id: user.vendor_id || '',
+      status: user.status || 'active',
     });
     setIsDialogOpen(true);
   };
@@ -184,8 +205,10 @@ export const UsersManagement = () => {
       email: '',
       name: '',
       password: '',
-      role: 'staff',
-      client_id: currentUser?.client_id || ''
+      role: 'client_staff',
+      client_id: currentUser?.client_id || '',
+      vendor_id: currentUser?.vendor_id || '',
+      status: 'active',
     });
   };
 
@@ -240,18 +263,26 @@ export const UsersManagement = () => {
   const getAvailableRoles = () => {
     if (isSuperAdmin()) {
       return [
-        { value: 'super_admin', label: 'Super Admin' },
+        { value: 'system_admin', label: 'System Admin' },
+        { value: 'system_staff', label: 'System Staff' },
+        { value: 'system_accounts', label: 'System Accounts' },
         { value: 'client_admin', label: 'Client Admin' },
-        { value: 'staff', label: 'Staff' }
-      ];
-    } else {
-      // Client admin can only create client_admin and staff
-      return [
-        { value: 'client_admin', label: 'Client Admin' },
-        { value: 'staff', label: 'Staff' }
+        { value: 'client_staff', label: 'Client Staff' },
+        { value: 'client_accounts', label: 'Client Accounts' },
+        { value: 'vendor_admin', label: 'Vendor Admin' },
+        { value: 'vendor_staff', label: 'Vendor Staff' },
+        { value: 'vendor_accounts', label: 'Vendor Accounts' },
       ];
     }
+    return [
+      { value: 'client_admin', label: 'Client Admin' },
+      { value: 'client_staff', label: 'Client Staff' },
+      { value: 'client_accounts', label: 'Client Accounts' },
+    ];
   };
+
+  const needsClient = ['client_admin', 'client_staff', 'client_accounts'].includes(formData.role);
+  const needsVendor = ['vendor_admin', 'vendor_staff', 'vendor_accounts'].includes(formData.role);
 
   return (
     <div className="space-y-6">
@@ -456,8 +487,7 @@ export const UsersManagement = () => {
               </Select>
             </div>
             
-            {/* Client selection - only for super_admin and when role requires it */}
-            {isSuperAdmin() && ['client_admin', 'staff'].includes(formData.role) && (
+            {isSuperAdmin() && needsClient && (
               <div className="space-y-2">
                 <Label htmlFor="client">Client</Label>
                 <Select
@@ -470,6 +500,25 @@ export const UsersManagement = () => {
                   <SelectContent>
                     {clients.map(client => (
                       <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {isSuperAdmin() && needsVendor && (
+              <div className="space-y-2">
+                <Label htmlFor="vendor">Vendor</Label>
+                <Select
+                  value={formData.vendor_id}
+                  onValueChange={(value) => setFormData({ ...formData, vendor_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendors.map(vendor => (
+                      <SelectItem key={vendor.id} value={vendor.id}>{vendor.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

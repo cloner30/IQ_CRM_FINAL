@@ -46,6 +46,8 @@ class PassportAPITester:
                     response = requests.post(url, json=data, headers=headers)
             elif method == 'PUT':
                 response = requests.put(url, json=data, headers=headers)
+            elif method == 'PATCH':
+                response = requests.patch(url, json=data, headers=headers)
             elif method == 'DELETE':
                 response = requests.delete(url, headers=headers)
 
@@ -1730,6 +1732,82 @@ def run_authentication_tests():
         print(f"❌ {tester.tests_run - tester.tests_passed} authentication tests failed")
         return 1
 
+
+def run_enterprise_tests():
+    """Test enterprise endpoints: preview-id, vendors, status, financial"""
+    import os
+    base = os.environ.get("API_BASE_URL", "http://localhost:8000/api")
+    tester = PassportAPITester(base_url=base)
+    print("=" * 60)
+    print("ENTERPRISE FEATURE TESTS")
+    print("=" * 60)
+
+    tester.test_init_admin()
+    tester.test_login_admin()
+
+    success, _ = tester.run_test(
+        "Preview Group ID",
+        "GET",
+        "groups/preview-id?departure_date=2026-06-15",
+        200,
+        auth_required=True,
+    )
+
+    success2, vendor = tester.run_test(
+        "Create Vendor",
+        "POST",
+        "vendors",
+        200,
+        data={"name": "Test Vendor", "code": "TV001", "base_cost_per_passport": 15.0},
+        auth_required=True,
+    )
+
+    if success2 and vendor:
+        tester.run_test(
+            "List Vendors",
+            "GET",
+            "vendors",
+            200,
+            auth_required=True,
+        )
+
+    if tester.group_id:
+        tester.run_test(
+            "Update Group Status",
+            "PATCH",
+            f"groups/{tester.group_id}/status",
+            200,
+            data={"new_status": "SUBMITTED", "reason": "Test submission"},
+            auth_required=True,
+        )
+        tester.run_test(
+            "Get Status History",
+            "GET",
+            f"groups/{tester.group_id}/status-history",
+            200,
+            auth_required=True,
+        )
+
+    tester.run_test(
+        "Financial Dashboard",
+        "GET",
+        "financial/dashboard",
+        200,
+        auth_required=True,
+    )
+
+    tester.run_test(
+        "Notifications Unread Count",
+        "GET",
+        "notifications/unread-count",
+        200,
+        auth_required=True,
+    )
+
+    print(f"\n📊 Enterprise Test Results: {tester.tests_passed}/{tester.tests_run} passed")
+    return 0 if tester.tests_passed == tester.tests_run else 1
+
+
 if __name__ == "__main__":
     # Check if specific tests are requested
     if len(sys.argv) > 1:
@@ -1739,5 +1817,7 @@ if __name__ == "__main__":
             sys.exit(run_passport_status_tests())
         elif sys.argv[1] == "auth":
             sys.exit(run_authentication_tests())
+        elif sys.argv[1] == "enterprise":
+            sys.exit(run_enterprise_tests())
     else:
         sys.exit(main())

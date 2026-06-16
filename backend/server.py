@@ -25,6 +25,20 @@ import re
 
 # Jinja2 for PDF template
 from jinja2 import Environment, FileSystemLoader
+from permissions import (
+    check_permission,
+    require_permission,
+    can_access_client,
+    can_access_group,
+    get_user_client_filter,
+    get_user_group_filter,
+    normalize_role,
+    is_system_role,
+    VALID_ROLES,
+)
+from group_id import generate_group_id, preview_group_id
+from migrations import run_migrations
+from enterprise_routes import register_enterprise_routes
 
 # Setup Jinja2 template environment
 TEMPLATE_DIR = Path(__file__).parent / 'templates'
@@ -135,38 +149,24 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
+    if user.get("status") == "inactive":
+        raise HTTPException(status_code=403, detail="Account is inactive")
     return user
 
 async def get_admin_user(current_user: dict = Depends(get_current_user)):
-    """Check if current user is super_admin (for backward compatibility, also accepts 'admin')"""
-    if current_user.get("role") not in ["super_admin", "admin"]:
-        raise HTTPException(status_code=403, detail="Super Admin access required")
+    """System admin access (backward compatible with super_admin/admin)."""
+    if not check_permission(current_user, "can_manage_clients"):
+        raise HTTPException(status_code=403, detail="System Admin access required")
     return current_user
 
 async def get_client_admin_or_above(current_user: dict = Depends(get_current_user)):
-    """Check if current user is client_admin or super_admin"""
-    if current_user.get("role") not in ["super_admin", "admin", "client_admin"]:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
-
-def can_access_client(user: dict, client_id: str) -> bool:
-    """Check if user can access a specific client's data"""
-    # Super admin can access everything
-    if user.get("role") in ["super_admin", "admin"]:
-        return True
-    # Client users can only access their own client
-    return user.get("client_id") == client_id
-
-def get_user_client_filter(user: dict) -> dict:
-    """Get MongoDB filter based on user's client access"""
-    # Super admin sees all
-    if user.get("role") in ["super_admin", "admin"]:
-        return {}
-    # Client users see only their client's data
-    if user.get("client_id"):
-        return {"client_id": user.get("client_id")}
-    # No client_id means no access to any client data
-    return {"client_id": None}
+    """Client admin, vendor admin, or system admin access."""
+    role = normalize_role(current_user.get("role"))
+    if role in ("system_admin", "system_staff", "client_admin", "vendor_admin"):
+        return current_user
+    if check_permission(current_user, "can_manage_users"):
+        return current_user
+    raise HTTPException(status_code=403, detail="Admin access required")
 
 # AWS S3 Configuration
 AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
@@ -295,7 +295,9 @@ def delete_from_s3(s3_key: str) -> bool:
 class GroupCreate(BaseModel):
     name: str
     description: Optional[str] = ""
-    client_id: Optional[str] = None  # Link to client
+    client_id: Optional[str] = None
+    departure_date: Optional[str] = None
+    passenger_count: Optional[int] = None
 
 class GroupSubmissionDetails(BaseModel):
     approval_number: Optional[str] = None
@@ -306,11 +308,18 @@ class Group(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     description: str = ""
-    client_id: Optional[str] = None  # Link to client
-    client_name: Optional[str] = None  # Client name (populated dynamically)
+    client_id: Optional[str] = None
+    client_name: Optional[str] = None
     passport_count: int = 0
-    approval_number: Optional[str] = None  # Approval number for e-visa submission
-    date_of_payment: Optional[str] = None  # Date of payment for e-visa submission
+    passenger_count: Optional[int] = None
+    departure_date: Optional[str] = None
+    status: str = "DATA_ENTRY"
+    assigned_vendor_id: Optional[str] = None
+    assigned_at: Optional[str] = None
+    split_from_group_id: Optional[str] = None
+    is_archived: bool = False
+    approval_number: Optional[str] = None
+    date_of_payment: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class PassportCreate(BaseModel):
@@ -453,8 +462,10 @@ class UserCreate(BaseModel):
     email: str
     password: str
     name: str
-    role: str = "staff"  # "super_admin", "client_admin", or "staff"
-    client_id: Optional[str] = None  # Required for client_admin and staff
+    role: str = "client_staff"
+    client_id: Optional[str] = None
+    vendor_id: Optional[str] = None
+    status: str = "active"
 
 class UserUpdate(BaseModel):
     email: Optional[str] = None
@@ -462,14 +473,19 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     password: Optional[str] = None
     client_id: Optional[str] = None
+    vendor_id: Optional[str] = None
+    status: Optional[str] = None
 
 class User(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     email: str
     name: str
-    role: str = "staff"  # "super_admin", "client_admin", or "staff"
-    client_id: Optional[str] = None  # Links user to a client (None for super_admin)
+    role: str = "client_staff"
+    client_id: Optional[str] = None
+    vendor_id: Optional[str] = None
+    permissions: Optional[dict] = None
+    status: str = "active"
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class UserLogin(BaseModel):
@@ -491,6 +507,8 @@ class ClientCreate(BaseModel):
     mobile_no: Optional[str] = ""
     address: Optional[str] = ""
     country: Optional[str] = ""
+    base_price_per_passport: float = 20.0
+    rush_fee: float = 0.0
 
 class ClientUpdate(BaseModel):
     name: Optional[str] = None
@@ -501,6 +519,8 @@ class ClientUpdate(BaseModel):
     mobile_no: Optional[str] = None
     address: Optional[str] = None
     country: Optional[str] = None
+    base_price_per_passport: Optional[float] = None
+    rush_fee: Optional[float] = None
 
 class Client(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -513,6 +533,8 @@ class Client(BaseModel):
     mobile_no: str = ""
     address: str = ""
     country: str = ""
+    base_price_per_passport: float = 20.0
+    rush_fee: float = 0.0
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 def validate_file_extension(filename: str) -> bool:
@@ -545,8 +567,8 @@ def extract_passport_number(filename: str) -> str:
 # Group endpoints
 @api_router.get("/groups", response_model=List[Group])
 async def get_groups(client_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    # Start with user's client filter
-    query = get_user_client_filter(current_user)
+    require_permission(current_user, "can_view_operational")
+    query = get_user_group_filter(current_user)
     
     # If specific client_id requested, verify access and use it
     if client_id:
@@ -568,25 +590,37 @@ async def get_groups(client_id: Optional[str] = None, current_user: dict = Depen
 
 @api_router.post("/groups", response_model=Group)
 async def create_group(group_data: GroupCreate, current_user: dict = Depends(get_current_user)):
-    # For client users, force client_id to their own client
-    if current_user.get("role") not in ["super_admin", "admin"]:
+    require_permission(current_user, "can_view_operational")
+    if not check_permission(current_user, "can_create_group_any_client"):
         if current_user.get("client_id"):
             group_data_dict = group_data.model_dump()
             group_data_dict["client_id"] = current_user.get("client_id")
             group_data = GroupCreate(**group_data_dict)
         else:
             raise HTTPException(status_code=403, detail="User not associated with any client")
-    
-    # Validate client_id if provided
+    elif group_data.client_id and not can_access_client(current_user, group_data.client_id):
+        raise HTTPException(status_code=403, detail="Cannot create group for other client")
+
     if group_data.client_id:
         client = await db.clients.find_one({"id": group_data.client_id})
         if not client:
             raise HTTPException(status_code=400, detail="Client not found")
-    
-    group = Group(**group_data.model_dump())
+
+    group_dict = group_data.model_dump()
+    if group_data.departure_date:
+        group_dict["id"] = await generate_group_id(db, group_data.departure_date)
+    group_dict["status"] = "DATA_ENTRY"
+    group_dict["is_archived"] = False
+    group = Group(**group_dict)
     doc = group.model_dump()
     await db.groups.insert_one(doc)
     return group
+
+@api_router.get("/groups/preview-id")
+async def preview_group_id_route(departure_date: str = Query(...), current_user: dict = Depends(get_current_user)):
+    require_permission(current_user, "can_view_operational")
+    group_id = await preview_group_id(db, departure_date)
+    return {"group_id": group_id}
 
 @api_router.get("/groups/{group_id}", response_model=Group)
 async def get_group(group_id: str, current_user: dict = Depends(get_current_user)):
@@ -595,7 +629,7 @@ async def get_group(group_id: str, current_user: dict = Depends(get_current_user
         raise HTTPException(status_code=404, detail="Group not found")
     
     # Check access
-    if not can_access_client(current_user, group.get("client_id")):
+    if not can_access_group(current_user, group):
         raise HTTPException(status_code=403, detail="Access denied to this group")
     
     # Add client name
@@ -614,11 +648,11 @@ async def update_group(group_id: str, group_data: GroupCreate, current_user: dic
     if not existing_group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    if not can_access_client(current_user, existing_group.get("client_id")):
+    if not can_access_group(current_user, existing_group):
         raise HTTPException(status_code=403, detail="Access denied to this group")
     
     # For client users, don't allow changing client_id
-    if current_user.get("role") not in ["super_admin", "admin"]:
+    if not check_permission(current_user, "can_create_group_any_client"):
         group_data_dict = group_data.model_dump()
         group_data_dict["client_id"] = existing_group.get("client_id")
         group_data = GroupCreate(**group_data_dict)
@@ -661,7 +695,7 @@ async def update_group_submission_details(
         raise HTTPException(status_code=404, detail="Group not found")
     
     # Check access
-    if not can_access_client(current_user, group.get("client_id")):
+    if not can_access_group(current_user, group):
         raise HTTPException(status_code=403, detail="Access denied to this group")
     
     # Build update dict with only non-None values
@@ -707,7 +741,7 @@ async def delete_group(group_id: str, current_user: dict = Depends(get_current_u
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    if not can_access_client(current_user, group.get("client_id")):
+    if not can_access_group(current_user, group):
         raise HTTPException(status_code=403, detail="Access denied to this group")
     
     await db.passports.delete_many({"group_id": group_id})
@@ -723,7 +757,7 @@ async def verify_group_access(group_id: str, current_user: dict) -> dict:
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    if not can_access_client(current_user, group.get("client_id")):
+    if not can_access_group(current_user, group):
         raise HTTPException(status_code=403, detail="Access denied to this group")
     
     return group
@@ -900,7 +934,7 @@ async def update_passport_visa_status(passport_id: str, visa_status: str, curren
     
     # Get group to check client access
     group = await db.groups.find_one({"id": passport["group_id"]})
-    if not can_access_client(current_user, group.get("client_id") if group else None):
+    if group and not can_access_group(current_user, group):
         raise HTTPException(status_code=403, detail="Access denied")
     
     now = datetime.now(timezone.utc).isoformat()
@@ -996,7 +1030,9 @@ async def get_group_stats(group_id: str, current_user: dict = Depends(get_curren
 
 # CSV Export endpoint
 @api_router.get("/groups/{group_id}/export/csv")
-async def export_passports_csv(group_id: str):
+async def export_passports_csv(group_id: str, current_user: dict = Depends(get_current_user)):
+    require_permission(current_user, "can_export")
+    await verify_group_access(group_id, current_user)
     group = await db.groups.find_one({"id": group_id}, {"_id": 0})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -1070,8 +1106,10 @@ def get_nationality_arabic(nationality):
 
 # PDF Passenger List Export endpoint using WeasyPrint + Jinja2
 @api_router.get("/groups/{group_id}/export/passenger-list-pdf")
-async def export_passenger_list_pdf(group_id: str, ref_number: str = ""):
+async def export_passenger_list_pdf(group_id: str, ref_number: str = "", current_user: dict = Depends(get_current_user)):
     """Export passenger list as PDF in A4 Landscape format with Arabic header/footer"""
+    require_permission(current_user, "can_export")
+    await verify_group_access(group_id, current_user)
     group = await db.groups.find_one({"id": group_id}, {"_id": 0})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -1127,7 +1165,9 @@ async def export_passenger_list_pdf(group_id: str, ref_number: str = ""):
 
 # Excel/CSV bulk import endpoint
 @api_router.post("/groups/{group_id}/import/excel")
-async def bulk_import_excel(group_id: str, file: UploadFile = File(...)):
+async def bulk_import_excel(group_id: str, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    require_permission(current_user, "can_import")
+    await verify_group_access(group_id, current_user)
     group = await db.groups.find_one({"id": group_id})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -1287,7 +1327,8 @@ async def bulk_import_excel(group_id: str, file: UploadFile = File(...)):
 
 # Download sample Excel template
 @api_router.get("/templates/passport-import")
-async def get_import_template():
+async def get_import_template(current_user: dict = Depends(get_current_user)):
+    require_permission(current_user, "can_import")
     # Create sample Excel template with e-visa compatible values
     df = pd.DataFrame({
         'passport_no': ['AB1234567', 'CD7654321'],
@@ -1328,7 +1369,9 @@ async def get_import_template():
 
 # Bulk upload endpoints
 @api_router.post("/groups/{group_id}/upload/passports")
-async def bulk_upload_passports(group_id: str, files: List[UploadFile] = File(...)):
+async def bulk_upload_passports(group_id: str, files: List[UploadFile] = File(...), current_user: dict = Depends(get_current_user)):
+    require_permission(current_user, "can_upload_files")
+    await verify_group_access(group_id, current_user)
     group = await db.groups.find_one({"id": group_id})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -1380,7 +1423,9 @@ async def bulk_upload_passports(group_id: str, files: List[UploadFile] = File(..
     return results
 
 @api_router.post("/groups/{group_id}/upload/photos")
-async def bulk_upload_photos(group_id: str, files: List[UploadFile] = File(...)):
+async def bulk_upload_photos(group_id: str, files: List[UploadFile] = File(...), current_user: dict = Depends(get_current_user)):
+    require_permission(current_user, "can_upload_files")
+    await verify_group_access(group_id, current_user)
     group = await db.groups.find_one({"id": group_id})
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -1677,14 +1722,16 @@ async def check_minor_status(group_id: str, passport_id: str, current_user: dict
 
 # Serve uploaded files (local fallback or redirect to S3 presigned URL)
 @api_router.get("/uploads/passports/{group_id}/{filename}")
-async def get_passport_image(group_id: str, filename: str):
+async def get_passport_image(group_id: str, filename: str, current_user: dict = Depends(get_current_user)):
+    await verify_group_access(group_id, current_user)
     file_path = PASSPORT_UPLOADS / group_id / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(file_path, media_type="image/jpeg")
 
 @api_router.get("/uploads/photos/{group_id}/{filename}")
-async def get_photo_image(group_id: str, filename: str):
+async def get_photo_image(group_id: str, filename: str, current_user: dict = Depends(get_current_user)):
+    await verify_group_access(group_id, current_user)
     file_path = PHOTO_UPLOADS / group_id / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
@@ -1692,8 +1739,9 @@ async def get_photo_image(group_id: str, filename: str):
 
 # New endpoint to get presigned URLs for S3 images
 @api_router.get("/s3/presigned-url")
-async def get_s3_presigned_url(key: str):
+async def get_s3_presigned_url(key: str, current_user: dict = Depends(get_current_user)):
     """Generate a presigned URL for an S3 object"""
+    require_permission(current_user, "can_view_operational")
     if not s3_enabled:
         raise HTTPException(status_code=503, detail="S3 not configured")
     
@@ -1737,17 +1785,23 @@ async def login(credentials: UserLogin):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
     access_token = create_access_token(data={"sub": user["id"]})
+    from permissions import get_role_permissions
     user_response = {
         "id": user["id"],
         "email": user["email"],
         "name": user["name"],
-        "role": user["role"]
+        "role": user["role"],
+        "client_id": user.get("client_id"),
+        "vendor_id": user.get("vendor_id"),
+        "permissions": get_role_permissions(user),
     }
     return Token(access_token=access_token, user=user_response)
 
 @api_router.get("/auth/me")
 async def get_current_user_info(current_user: dict = Depends(get_current_user)):
-    """Get current authenticated user"""
+    """Get current authenticated user with permissions"""
+    from permissions import get_role_permissions
+    current_user["permissions"] = get_role_permissions(current_user)
     return current_user
 
 @api_router.post("/auth/init-admin")
@@ -1757,42 +1811,44 @@ async def init_admin():
     if user_count > 0:
         # Upgrade existing admin to super_admin if needed
         await db.users.update_many(
-            {"role": "admin"},
-            {"$set": {"role": "super_admin"}}
+            {"role": {"$in": ["admin", "super_admin"]}},
+            {"$set": {"role": "system_admin"}},
         )
-        return {"message": "Users already exist, upgraded admin to super_admin", "created": False}
-    
-    # Create default super admin user
+        return {"message": "Users already exist, upgraded legacy admins to system_admin", "created": False}
+
     admin_user = {
         "id": str(uuid.uuid4()),
         "email": "admin@admin.com",
         "password_hash": get_password_hash("admin123"),
-        "name": "Super Administrator",
-        "role": "super_admin",
+        "name": "System Administrator",
+        "role": "system_admin",
         "client_id": None,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "vendor_id": None,
+        "status": "active",
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(admin_user)
     return {"message": "Default super admin created", "created": True, "email": "admin@admin.com"}
 
 # ============ USER MANAGEMENT ENDPOINTS ============
 
-VALID_ROLES = ["super_admin", "client_admin", "staff"]
-
 @api_router.get("/users", response_model=List[User])
 async def get_users(current_user: dict = Depends(get_current_user)):
-    """Get users - super_admin sees all, client_admin sees only their client's users"""
-    if current_user.get("role") in ["super_admin", "admin"]:
-        # Super admin sees all users
+    """Get users - system admin sees all, client/vendor admin sees their org users"""
+    role = normalize_role(current_user.get("role"))
+    if role in ("system_admin", "system_staff"):
         users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
-    elif current_user.get("role") == "client_admin":
-        # Client admin sees only users in their client
+    elif role == "client_admin":
         users = await db.users.find(
-            {"client_id": current_user.get("client_id")}, 
+            {"client_id": current_user.get("client_id")},
+            {"_id": 0, "password_hash": 0}
+        ).to_list(1000)
+    elif role == "vendor_admin":
+        users = await db.users.find(
+            {"vendor_id": current_user.get("vendor_id")},
             {"_id": 0, "password_hash": 0}
         ).to_list(1000)
     else:
-        # Staff cannot see users
         raise HTTPException(status_code=403, detail="Access denied")
     
     # Add client name for each user
@@ -1807,38 +1863,41 @@ async def get_users(current_user: dict = Depends(get_current_user)):
 
 @api_router.post("/users", response_model=User)
 async def create_user(user_data: UserCreate, current_user: dict = Depends(get_client_admin_or_above)):
-    """Create a new user - super_admin can create any user, client_admin can create users for their client"""
-    # Check if email already exists
+    """Create a new user"""
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Validate role
+
     if user_data.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Invalid role. Use one of: {VALID_ROLES}")
-    
-    # Role-based creation rules
-    if current_user.get("role") in ["super_admin", "admin"]:
-        # Super admin can create any user
-        # For client_admin and staff, client_id is required
-        if user_data.role in ["client_admin", "staff"] and not user_data.client_id:
-            raise HTTPException(status_code=400, detail="client_id is required for client_admin and staff roles")
-        
-        # Validate client exists if provided
+
+    creator_role = normalize_role(current_user.get("role"))
+    if creator_role in ("system_admin", "system_staff"):
+        if user_data.role in ("client_admin", "client_staff", "client_accounts") and not user_data.client_id:
+            raise HTTPException(status_code=400, detail="client_id required for client roles")
+        if user_data.role in ("vendor_admin", "vendor_staff", "vendor_accounts") and not user_data.vendor_id:
+            raise HTTPException(status_code=400, detail="vendor_id required for vendor roles")
         if user_data.client_id:
             client = await db.clients.find_one({"id": user_data.client_id})
             if not client:
                 raise HTTPException(status_code=400, detail="Client not found")
-    elif current_user.get("role") == "client_admin":
-        # Client admin can only create client_admin or staff for their own client
-        if user_data.role not in ["client_admin", "staff"]:
-            raise HTTPException(status_code=403, detail="You can only create client_admin or staff users")
-        
-        # Force client_id to their own client
+        if user_data.vendor_id:
+            vendor = await db.vendors.find_one({"id": user_data.vendor_id})
+            if not vendor:
+                raise HTTPException(status_code=400, detail="Vendor not found")
+    elif creator_role == "client_admin":
+        if user_data.role not in ("client_admin", "client_staff", "client_accounts"):
+            raise HTTPException(status_code=403, detail="You can only create client users")
         user_data_dict = user_data.model_dump()
         user_data_dict["client_id"] = current_user.get("client_id")
         user_data = UserCreate(**user_data_dict)
-    
+    elif creator_role == "vendor_admin":
+        if user_data.role not in ("vendor_admin", "vendor_staff", "vendor_accounts"):
+            raise HTTPException(status_code=403, detail="You can only create vendor users")
+        user_data_dict = user_data.model_dump()
+        user_data_dict["vendor_id"] = current_user.get("vendor_id")
+        user_data = UserCreate(**user_data_dict)
+
     user = {
         "id": str(uuid.uuid4()),
         "email": user_data.email,
@@ -1846,7 +1905,9 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cl
         "name": user_data.name,
         "role": user_data.role,
         "client_id": user_data.client_id,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "vendor_id": user_data.vendor_id,
+        "status": user_data.status,
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(user)
     
@@ -1898,8 +1959,8 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
         if existing_user.get("client_id") != current_user.get("client_id"):
             raise HTTPException(status_code=403, detail="Access denied")
         # Client admin cannot change role to super_admin
-        if user_data.role == "super_admin":
-            raise HTTPException(status_code=403, detail="Cannot set super_admin role")
+        if user_data.role == "system_admin":
+            raise HTTPException(status_code=403, detail="Cannot set system_admin role")
         # Client admin cannot change client_id
         if user_data.client_id and user_data.client_id != current_user.get("client_id"):
             raise HTTPException(status_code=403, detail="Cannot change client assignment")
@@ -1955,8 +2016,8 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_client_admi
         if user_to_delete.get("client_id") != current_user.get("client_id"):
             raise HTTPException(status_code=403, detail="Access denied")
         # Cannot delete super_admin
-        if user_to_delete.get("role") in ["super_admin", "admin"]:
-            raise HTTPException(status_code=403, detail="Cannot delete super admin")
+        if user_to_delete.get("role") in ("system_admin", "super_admin", "admin"):
+            raise HTTPException(status_code=403, detail="Cannot delete system admin")
     
     result = await db.users.delete_one({"id": user_id})
     if result.deleted_count == 0:
@@ -2312,7 +2373,14 @@ async def scan_passport(
 async def root():
     return {"message": "Passport Control Admin API"}
 
+register_enterprise_routes(api_router, db, get_current_user, verify_group_access, get_user_group_filter)
+
 app.include_router(api_router)
+
+@app.on_event("startup")
+async def startup_event():
+    await run_migrations(db)
+    logging.info("Enterprise migrations completed")
 
 app.add_middleware(
     CORSMiddleware,
