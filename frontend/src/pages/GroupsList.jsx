@@ -6,6 +6,8 @@ import { Input } from '../components/ui/input';
 import { Users, Plus, Search, Trash2, Edit, ArrowRight, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../utils/api';
+import { GroupStatusBadge } from '../components/group/GroupStatusBadge';
+import { GroupStatusFilter } from '../components/group/GroupStatusFilter';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -92,19 +94,7 @@ export const GroupsList = () => {
             data-testid="search-input"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="border rounded-md px-3 py-2 text-sm"
-        >
-          <option value="all">All Statuses</option>
-          <option value="DATA_ENTRY">Data Entry</option>
-          <option value="SUBMITTED">Submitted</option>
-          <option value="PENDING_PROCESS">Pending Process</option>
-          <option value="VISA_SUBMITTED">Visa Submitted</option>
-          <option value="VISA_ISSUED">Visa Issued</option>
-          <option value="COMPLETED">Completed</option>
-        </select>
+        <GroupStatusFilter groups={groups} value={statusFilter} onChange={setStatusFilter} />
       </div>
 
       {/* Groups Grid */}
@@ -179,11 +169,7 @@ export const GroupsList = () => {
                       {group.departure_date.slice(0, 10)}
                     </span>
                   )}
-                  {group.status && (
-                    <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
-                      {group.status.replace(/_/g, ' ')}
-                    </span>
-                  )}
+                  {group.status && <GroupStatusBadge status={group.status} />}
                   <span className="text-xs font-mono text-slate-400">{group.id}</span>
                 </div>
                 <div className="flex items-center justify-between">

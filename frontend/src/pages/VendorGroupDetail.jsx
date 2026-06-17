@@ -5,7 +5,8 @@ import { Button } from '../components/ui/button';
 import { ArrowLeft, Upload } from 'lucide-react';
 import api from '../utils/api';
 import { toast } from 'sonner';
-import { GroupStatusTab } from '../components/group/GroupStatusTab';
+import { GroupStatusStepper } from '../components/group/GroupStatusStepper';
+import { GroupStatusBadge } from '../components/group/GroupStatusBadge';
 
 export const VendorGroupDetail = () => {
   const { groupId } = useParams();
@@ -61,9 +62,13 @@ export const VendorGroupDetail = () => {
       <div>
         <h1 className="text-2xl font-bold">{group.name}</h1>
         <p className="font-mono text-sm text-muted-foreground">{group.id}</p>
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <GroupStatusBadge status={group.status} />
+        </div>
+        <div className="mt-4">
+          <GroupStatusStepper status={group.status} />
+        </div>
       </div>
-
-      <GroupStatusTab group={group} onUpdate={fetchData} />
 
       <Card>
         <CardHeader><CardTitle>Upload Visa PDFs</CardTitle></CardHeader>

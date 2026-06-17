@@ -1,12 +1,12 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import authApi, { getAuthErrorMessage } from '../utils/authApi';
 
 const AuthContext = createContext(null);
-
-const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const SYSTEM_ROLES = ['system_admin', 'system_staff', 'system_accounts', 'super_admin', 'admin'];
 const VENDOR_ROLES = ['vendor_admin', 'vendor_staff', 'vendor_accounts'];
 const ACCOUNTS_ROLES = ['system_accounts', 'client_accounts', 'vendor_accounts'];
+const CLIENT_ROLES = ['client_admin', 'client_staff', 'client_accounts'];
 
 const normalizeRole = (role) => {
   if (role === 'admin' || role === 'super_admin') return 'system_admin';
@@ -22,47 +22,47 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       const savedToken = localStorage.getItem('token');
-      if (savedToken) {
-        try {
-          const response = await fetch(`${API_URL}/api/auth/me`, {
-            headers: { Authorization: `Bearer ${savedToken}` },
-          });
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData);
-            setToken(savedToken);
-          } else {
-            localStorage.removeItem('token');
-            setToken(null);
-            setUser(null);
-          }
-        } catch (error) {
-          console.error('Auth check failed:', error);
-          localStorage.removeItem('token');
-          setToken(null);
-          setUser(null);
-        }
+      if (!savedToken) {
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      try {
+        const { data } = await authApi.get('/auth/me', {
+          headers: { Authorization: `Bearer ${savedToken}` },
+        });
+        setUser(data);
+        setToken(savedToken);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
     };
     checkAuth();
   }, []);
 
   const login = async (email, password) => {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Login failed');
+    try {
+      const { data } = await authApi.post('/auth/login', {
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (!data?.access_token) {
+        throw new Error('Invalid login response from server');
+      }
+
+      localStorage.setItem('token', data.access_token);
+      setToken(data.access_token);
+      setUser(data.user);
+      return data.user;
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error, 'Login failed'));
     }
-    const data = await response.json();
-    localStorage.setItem('token', data.access_token);
-    setToken(data.access_token);
-    setUser(data.user);
-    return data.user;
   };
 
   const logout = () => {
@@ -88,11 +88,25 @@ export const AuthProvider = ({ children }) => {
   const canManageUsers = () => hasPermission('can_manage_users') || isSystemAdmin() || isClientAdmin() || isVendorAdmin();
   const canManageVendors = () => hasPermission('can_manage_vendors') || isSystemAdmin();
   const canAccessFinancial = () => hasPermission('can_access_financial');
+  const canViewGlobalAccounting = () => hasPermission('can_view_global_accounting');
+  const canViewClientLedger = () => hasPermission('can_view_client_ledger');
+  const canViewVendorLedger = () => hasPermission('can_view_vendor_ledger');
   const canViewOperational = () => {
     if (isAccountsRole()) return false;
     if (user?.permissions) return user.permissions.can_view_operational === true;
     return isSystemAdmin() || isClientAdmin() || isVendor() || getRole() === 'client_staff' || getRole() === 'system_staff';
   };
+
+  const canManageFinancial = () => hasPermission('can_manage_financial');
+  const canPostJournalEntries = () => hasPermission('can_post_journal_entries');
+  const canAssignVendor = () => hasPermission('can_assign_vendor');
+  const canSplitGroups = () => hasPermission('can_split_groups');
+  const canRecordReceipts = () => hasPermission('can_record_receipts');
+  const canSubmitGroup = () => hasPermission('can_submit_group');
+  const canUpdateGroupStatus = () => hasPermission('can_update_group_status');
+  const canUpdatePassportStatus = () => hasPermission('can_update_passport_status');
+  const canManageSubmissionDetails = () => hasPermission('can_manage_submission_details');
+  const isClientRole = () => CLIENT_ROLES.includes(getRole());
 
   const value = {
     user,
@@ -110,7 +124,21 @@ export const AuthProvider = ({ children }) => {
     canManageUsers,
     canManageVendors,
     canAccessFinancial,
+    canViewGlobalAccounting,
+    canViewClientLedger,
+    canViewVendorLedger,
     canViewOperational,
+    canManageFinancial,
+    canPostJournalEntries,
+    canAssignVendor,
+    canSplitGroups,
+    canRecordReceipts,
+    canSubmitGroup,
+    canUpdateGroupStatus,
+    canUpdatePassportStatus,
+    canManageSubmissionDetails,
+    isClientRole,
+    getRole,
     hasPermission,
     isSuperAdmin: isSystemAdmin,
     isAuthenticated: !!token && !!user,

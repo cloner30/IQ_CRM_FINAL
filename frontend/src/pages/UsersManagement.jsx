@@ -218,46 +218,40 @@ export const UsersManagement = () => {
     (user.client_name && user.client_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  const ROLE_LABELS = {
+    system_admin: 'System Admin',
+    system_staff: 'System Staff',
+    system_accounts: 'System Accounts',
+    client_admin: 'Client Admin',
+    client_staff: 'Client Staff',
+    client_accounts: 'Client Accounts',
+    vendor_admin: 'Vendor Admin',
+    vendor_staff: 'Vendor Staff',
+    vendor_accounts: 'Vendor Accounts',
+    super_admin: 'System Admin',
+    admin: 'System Admin',
+    staff: 'Client Staff',
+  };
+
   const getRoleBadgeClass = (role) => {
-    switch (role) {
-      case 'super_admin':
-      case 'admin':
-        return 'bg-red-100 text-red-800';
-      case 'client_admin':
-        return 'bg-amber-100 text-amber-800';
-      case 'staff':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+    const r = role === 'admin' || role === 'super_admin' ? 'system_admin' : role;
+    if (r.startsWith('system')) return 'bg-red-100 text-red-800';
+    if (r.startsWith('client')) return 'bg-amber-100 text-amber-800';
+    if (r.startsWith('vendor')) return 'bg-blue-100 text-blue-800';
+    return 'bg-gray-100 text-gray-800';
   };
 
   const getRoleIcon = (role) => {
-    switch (role) {
-      case 'super_admin':
-      case 'admin':
-        return <Shield className="w-3 h-3 mr-1" />;
-      case 'client_admin':
-        return <Building2 className="w-3 h-3 mr-1" />;
-      default:
-        return <User className="w-3 h-3 mr-1" />;
-    }
+    const r = role === 'admin' || role === 'super_admin' ? 'system_admin' : role;
+    if (r.startsWith('system')) return <Shield className="w-3 h-3 mr-1" />;
+    if (r.startsWith('vendor')) return <Users className="w-3 h-3 mr-1" />;
+    if (r === 'client_admin') return <Building2 className="w-3 h-3 mr-1" />;
+    return <User className="w-3 h-3 mr-1" />;
   };
 
-  const getRoleDisplayName = (role) => {
-    switch (role) {
-      case 'super_admin':
-        return 'Super Admin';
-      case 'admin':
-        return 'Admin';
-      case 'client_admin':
-        return 'Client Admin';
-      case 'staff':
-        return 'Staff';
-      default:
-        return role;
-    }
-  };
+  const getRoleDisplayName = (role) => ROLE_LABELS[role] || role;
+
+  const getVendorName = (vendorId) => vendors.find((v) => v.id === vendorId)?.name || '-';
 
   // Get available roles based on current user
   const getAvailableRoles = () => {
@@ -269,6 +263,13 @@ export const UsersManagement = () => {
         { value: 'client_admin', label: 'Client Admin' },
         { value: 'client_staff', label: 'Client Staff' },
         { value: 'client_accounts', label: 'Client Accounts' },
+        { value: 'vendor_admin', label: 'Vendor Admin' },
+        { value: 'vendor_staff', label: 'Vendor Staff' },
+        { value: 'vendor_accounts', label: 'Vendor Accounts' },
+      ];
+    }
+    if (currentUser?.role === 'vendor_admin') {
+      return [
         { value: 'vendor_admin', label: 'Vendor Admin' },
         { value: 'vendor_staff', label: 'Vendor Staff' },
         { value: 'vendor_accounts', label: 'Vendor Accounts' },
@@ -339,7 +340,7 @@ export const UsersManagement = () => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Staff</p>
-            <p className="text-2xl font-bold">{users.filter(u => u.role === 'staff').length}</p>
+            <p className="text-2xl font-bold">{users.filter((u) => u.role?.startsWith('client')).length}</p>
           </div>
         </div>
       </div>
@@ -364,6 +365,8 @@ export const UsersManagement = () => {
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               {isSuperAdmin() && <TableHead>Client</TableHead>}
+              {isSuperAdmin() && <TableHead>Vendor</TableHead>}
+              <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -371,11 +374,11 @@ export const UsersManagement = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={isSuperAdmin() ? 6 : 5} className="text-center py-8">Loading...</TableCell>
+                <TableCell colSpan={isSuperAdmin() ? 8 : 6} className="text-center py-8">Loading...</TableCell>
               </TableRow>
             ) : filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isSuperAdmin() ? 6 : 5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={isSuperAdmin() ? 8 : 6} className="text-center py-8 text-muted-foreground">
                   No users found
                 </TableCell>
               </TableRow>
@@ -399,6 +402,20 @@ export const UsersManagement = () => {
                       )}
                     </TableCell>
                   )}
+                  {isSuperAdmin() && (
+                    <TableCell>
+                      {user.vendor_id ? (
+                        <span className="text-sm">{getVendorName(user.vendor_id)}</span>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <span className={`text-xs capitalize ${user.status === 'inactive' ? 'text-red-600' : 'text-green-600'}`}>
+                      {user.status || 'active'}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(user.created_at).toLocaleDateString()}
                   </TableCell>

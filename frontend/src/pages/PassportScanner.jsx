@@ -12,7 +12,7 @@ import {
 } from '../components/ui/select';
 import { toast } from 'sonner';
 import api from '../utils/api';
-import { Camera, RotateCcw, Check, X, Loader2, Upload, ScanLine, ArrowLeft } from 'lucide-react';
+import { Camera, RotateCcw, Check, X, Loader2, Upload, ScanLine, ArrowLeft, Trash2, SkipForward, Layers } from 'lucide-react';
 
 // Country code to nationality mapping
 const COUNTRY_CODE_TO_NATIONALITY = {
@@ -192,20 +192,157 @@ const calculateIssueDate = (expiryDate) => {
   }
 };
 
+const mapNationality = (extracted) => {
+  if (extracted.nationality_code) {
+    const mapped = COUNTRY_CODE_TO_NATIONALITY[extracted.nationality_code.toUpperCase()];
+    if (mapped) return mapped;
+  }
+  if (extracted.nationality) {
+    if (NATIONALITIES.includes(extracted.nationality)) {
+      return extracted.nationality;
+    }
+    const lowerNat = extracted.nationality.toLowerCase();
+    const found = NATIONALITIES.find(
+      n => n.toLowerCase() === lowerNat
+        || (lowerNat.length >= 4 && (n.toLowerCase().includes(lowerNat) || lowerNat.includes(n.toLowerCase())))
+    );
+    if (found) return found;
+  }
+  return '';
+};
+
+const sanitizePlaceValue = (value) => {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (trimmed.length < 4) return '';
+  return trimmed;
+};
+
+const mapCountryDropdown = (value) => {
+  const sanitized = sanitizePlaceValue(value);
+  if (!sanitized) return '';
+  if (COUNTRIES.includes(sanitized)) return sanitized;
+  const lower = sanitized.toLowerCase();
+  const exact = COUNTRIES.find(c => c.toLowerCase() === lower);
+  if (exact) return exact;
+  if (sanitized.length >= 4) {
+    const startsWith = COUNTRIES.find(
+      c => c.toLowerCase().startsWith(lower) || lower.startsWith(c.toLowerCase())
+    );
+    if (startsWith) return startsWith;
+  }
+  return '';
+};
+
+const mergeExtractedData = (extracted) => {
+  const nationality = mapNationality(extracted);
+  const fallbackCountry = nationality ? (NATIONALITY_TO_COUNTRY[nationality] || '') : '';
+  const expiryDate = extracted.expiry_date || '';
+  const placeOfIssue = mapCountryDropdown(extracted.place_of_issue) || fallbackCountry;
+  const countryOfResidence = mapCountryDropdown(extracted.country_of_residence) || placeOfIssue || fallbackCountry;
+
+  const mergedData = {
+    ...EMPTY_FORM,
+    passport_no: extracted.passport_no || '',
+    passport_type: extracted.passport_type || 'Normal',
+    first_name_en: extracted.first_name_en || '',
+    surname_en: extracted.surname_en || '',
+    father_name_en: extracted.father_name_en || '',
+    mother_name_en: extracted.mother_name_en || '',
+    first_name_ar: extracted.first_name_ar || '',
+    surname_ar: extracted.surname_ar || '',
+    father_name_ar: extracted.father_name_ar || '',
+    mother_name_ar: extracted.mother_name_ar || '',
+    nationality,
+    gender: extracted.gender || '',
+    birth_date: extracted.birth_date || '',
+    expiry_date: expiryDate,
+    issue_date: extracted.issue_date || calculateIssueDate(expiryDate),
+    place_of_issue: placeOfIssue,
+    country_of_residence: countryOfResidence,
+  };
+
+  const missingRequired = !mergedData.passport_no || !mergedData.first_name_en
+    || !mergedData.surname_en || !mergedData.nationality || !mergedData.expiry_date;
+
+  return {
+    formData: mergedData,
+    arabicSuggested: !!extracted.arabic_names_suggested,
+    missingRequired,
+  };
+};
+
+const buildPassportPayload = (data) => ({
+  passport_no: data.passport_no,
+  first_name_en: data.first_name_en,
+  surname_en: data.surname_en,
+  nationality: data.nationality,
+  expiry_date: data.expiry_date,
+  passport_type: data.passport_type || null,
+  first_name_ar: data.first_name_ar || null,
+  father_name_en: data.father_name_en || null,
+  father_name_ar: data.father_name_ar || null,
+  grandfather_name_en: data.grandfather_name_en || null,
+  grandfather_name_ar: data.grandfather_name_ar || null,
+  surname_ar: data.surname_ar || null,
+  mother_name_en: data.mother_name_en || null,
+  mother_name_ar: data.mother_name_ar || null,
+  mother_father_name_en: data.mother_father_name_en || null,
+  mother_father_name_ar: data.mother_father_name_ar || null,
+  gender: data.gender || null,
+  birth_date: data.birth_date || null,
+  place_of_issue: data.place_of_issue || null,
+  issue_date: data.issue_date || null,
+  profession: data.profession || null,
+  country_of_residence: data.country_of_residence || null,
+  applicant_type: data.applicant_type || null,
+});
+
+const isFormValid = (data) => (
+  data?.passport_no && data?.first_name_en && data?.surname_en && data?.nationality && data?.expiry_date
+);
+
+const newQueueId = () => `q-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const STATUS_LABELS = {
+  pending: 'Pending',
+  processing: 'Processing',
+  ready: 'Ready',
+  error: 'Error',
+  saved: 'Saved',
+};
+
+const STATUS_COLORS = {
+  pending: 'bg-slate-600',
+  processing: 'bg-blue-600',
+  ready: 'bg-amber-600',
+  error: 'bg-red-600',
+  saved: 'bg-green-600',
+};
+
 export const PassportScanner = () => {
   const navigate = useNavigate();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+  const batchFileInputRef = useRef(null);
   
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState('');
+  const [scanMode, setScanMode] = useState('single');
   const [cameraActive, setCameraActive] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [formData, setFormData] = useState(null);
+  const [arabicSuggested, setArabicSuggested] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [facingMode, setFacingMode] = useState('environment'); // 'environment' = back camera
+  const [facingMode, setFacingMode] = useState('environment');
+  const [batchQueue, setBatchQueue] = useState([]);
+  const [activeQueueId, setActiveQueueId] = useState(null);
+  const [batchProcessing, setBatchProcessing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+  const [autoProcessOnAdd, setAutoProcessOnAdd] = useState(false);
+  const [batchDragOver, setBatchDragOver] = useState(false);
 
   useEffect(() => {
     fetchGroups();
@@ -290,26 +427,214 @@ export const PassportScanner = () => {
   const retakePhoto = () => {
     setCapturedImage(null);
     setFormData(null);
-    startCamera();
+    setArabicSuggested(false);
+    if (scanMode === 'single') {
+      startCamera();
+    }
   };
 
-  // Convert country code to nationality name
-  const mapNationality = (extracted) => {
-    if (extracted.nationality_code) {
-      const mapped = COUNTRY_CODE_TO_NATIONALITY[extracted.nationality_code.toUpperCase()];
-      if (mapped) return mapped;
+  const activeQueueItem = batchQueue.find(item => item.id === activeQueueId);
+  const displayFormData = scanMode === 'batch' ? activeQueueItem?.formData : formData;
+  const displayArabicSuggested = scanMode === 'batch' ? !!activeQueueItem?.arabicSuggested : arabicSuggested;
+
+  const updateField = (field, value) => {
+    if (scanMode === 'batch' && activeQueueId) {
+      setBatchQueue(prev => prev.map(item => (
+        item.id === activeQueueId
+          ? { ...item, formData: { ...item.formData, [field]: value } }
+          : item
+      )));
+      return;
     }
-    if (extracted.nationality) {
-      // Check if it's already a valid nationality
-      if (NATIONALITIES.includes(extracted.nationality)) {
-        return extracted.nationality;
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const scanImageBlob = async (blob, fileName = 'passport.jpg') => {
+    const uploadData = new FormData();
+    uploadData.append('image', blob, fileName);
+    const result = await api.post('/ocr/scan-passport', uploadData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return result.data;
+  };
+
+  const addFilesToQueue = async (files) => {
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      toast.error('Please select image files');
+      return;
+    }
+
+    const newItems = await Promise.all(imageFiles.map(async (file) => {
+      const dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(file);
+      });
+      return {
+        id: newQueueId(),
+        fileName: file.name,
+        dataUrl,
+        status: 'pending',
+        formData: null,
+        arabicSuggested: false,
+        error: null,
+      };
+    }));
+
+    setBatchQueue(prev => {
+      const next = [...prev, ...newItems];
+      if (autoProcessOnAdd) {
+        setTimeout(() => processBatchQueue(next), 0);
       }
-      // Try to find a matching nationality
-      const lowerNat = extracted.nationality.toLowerCase();
-      const found = NATIONALITIES.find(n => n.toLowerCase().includes(lowerNat) || lowerNat.includes(n.toLowerCase()));
-      if (found) return found;
+      return next;
+    });
+    if (!activeQueueId && newItems.length > 0) {
+      setActiveQueueId(newItems[0].id);
     }
-    return '';
+    toast.success(`Added ${newItems.length} image(s) to queue`);
+  };
+
+  const addCapturedToQueue = async () => {
+    if (!capturedImage) {
+      toast.error('Please capture a photo first');
+      return;
+    }
+    const response = await fetch(capturedImage);
+    const blob = await response.blob();
+    const dataUrl = capturedImage;
+    const item = {
+      id: newQueueId(),
+      fileName: `capture-${Date.now()}.jpg`,
+      dataUrl,
+      status: 'pending',
+      formData: null,
+      arabicSuggested: false,
+      error: null,
+    };
+    setBatchQueue(prev => {
+      const next = [...prev, item];
+      if (autoProcessOnAdd) {
+        setTimeout(() => processBatchQueue(next), 0);
+      }
+      return next;
+    });
+    setActiveQueueId(item.id);
+    setCapturedImage(null);
+    toast.success('Added to queue');
+    if (!autoProcessOnAdd && !cameraActive) {
+      startCamera();
+    }
+  };
+
+  const removeQueueItem = (id) => {
+    setBatchQueue(prev => {
+      const next = prev.filter(item => item.id !== id);
+      if (activeQueueId === id) {
+        const firstReady = next.find(i => i.status === 'ready' || i.status === 'saved');
+        setActiveQueueId(firstReady?.id || next[0]?.id || null);
+      }
+      return next;
+    });
+  };
+
+  const clearBatchQueue = () => {
+    setBatchQueue([]);
+    setActiveQueueId(null);
+    setBatchProgress({ current: 0, total: 0 });
+  };
+
+  const processQueueItem = async (item) => {
+    setBatchQueue(prev => prev.map(i => (
+      i.id === item.id ? { ...i, status: 'processing', error: null } : i
+    )));
+
+    try {
+      const response = await fetch(item.dataUrl);
+      const blob = await response.blob();
+      const result = await scanImageBlob(blob, item.fileName);
+
+      if (result.success) {
+        const { formData: merged, arabicSuggested: suggested } = mergeExtractedData(result.extracted_data || {});
+        setBatchQueue(prev => prev.map(i => (
+          i.id === item.id
+            ? { ...i, status: 'ready', formData: merged, arabicSuggested: suggested, error: null }
+            : i
+        )));
+        setActiveQueueId(item.id);
+        return { success: true };
+      }
+      setBatchQueue(prev => prev.map(i => (
+        i.id === item.id ? { ...i, status: 'error', error: result.error || 'Failed to extract' } : i
+      )));
+      return { success: false };
+    } catch (error) {
+      setBatchQueue(prev => prev.map(i => (
+        i.id === item.id ? { ...i, status: 'error', error: 'Scan failed' } : i
+      )));
+      return { success: false };
+    }
+  };
+
+  const processBatchQueue = async (queueOverride = null) => {
+    const queue = queueOverride || batchQueue;
+    const pending = queue.filter(i => i.status === 'pending' || i.status === 'error');
+    if (pending.length === 0) {
+      toast.info('No pending items to process');
+      return;
+    }
+
+    setBatchProcessing(true);
+    setBatchProgress({ current: 0, total: pending.length });
+
+    let successCount = 0;
+    for (let i = 0; i < pending.length; i += 1) {
+      setBatchProgress({ current: i + 1, total: pending.length });
+      const result = await processQueueItem(pending[i]);
+      if (result.success) successCount += 1;
+    }
+
+    setBatchProcessing(false);
+    toast.success(`Processed ${successCount} of ${pending.length} passport(s)`);
+  };
+
+  const generateArabicNames = async () => {
+    const data = displayFormData;
+    if (!data?.first_name_en) {
+      toast.error('Enter English first name first');
+      return;
+    }
+    try {
+      const result = await api.post('/utilities/generate-arabic-names', {
+        first_name_en: data.first_name_en,
+        father_name_en: data.father_name_en || undefined,
+        grandfather_name_en: data.grandfather_name_en || undefined,
+        surname_en: data.surname_en || undefined,
+        mother_name_en: data.mother_name_en || undefined,
+      });
+      const arabic = result.data;
+      const updates = {
+        first_name_ar: arabic.first_name_ar || data.first_name_ar,
+        father_name_ar: arabic.father_name_ar || data.father_name_ar,
+        grandfather_name_ar: arabic.grandfather_name_ar || data.grandfather_name_ar,
+        surname_ar: arabic.surname_ar || data.surname_ar,
+        mother_name_ar: arabic.mother_name_ar || data.mother_name_ar,
+      };
+      if (scanMode === 'batch' && activeQueueId) {
+        setBatchQueue(prev => prev.map(item => (
+          item.id === activeQueueId
+            ? { ...item, formData: { ...item.formData, ...updates }, arabicSuggested: true }
+            : item
+        )));
+      } else {
+        setFormData(prev => ({ ...prev, ...updates }));
+        setArabicSuggested(true);
+      }
+      toast.success('Arabic names generated — please review');
+    } catch (error) {
+      console.error('Arabic name generation error:', error);
+      toast.error('Failed to generate Arabic names');
+    }
   };
 
   const scanPassport = async () => {
@@ -321,51 +646,24 @@ export const PassportScanner = () => {
     setScanning(true);
     
     try {
-      // Convert base64 to blob
       const response = await fetch(capturedImage);
       const blob = await response.blob();
-      
-      const uploadData = new FormData();
-      uploadData.append('image', blob, 'passport.jpg');
-      
-      const result = await api.post('/ocr/scan-passport', uploadData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
-      if (result.data.success) {
-        const extracted = result.data.extracted_data || {};
-        
-        // Map nationality from code to name
-        const nationality = mapNationality(extracted);
-        
-        // Get country from nationality for place of issue and country of residence
-        const country = nationality ? (NATIONALITY_TO_COUNTRY[nationality] || '') : '';
-        
-        // Calculate issue date from expiry date (expiry - 10 years + 1 day)
-        const expiryDate = extracted.expiry_date || '';
-        const issueDate = calculateIssueDate(expiryDate);
-        
-        // Merge extracted data with empty form template
-        const mergedData = {
-          ...EMPTY_FORM,
-          passport_no: extracted.passport_no || '',
-          passport_type: 'Normal',  // Default to Normal
-          first_name_en: extracted.first_name_en || '',
-          surname_en: extracted.surname_en || '',
-          father_name_en: '',  // Must be entered manually
-          nationality: nationality,
-          gender: extracted.gender || '',
-          birth_date: extracted.birth_date || '',
-          expiry_date: expiryDate,
-          issue_date: issueDate,  // Calculated from expiry date
-          place_of_issue: country,  // Auto-fill from nationality
-          country_of_residence: country,  // Auto-fill from nationality
-        };
-        
-        setFormData(mergedData);
-        toast.success('Passport data extracted! Please review and complete the form.');
+      const result = await scanImageBlob(blob);
+
+      if (result.success) {
+        const { formData: merged, arabicSuggested: suggested, missingRequired } = mergeExtractedData(
+          result.extracted_data || {}
+        );
+        setFormData(merged);
+        setArabicSuggested(suggested);
+
+        if (missingRequired) {
+          toast.warning('Some required fields could not be read — please check image quality or fill manually.');
+        } else {
+          toast.success('Passport data extracted! Please review and complete the form.');
+        }
       } else {
-        toast.error(result.data.error || 'Failed to extract data');
+        toast.error(result.error || 'Failed to extract data');
       }
     } catch (error) {
       console.error('Scan error:', error);
@@ -375,83 +673,104 @@ export const PassportScanner = () => {
     }
   };
 
+  const savePassportData = async (data, queueId = null) => {
+    if (!selectedGroup) {
+      toast.error('Please select a group first');
+      return false;
+    }
+    if (!isFormValid(data)) {
+      toast.error('Passport number, names, nationality, and expiry date are required');
+      return false;
+    }
+
+    try {
+      await api.post(`/groups/${selectedGroup}/passports`, buildPassportPayload(data));
+      if (queueId) {
+        setBatchQueue(prev => {
+          const updated = prev.map(item => (
+            item.id === queueId ? { ...item, status: 'saved' } : item
+          ));
+          const next = updated.find(
+            i => i.id !== queueId && (i.status === 'ready' || i.status === 'error')
+          );
+          if (next) setActiveQueueId(next.id);
+          return updated;
+        });
+      }
+      return true;
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error(error.response?.data?.detail || 'Failed to save passport');
+      return false;
+    }
+  };
+
   const savePassport = async () => {
+    setSaving(true);
+    const data = scanMode === 'batch' ? activeQueueItem?.formData : formData;
+    const queueId = scanMode === 'batch' ? activeQueueId : null;
+    const ok = await savePassportData(data, queueId);
+    if (ok) {
+      toast.success('Passport saved successfully!');
+      if (scanMode === 'single') {
+        setCapturedImage(null);
+        setFormData(null);
+        setArabicSuggested(false);
+      }
+    }
+    setSaving(false);
+  };
+
+  const saveAllValid = async () => {
     if (!selectedGroup) {
       toast.error('Please select a group first');
       return;
     }
-    
-    if (!formData?.passport_no) {
-      toast.error('Passport number is required');
+    const readyItems = batchQueue.filter(i => i.status === 'ready' && isFormValid(i.formData));
+    if (readyItems.length === 0) {
+      toast.error('No valid passports ready to save');
       return;
     }
-    
-    if (!formData?.first_name_en || !formData?.surname_en) {
-      toast.error('First name and surname are required');
-      return;
-    }
-    
-    if (!formData?.nationality) {
-      toast.error('Nationality is required');
-      return;
-    }
-    
-    if (!formData?.expiry_date) {
-      toast.error('Expiry date is required');
-      return;
-    }
-    
+
     setSaving(true);
-    
-    try {
-      // Prepare passport data - convert empty strings to null for optional fields
-      const passportData = {
-        passport_no: formData.passport_no,
-        first_name_en: formData.first_name_en,
-        surname_en: formData.surname_en,
-        nationality: formData.nationality,
-        expiry_date: formData.expiry_date,
-        // Optional fields - send null if empty
-        passport_type: formData.passport_type || null,
-        first_name_ar: formData.first_name_ar || null,
-        father_name_en: formData.father_name_en || null,
-        father_name_ar: formData.father_name_ar || null,
-        grandfather_name_en: formData.grandfather_name_en || null,
-        grandfather_name_ar: formData.grandfather_name_ar || null,
-        surname_ar: formData.surname_ar || null,
-        mother_name_en: formData.mother_name_en || null,
-        mother_name_ar: formData.mother_name_ar || null,
-        mother_father_name_en: formData.mother_father_name_en || null,
-        mother_father_name_ar: formData.mother_father_name_ar || null,
-        gender: formData.gender || null,
-        birth_date: formData.birth_date || null,
-        place_of_issue: formData.place_of_issue || null,
-        issue_date: formData.issue_date || null,
-        profession: formData.profession || null,
-        country_of_residence: formData.country_of_residence || null,
-        applicant_type: formData.applicant_type || null,
-      };
-      
-      await api.post(`/groups/${selectedGroup}/passports`, passportData);
-      toast.success('Passport saved successfully!');
-      
-      // Reset for next scan
-      setCapturedImage(null);
-      setFormData(null);
-      
-    } catch (error) {
-      console.error('Save error:', error);
-      toast.error(error.response?.data?.detail || 'Failed to save passport');
-    } finally {
-      setSaving(false);
+    let saved = 0;
+    let failed = 0;
+    for (const item of readyItems) {
+      const ok = await savePassportData(item.formData, item.id);
+      if (ok) saved += 1;
+      else failed += 1;
+    }
+    setSaving(false);
+    toast.success(`Saved ${saved} passport(s)${failed ? `, ${failed} failed` : ''}`);
+  };
+
+  const skipToNext = () => {
+    const idx = batchQueue.findIndex(i => i.id === activeQueueId);
+    const next = batchQueue.slice(idx + 1).find(i => i.status === 'ready' || i.status === 'error')
+      || batchQueue.find(i => i.status === 'ready' || i.status === 'error');
+    if (next) setActiveQueueId(next.id);
+    else toast.info('No more items to review');
+  };
+
+  const handleBatchDrop = (e) => {
+    e.preventDefault();
+    setBatchDragOver(false);
+    if (e.dataTransfer.files?.length) {
+      addFilesToQueue(e.dataTransfer.files);
     }
   };
 
-  const updateField = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleModeChange = (mode) => {
+    setScanMode(mode);
+    if (mode === 'single') {
+      setCapturedImage(null);
+      setFormData(null);
+      setArabicSuggested(false);
+    } else {
+      stopCamera();
+      setCapturedImage(null);
+      setFormData(null);
+    }
   };
 
   return (
@@ -489,6 +808,133 @@ export const PassportScanner = () => {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Scan Mode Toggle */}
+        <div className="bg-slate-800 rounded-xl p-1 flex gap-1">
+          <Button
+            variant={scanMode === 'single' ? 'default' : 'ghost'}
+            className={`flex-1 ${scanMode === 'single' ? 'bg-blue-600 hover:bg-blue-700' : 'text-slate-300 hover:bg-slate-700'}`}
+            onClick={() => handleModeChange('single')}
+          >
+            <Camera className="w-4 h-4 mr-2" />
+            Single
+          </Button>
+          <Button
+            variant={scanMode === 'batch' ? 'default' : 'ghost'}
+            className={`flex-1 ${scanMode === 'batch' ? 'bg-blue-600 hover:bg-blue-700' : 'text-slate-300 hover:bg-slate-700'}`}
+            onClick={() => handleModeChange('batch')}
+          >
+            <Layers className="w-4 h-4 mr-2" />
+            Batch
+          </Button>
+        </div>
+
+        {/* Batch Queue Panel */}
+        {scanMode === 'batch' && (
+          <div className="bg-slate-800 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-slate-300">Batch Queue ({batchQueue.length})</h2>
+              {batchQueue.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearBatchQueue}
+                  className="text-slate-400 hover:text-white h-7 text-xs"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+
+            <div
+              className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                batchDragOver ? 'border-blue-500 bg-blue-500/10' : 'border-slate-600'
+              }`}
+              onDragEnter={(e) => { e.preventDefault(); setBatchDragOver(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setBatchDragOver(false); }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleBatchDrop}
+              onClick={() => batchFileInputRef.current?.click()}
+            >
+              <Upload className="w-8 h-8 mx-auto mb-2 text-slate-500" />
+              <p className="text-sm text-slate-400">Drop images here or tap to upload multiple</p>
+              <input
+                ref={batchFileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => { addFilesToQueue(e.target.files); e.target.value = ''; }}
+                className="hidden"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoProcessOnAdd}
+                onChange={(e) => setAutoProcessOnAdd(e.target.checked)}
+                className="rounded border-slate-600"
+              />
+              Auto-process when added
+            </label>
+
+            {batchQueue.length > 0 && (
+              <>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => processBatchQueue()}
+                    disabled={batchProcessing}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {batchProcessing ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <ScanLine className="w-4 h-4 mr-2" />
+                    )}
+                    {batchProcessing
+                      ? `Processing ${batchProgress.current}/${batchProgress.total}...`
+                      : 'Process Queue'}
+                  </Button>
+                </div>
+
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {batchQueue.map(item => (
+                    <div
+                      key={item.id}
+                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${
+                        activeQueueId === item.id ? 'bg-slate-700 ring-1 ring-blue-500' : 'bg-slate-750 hover:bg-slate-700'
+                      }`}
+                      onClick={() => setActiveQueueId(item.id)}
+                    >
+                      <img src={item.dataUrl} alt="" className="w-12 h-9 object-cover rounded" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white truncate">
+                          {item.formData?.passport_no || item.fileName}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">
+                          {item.formData
+                            ? `${item.formData.first_name_en} ${item.formData.surname_en}`.trim()
+                            : STATUS_LABELS[item.status]}
+                        </p>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[item.status]} text-white`}>
+                        {STATUS_LABELS[item.status]}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-slate-400 hover:text-red-400"
+                        onClick={(e) => { e.stopPropagation(); removeQueueItem(item.id); }}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Camera/Image Section */}
         <div className="bg-slate-800 rounded-xl overflow-hidden">
@@ -602,18 +1048,28 @@ export const PassportScanner = () => {
                   <RotateCcw className="w-5 h-5 mr-2" />
                   Retake
                 </Button>
-                <Button
-                  onClick={scanPassport}
-                  disabled={scanning}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
-                >
-                  {scanning ? (
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  ) : (
-                    <ScanLine className="w-5 h-5 mr-2" />
-                  )}
-                  {scanning ? 'Scanning...' : 'Extract Data'}
-                </Button>
+                {scanMode === 'batch' ? (
+                  <Button
+                    onClick={addCapturedToQueue}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Layers className="w-5 h-5 mr-2" />
+                    Add to Queue
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={scanPassport}
+                    disabled={scanning}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {scanning ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : (
+                      <ScanLine className="w-5 h-5 mr-2" />
+                    )}
+                    {scanning ? 'Scanning...' : 'Extract Data'}
+                  </Button>
+                )}
               </div>
             </>
           )}
@@ -623,11 +1079,16 @@ export const PassportScanner = () => {
         <canvas ref={canvasRef} className="hidden" />
 
         {/* Complete Passport Form */}
-        {formData && (
+        {displayFormData && (
           <div className="bg-slate-800 rounded-xl p-4 space-y-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Check className="w-5 h-5 text-green-500" />
               Passport Details
+              {scanMode === 'batch' && activeQueueItem && (
+                <span className="text-xs text-slate-400 font-normal ml-auto">
+                  {activeQueueItem.fileName}
+                </span>
+              )}
             </h2>
             
             <p className="text-xs text-slate-400">
@@ -642,7 +1103,7 @@ export const PassportScanner = () => {
                 <div>
                   <Label className="text-slate-400 text-xs">Passport No *</Label>
                   <Input
-                    value={formData.passport_no}
+                    value={displayFormData.passport_no}
                     onChange={(e) => updateField('passport_no', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                     placeholder="e.g., AB1234567"
@@ -650,7 +1111,7 @@ export const PassportScanner = () => {
                 </div>
                 <div>
                   <Label className="text-slate-400 text-xs">Passport Type</Label>
-                  <Select value={formData.passport_type} onValueChange={(v) => updateField('passport_type', v)}>
+                  <Select value={displayFormData.passport_type} onValueChange={(v) => updateField('passport_type', v)}>
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
@@ -667,7 +1128,7 @@ export const PassportScanner = () => {
                 <div>
                   <Label className="text-slate-400 text-xs">First Name (EN) *</Label>
                   <Input
-                    value={formData.first_name_en}
+                    value={displayFormData.first_name_en}
                     onChange={(e) => updateField('first_name_en', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                   />
@@ -675,7 +1136,7 @@ export const PassportScanner = () => {
                 <div>
                   <Label className="text-slate-400 text-xs">Surname (EN) *</Label>
                   <Input
-                    value={formData.surname_en}
+                    value={displayFormData.surname_en}
                     onChange={(e) => updateField('surname_en', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                   />
@@ -686,7 +1147,7 @@ export const PassportScanner = () => {
                 <div>
                   <Label className="text-slate-400 text-xs">Father Name (EN) <span className="text-yellow-500">*Manual</span></Label>
                   <Input
-                    value={formData.father_name_en}
+                    value={displayFormData.father_name_en}
                     onChange={(e) => updateField('father_name_en', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                     placeholder="Enter manually"
@@ -695,7 +1156,7 @@ export const PassportScanner = () => {
                 <div>
                   <Label className="text-slate-400 text-xs">Grandfather Name (EN) <span className="text-yellow-500">*Manual</span></Label>
                   <Input
-                    value={formData.grandfather_name_en}
+                    value={displayFormData.grandfather_name_en}
                     onChange={(e) => updateField('grandfather_name_en', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                     placeholder="Enter manually"
@@ -706,7 +1167,7 @@ export const PassportScanner = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-slate-400 text-xs">Nationality *</Label>
-                  <Select value={formData.nationality} onValueChange={(v) => updateField('nationality', v)}>
+                  <Select value={displayFormData.nationality} onValueChange={(v) => updateField('nationality', v)}>
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
                       <SelectValue placeholder="Select nationality" />
                     </SelectTrigger>
@@ -719,7 +1180,7 @@ export const PassportScanner = () => {
                 </div>
                 <div>
                   <Label className="text-slate-400 text-xs">Gender</Label>
-                  <Select value={formData.gender} onValueChange={(v) => updateField('gender', v)}>
+                  <Select value={displayFormData.gender} onValueChange={(v) => updateField('gender', v)}>
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
@@ -735,22 +1196,43 @@ export const PassportScanner = () => {
 
             {/* Arabic Names */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-slate-300 border-b border-slate-700 pb-2">Arabic Names</h3>
+              <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                <h3 className="text-sm font-medium text-slate-300">Arabic Names</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={generateArabicNames}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700 text-xs h-7"
+                >
+                  Generate Arabic Names
+                </Button>
+              </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-slate-400 text-xs">First Name (AR)</Label>
+                  <Label className="text-slate-400 text-xs">
+                    First Name (AR)
+                    {displayArabicSuggested && displayFormData.first_name_ar && (
+                      <span className="text-yellow-500 ml-1">Suggested</span>
+                    )}
+                  </Label>
                   <Input
-                    value={formData.first_name_ar}
+                    value={displayFormData.first_name_ar}
                     onChange={(e) => updateField('first_name_ar', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
                     dir="rtl"
                   />
                 </div>
                 <div>
-                  <Label className="text-slate-400 text-xs">Surname (AR)</Label>
+                  <Label className="text-slate-400 text-xs">
+                    Surname (AR)
+                    {displayArabicSuggested && displayFormData.surname_ar && (
+                      <span className="text-yellow-500 ml-1">Suggested</span>
+                    )}
+                  </Label>
                   <Input
-                    value={formData.surname_ar}
+                    value={displayFormData.surname_ar}
                     onChange={(e) => updateField('surname_ar', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
                     dir="rtl"
@@ -760,18 +1242,28 @@ export const PassportScanner = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-slate-400 text-xs">Father Name (AR)</Label>
+                  <Label className="text-slate-400 text-xs">
+                    Father Name (AR)
+                    {displayArabicSuggested && displayFormData.father_name_ar && (
+                      <span className="text-yellow-500 ml-1">Suggested</span>
+                    )}
+                  </Label>
                   <Input
-                    value={formData.father_name_ar}
+                    value={displayFormData.father_name_ar}
                     onChange={(e) => updateField('father_name_ar', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
                     dir="rtl"
                   />
                 </div>
                 <div>
-                  <Label className="text-slate-400 text-xs">Grandfather (AR)</Label>
+                  <Label className="text-slate-400 text-xs">
+                    Grandfather (AR)
+                    {displayArabicSuggested && displayFormData.grandfather_name_ar && (
+                      <span className="text-yellow-500 ml-1">Suggested</span>
+                    )}
+                  </Label>
                   <Input
-                    value={formData.grandfather_name_ar}
+                    value={displayFormData.grandfather_name_ar}
                     onChange={(e) => updateField('grandfather_name_ar', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
                     dir="rtl"
@@ -788,15 +1280,19 @@ export const PassportScanner = () => {
                 <div>
                   <Label className="text-slate-400 text-xs">Mother Name (EN)</Label>
                   <Input
-                    value={formData.mother_name_en}
+                    value={displayFormData.mother_name_en}
                     onChange={(e) => updateField('mother_name_en', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                   />
                 </div>
                 <div>
-                  <Label className="text-slate-400 text-xs">Mother Name (AR)</Label>
+                  <Label className="text-slate-400 text-xs">Mother Name (AR)
+                    {displayArabicSuggested && displayFormData.mother_name_ar && (
+                      <span className="text-yellow-500 ml-1">Suggested</span>
+                    )}
+                  </Label>
                   <Input
-                    value={formData.mother_name_ar}
+                    value={displayFormData.mother_name_ar}
                     onChange={(e) => updateField('mother_name_ar', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
                     dir="rtl"
@@ -808,7 +1304,7 @@ export const PassportScanner = () => {
                 <div>
                   <Label className="text-slate-400 text-xs">Mother's Father (EN)</Label>
                   <Input
-                    value={formData.mother_father_name_en}
+                    value={displayFormData.mother_father_name_en}
                     onChange={(e) => updateField('mother_father_name_en', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                   />
@@ -816,7 +1312,7 @@ export const PassportScanner = () => {
                 <div>
                   <Label className="text-slate-400 text-xs">Mother's Father (AR)</Label>
                   <Input
-                    value={formData.mother_father_name_ar}
+                    value={displayFormData.mother_father_name_ar}
                     onChange={(e) => updateField('mother_father_name_ar', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1 text-right"
                     dir="rtl"
@@ -834,7 +1330,7 @@ export const PassportScanner = () => {
                   <Label className="text-slate-400 text-xs">Birth Date</Label>
                   <Input
                     type="date"
-                    value={formData.birth_date}
+                    value={displayFormData.birth_date}
                     onChange={(e) => updateField('birth_date', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                   />
@@ -843,7 +1339,7 @@ export const PassportScanner = () => {
                   <Label className="text-slate-400 text-xs">Expiry Date *</Label>
                   <Input
                     type="date"
-                    value={formData.expiry_date}
+                    value={displayFormData.expiry_date}
                     onChange={(e) => updateField('expiry_date', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                   />
@@ -855,14 +1351,14 @@ export const PassportScanner = () => {
                   <Label className="text-slate-400 text-xs">Issue Date</Label>
                   <Input
                     type="date"
-                    value={formData.issue_date}
+                    value={displayFormData.issue_date}
                     onChange={(e) => updateField('issue_date', e.target.value)}
                     className="bg-slate-700 border-slate-600 text-white mt-1"
                   />
                 </div>
                 <div>
                   <Label className="text-slate-400 text-xs">Place of Issue</Label>
-                  <Select value={formData.place_of_issue} onValueChange={(v) => updateField('place_of_issue', v)}>
+                  <Select value={displayFormData.place_of_issue} onValueChange={(v) => updateField('place_of_issue', v)}>
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
@@ -878,7 +1374,7 @@ export const PassportScanner = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-slate-400 text-xs">Profession</Label>
-                  <Select value={formData.profession} onValueChange={(v) => updateField('profession', v)}>
+                  <Select value={displayFormData.profession} onValueChange={(v) => updateField('profession', v)}>
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
                       <SelectValue placeholder="Select profession" />
                     </SelectTrigger>
@@ -891,7 +1387,7 @@ export const PassportScanner = () => {
                 </div>
                 <div>
                   <Label className="text-slate-400 text-xs">Country of Residence</Label>
-                  <Select value={formData.country_of_residence} onValueChange={(v) => updateField('country_of_residence', v)}>
+                  <Select value={displayFormData.country_of_residence} onValueChange={(v) => updateField('country_of_residence', v)}>
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1">
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
@@ -904,18 +1400,81 @@ export const PassportScanner = () => {
                 </div>
               </div>
             </div>
+
+            {scanMode === 'batch' && activeQueueItem?.status === 'saved' && (
+              <p className="text-sm text-green-400 flex items-center gap-2">
+                <Check className="w-4 h-4" /> Saved to group
+              </p>
+            )}
             
+            {scanMode === 'batch' ? (
+              <div className="flex flex-col gap-2 mt-4">
+                <div className="flex gap-2">
+                  <Button
+                    onClick={savePassport}
+                    disabled={saving || !selectedGroup || activeQueueItem?.status === 'saved'}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Check className="w-5 h-5 mr-2" />}
+                    {saving ? 'Saving...' : 'Save'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={skipToNext}
+                    className="border-slate-600 text-white hover:bg-slate-700"
+                  >
+                    <SkipForward className="w-5 h-5" />
+                  </Button>
+                </div>
+                <Button
+                  onClick={saveAllValid}
+                  disabled={saving || !selectedGroup}
+                  variant="outline"
+                  className="w-full border-slate-600 text-white hover:bg-slate-700"
+                >
+                  Save All Valid ({batchQueue.filter(i => i.status === 'ready' && isFormValid(i.formData)).length})
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={savePassport}
+                disabled={saving || !selectedGroup}
+                className="w-full bg-green-600 hover:bg-green-700 mt-4"
+              >
+                {saving ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <Check className="w-5 h-5 mr-2" />
+                )}
+                {saving ? 'Saving...' : 'Save to Group'}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {scanMode === 'batch' && activeQueueItem && !displayFormData && !activeQueueItem.error && (
+          <div className="bg-slate-800 rounded-xl p-4 text-sm text-slate-400 text-center">
+            {activeQueueItem.status === 'processing' ? (
+              <p className="flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" /> Processing {activeQueueItem.fileName}...
+              </p>
+            ) : (
+              <p>{activeQueueItem.fileName} is pending — click Process Queue to extract data.</p>
+            )}
+          </div>
+        )}
+
+        {scanMode === 'batch' && activeQueueItem?.error && !displayFormData && (
+          <div className="bg-red-900/30 border border-red-700 rounded-xl p-4 text-sm text-red-300">
+            <p className="font-medium">Scan failed: {activeQueueItem.fileName}</p>
+            <p className="text-xs mt-1">{activeQueueItem.error}</p>
             <Button
-              onClick={savePassport}
-              disabled={saving || !selectedGroup}
-              className="w-full bg-green-600 hover:bg-green-700 mt-4"
+              size="sm"
+              variant="outline"
+              className="mt-2 border-red-600 text-red-300"
+              onClick={() => processQueueItem(activeQueueItem)}
             >
-              {saving ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              ) : (
-                <Check className="w-5 h-5 mr-2" />
-              )}
-              {saving ? 'Saving...' : 'Save to Group'}
+              Retry
             </Button>
           </div>
         )}

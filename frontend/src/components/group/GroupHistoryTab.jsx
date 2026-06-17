@@ -1,20 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import api from '../../utils/api';
-
-const STATUS_LABELS = {
-  DATA_ENTRY: 'Data Entry',
-  SUBMITTED: 'Submitted',
-  PENDING_PROCESS: 'Pending Process',
-  VISA_SUBMITTED: 'Visa Submitted',
-  VISA_ISSUED: 'Visa Issued',
-  VISA_REJECTED: 'Visa Rejected',
-  COMPLETED: 'Completed',
-};
+import { useGroupStatus } from '../../contexts/GroupStatusContext';
 
 export const GroupHistoryTab = ({ groupId }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { getLabel } = useGroupStatus();
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -27,7 +19,7 @@ export const GroupHistoryTab = ({ groupId }) => {
         setLoading(false);
       }
     };
-    if (groupId) fetchHistory();
+    fetchHistory();
   }, [groupId]);
 
   if (loading) return <p className="text-muted-foreground">Loading history...</p>;
@@ -43,12 +35,14 @@ export const GroupHistoryTab = ({ groupId }) => {
         ) : (
           <div className="space-y-4">
             {history.map((entry) => (
-              <div key={entry.id} className="border-l-2 border-primary pl-4 py-2">
+              <div key={entry.id} className="border-l-2 border-primary pl-4 py-1">
                 <p className="font-medium">
-                  {STATUS_LABELS[entry.old_status] || entry.old_status} → {STATUS_LABELS[entry.new_status] || entry.new_status}
+                  {getLabel(entry.old_status)} → {getLabel(entry.new_status)}
+                  {entry.action === 'split' && ' (split)'}
+                  {entry.action === 'unassign_vendor' && ' (vendor unassigned)'}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  by {entry.changed_by_name} · {new Date(entry.timestamp).toLocaleString()}
+                  {entry.changed_by_name} · {new Date(entry.timestamp).toLocaleString()}
                 </p>
                 {entry.reason && <p className="text-sm mt-1">{entry.reason}</p>}
               </div>
@@ -59,3 +53,5 @@ export const GroupHistoryTab = ({ groupId }) => {
     </Card>
   );
 };
+
+export default GroupHistoryTab;

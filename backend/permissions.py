@@ -27,25 +27,7 @@ CLIENT_ROLES = {"client_admin", "client_staff", "client_accounts"}
 VENDOR_ROLES = {"vendor_admin", "vendor_staff", "vendor_accounts"}
 ACCOUNTS_ROLES = {"system_accounts", "client_accounts", "vendor_accounts"}
 
-GROUP_STATUSES = [
-    "DATA_ENTRY",
-    "SUBMITTED",
-    "PENDING_PROCESS",
-    "VISA_SUBMITTED",
-    "VISA_ISSUED",
-    "VISA_REJECTED",
-    "COMPLETED",
-]
-
-VALID_STATUS_TRANSITIONS = {
-    "DATA_ENTRY": ["SUBMITTED"],
-    "SUBMITTED": ["PENDING_PROCESS", "DATA_ENTRY"],
-    "PENDING_PROCESS": ["VISA_SUBMITTED", "SUBMITTED"],
-    "VISA_SUBMITTED": ["VISA_ISSUED", "VISA_REJECTED"],
-    "VISA_ISSUED": ["COMPLETED"],
-    "VISA_REJECTED": ["DATA_ENTRY", "PENDING_PROCESS"],
-    "COMPLETED": [],
-}
+from group_status import GROUP_STATUSES, VALID_STATUS_TRANSITIONS
 
 ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
     "system_admin": {
@@ -64,6 +46,15 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_import": True,
         "can_upload_files": True,
         "can_split_groups": True,
+        "can_post_journal_entries": True,
+        "can_initialize_accounts": True,
+        "can_record_receipts": True,
+        "can_view_global_accounting": True,
+        "can_submit_group": True,
+        "can_update_passport_status": True,
+        "can_manage_submission_details": True,
+        "can_view_client_ledger": False,
+        "can_view_vendor_ledger": True,
     },
     "system_staff": {
         "can_create_group_any_client": True,
@@ -81,6 +72,15 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_import": True,
         "can_upload_files": True,
         "can_split_groups": True,
+        "can_post_journal_entries": False,
+        "can_initialize_accounts": False,
+        "can_record_receipts": False,
+        "can_view_global_accounting": False,
+        "can_submit_group": True,
+        "can_update_passport_status": True,
+        "can_manage_submission_details": True,
+        "can_view_client_ledger": False,
+        "can_view_vendor_ledger": False,
     },
     "system_accounts": {
         "can_create_group_any_client": False,
@@ -98,12 +98,21 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_import": False,
         "can_upload_files": False,
         "can_split_groups": False,
+        "can_post_journal_entries": True,
+        "can_initialize_accounts": False,
+        "can_record_receipts": True,
+        "can_view_global_accounting": True,
+        "can_submit_group": False,
+        "can_update_passport_status": False,
+        "can_manage_submission_details": False,
+        "can_view_client_ledger": False,
+        "can_view_vendor_ledger": True,
     },
     "client_admin": {
         "can_create_group_any_client": False,
         "can_view_all_groups": False,
-        "can_update_group_status": True,
-        "can_access_financial": True,
+        "can_update_group_status": False,
+        "can_access_financial": False,
         "can_manage_financial": False,
         "can_manage_vendors": False,
         "can_assign_vendor": False,
@@ -114,7 +123,16 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_export": True,
         "can_import": True,
         "can_upload_files": True,
-        "can_split_groups": True,
+        "can_split_groups": False,
+        "can_post_journal_entries": False,
+        "can_initialize_accounts": False,
+        "can_record_receipts": False,
+        "can_view_global_accounting": False,
+        "can_submit_group": True,
+        "can_update_passport_status": False,
+        "can_manage_submission_details": False,
+        "can_view_client_ledger": True,
+        "can_view_vendor_ledger": False,
     },
     "client_staff": {
         "can_create_group_any_client": False,
@@ -132,6 +150,15 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_import": True,
         "can_upload_files": True,
         "can_split_groups": False,
+        "can_post_journal_entries": False,
+        "can_initialize_accounts": False,
+        "can_record_receipts": False,
+        "can_view_global_accounting": False,
+        "can_submit_group": False,
+        "can_update_passport_status": False,
+        "can_manage_submission_details": False,
+        "can_view_client_ledger": False,
+        "can_view_vendor_ledger": False,
     },
     "client_accounts": {
         "can_create_group_any_client": False,
@@ -149,11 +176,20 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_import": False,
         "can_upload_files": False,
         "can_split_groups": False,
+        "can_post_journal_entries": False,
+        "can_initialize_accounts": False,
+        "can_record_receipts": False,
+        "can_view_global_accounting": False,
+        "can_submit_group": False,
+        "can_update_passport_status": False,
+        "can_manage_submission_details": False,
+        "can_view_client_ledger": True,
+        "can_view_vendor_ledger": False,
     },
     "vendor_admin": {
         "can_create_group_any_client": False,
         "can_view_all_groups": False,
-        "can_update_group_status": True,
+        "can_update_group_status": False,
         "can_access_financial": False,
         "can_manage_financial": False,
         "can_manage_vendors": False,
@@ -166,11 +202,20 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_import": False,
         "can_upload_files": True,
         "can_split_groups": False,
+        "can_post_journal_entries": False,
+        "can_initialize_accounts": False,
+        "can_record_receipts": False,
+        "can_view_global_accounting": False,
+        "can_submit_group": False,
+        "can_update_passport_status": True,
+        "can_manage_submission_details": False,
+        "can_view_client_ledger": False,
+        "can_view_vendor_ledger": False,
     },
     "vendor_staff": {
         "can_create_group_any_client": False,
         "can_view_all_groups": False,
-        "can_update_group_status": True,
+        "can_update_group_status": False,
         "can_access_financial": False,
         "can_manage_financial": False,
         "can_manage_vendors": False,
@@ -183,6 +228,15 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_import": False,
         "can_upload_files": True,
         "can_split_groups": False,
+        "can_post_journal_entries": False,
+        "can_initialize_accounts": False,
+        "can_record_receipts": False,
+        "can_view_global_accounting": False,
+        "can_submit_group": False,
+        "can_update_passport_status": True,
+        "can_manage_submission_details": False,
+        "can_view_client_ledger": False,
+        "can_view_vendor_ledger": False,
     },
     "vendor_accounts": {
         "can_create_group_any_client": False,
@@ -200,6 +254,15 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_import": False,
         "can_upload_files": False,
         "can_split_groups": False,
+        "can_post_journal_entries": False,
+        "can_initialize_accounts": False,
+        "can_record_receipts": False,
+        "can_view_global_accounting": False,
+        "can_submit_group": False,
+        "can_update_passport_status": False,
+        "can_manage_submission_details": False,
+        "can_view_client_ledger": False,
+        "can_view_vendor_ledger": True,
     },
 }
 
@@ -227,6 +290,48 @@ def check_permission(user: dict, permission: str) -> bool:
 def require_permission(user: dict, permission: str) -> None:
     if not check_permission(user, permission):
         raise HTTPException(status_code=403, detail=f"Permission denied: {permission}")
+
+
+def require_global_accounting_access(user: dict) -> None:
+    require_permission(user, "can_view_global_accounting")
+
+
+def require_submit_group(user: dict) -> None:
+    require_permission(user, "can_submit_group")
+
+
+def require_passport_status_update(user: dict) -> None:
+    require_permission(user, "can_update_passport_status")
+
+
+def require_submission_details(user: dict) -> None:
+    require_permission(user, "can_manage_submission_details")
+
+
+def require_client_ledger_access(user: dict, client_id: Optional[str] = None) -> None:
+    if check_permission(user, "can_view_client_ledger"):
+        if client_id and not can_access_client_financial(user, client_id):
+            raise HTTPException(status_code=403, detail="Access denied to this client")
+        return
+    role = normalize_role(user.get("role"))
+    if role in ("system_admin", "system_accounts"):
+        if client_id and not can_access_client_financial(user, client_id):
+            raise HTTPException(status_code=403, detail="Access denied to this client")
+        return
+    raise HTTPException(status_code=403, detail="Permission denied: can_view_client_ledger")
+
+
+def require_vendor_ledger_access(user: dict, vendor_id: Optional[str] = None) -> None:
+    if check_permission(user, "can_view_vendor_ledger"):
+        if vendor_id and not can_access_vendor_financial(user, vendor_id):
+            raise HTTPException(status_code=403, detail="Access denied to this vendor")
+        return
+    role = normalize_role(user.get("role"))
+    if role in ("system_admin", "system_accounts"):
+        if vendor_id and not can_access_vendor_financial(user, vendor_id):
+            raise HTTPException(status_code=403, detail="Access denied to this vendor")
+        return
+    raise HTTPException(status_code=403, detail="Permission denied: can_view_vendor_ledger")
 
 
 def is_system_role(user: dict) -> bool:
@@ -285,6 +390,24 @@ def get_user_client_filter(user: dict) -> dict:
             return {"client_id": user.get("client_id")}
         return {"client_id": None}
     return {"client_id": "__none__"}
+
+
+def can_access_vendor_financial(user: dict, vendor_id: Optional[str]) -> bool:
+    role = normalize_role(user.get("role"))
+    if role in ("system_admin", "system_staff", "system_accounts"):
+        return True
+    if role == "vendor_accounts":
+        return user.get("vendor_id") == vendor_id
+    return False
+
+
+def can_access_client_financial(user: dict, client_id: Optional[str]) -> bool:
+    role = normalize_role(user.get("role"))
+    if role in ("system_admin", "system_staff", "system_accounts"):
+        return True
+    if role in ("client_admin", "client_accounts"):
+        return user.get("client_id") == client_id
+    return False
 
 
 def migrate_role(old_role: str, client_id: Optional[str], vendor_id: Optional[str]) -> str:

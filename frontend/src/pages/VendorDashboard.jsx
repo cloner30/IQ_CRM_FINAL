@@ -4,13 +4,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import api from '../utils/api';
 import { toast } from 'sonner';
-
-const STATUS_COLORS = {
-  PENDING_PROCESS: 'bg-amber-100 text-amber-800',
-  VISA_SUBMITTED: 'bg-blue-100 text-blue-800',
-  VISA_ISSUED: 'bg-green-100 text-green-800',
-  COMPLETED: 'bg-slate-100 text-slate-800',
-};
+import { GroupStatusBadge } from '../components/group/GroupStatusBadge';
 
 export const VendorDashboard = () => {
   const [groups, setGroups] = useState([]);
@@ -59,9 +53,7 @@ export const VendorDashboard = () => {
                   {group.departure_date && <p className="text-sm">Departure: {group.departure_date.slice(0, 10)}</p>}
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-xs px-2 py-1 rounded-full ${STATUS_COLORS[group.status] || 'bg-gray-100'}`}>
-                    {(group.status || 'PENDING').replace(/_/g, ' ')}
-                  </span>
+                  <GroupStatusBadge status={group.status} />
                   <Link to={`/vendor/groups/${group.id}`}>
                     <Button size="sm">View Group</Button>
                   </Link>

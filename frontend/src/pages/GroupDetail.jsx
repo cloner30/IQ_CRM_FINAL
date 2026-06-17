@@ -8,13 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { ArrowLeft, Plus, Upload, FileText, User, Trash2, Edit, Search, CheckCircle, AlertCircle, Image, Eye, Download, AlertTriangle, Save, Calendar, Hash, Clock, CreditCard, BadgeCheck, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Upload, FileText, User, Trash2, Edit, Search, CheckCircle, AlertCircle, Image, Eye, Download, AlertTriangle, Save, Calendar, Hash, Clock, CreditCard, BadgeCheck, Loader2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../utils/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { GroupStatusTab } from '../components/group/GroupStatusTab';
 import { GroupHistoryTab } from '../components/group/GroupHistoryTab';
 import { GroupFinancialTab } from '../components/group/GroupFinancialTab';
+import { GroupVendorTab } from '../components/group/GroupVendorTab';
+import { GroupSplitTab } from '../components/group/GroupSplitTab';
+import { GroupStatusBadge } from '../components/group/GroupStatusBadge';
+import { GroupStatusStepper } from '../components/group/GroupStatusStepper';
+import { GroupStatusUpdater } from '../components/group/GroupStatusUpdater';
+import { useAuth } from '../contexts/AuthContext';
+import { useGroupStatus } from '../contexts/GroupStatusContext';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -23,7 +29,8 @@ const VISA_STATUS_CONFIG = {
   pending: { label: 'Pending', color: 'bg-gray-100 text-gray-800', icon: Clock },
   form_submitted: { label: 'Form Submitted', color: 'bg-blue-100 text-blue-800', icon: FileText },
   payment_done: { label: 'Payment Done', color: 'bg-amber-100 text-amber-800', icon: CreditCard },
-  visa_issued: { label: 'Visa Issued', color: 'bg-green-100 text-green-800', icon: BadgeCheck }
+  visa_issued: { label: 'Visa Issued', color: 'bg-green-100 text-green-800', icon: BadgeCheck },
+  visa_rejected: { label: 'Visa Rejected', color: 'bg-red-100 text-red-800', icon: XCircle },
 };
 
 // Helper function to get proper image URL
@@ -190,6 +197,15 @@ const emptyForm = {
 export const GroupDetail = () => {
   const { groupId } = useParams();
   const navigate = useNavigate();
+  const {
+    canViewGlobalAccounting,
+    canAssignVendor,
+    canSplitGroups,
+    canSubmitGroup,
+    canUpdateGroupStatus,
+    canUpdatePassportStatus,
+    canManageSubmissionDetails,
+  } = useAuth();
   const [group, setGroup] = useState(null);
   const [passports, setPassports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -219,6 +235,7 @@ export const GroupDetail = () => {
   const [selectedPassports, setSelectedPassports] = useState([]);
   const [updatingVisaStatus, setUpdatingVisaStatus] = useState(false);
   const [visaStatusFilter, setVisaStatusFilter] = useState('all');
+  const { defaultStatus } = useGroupStatus();
 
   const fetchData = useCallback(async () => {
     try {
@@ -962,10 +979,15 @@ export const GroupDetail = () => {
             <div className="flex gap-2 mt-2 flex-wrap">
               {group?.id && <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">{group.id}</span>}
               {group?.departure_date && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Departure: {group.departure_date.slice(0, 10)}</span>}
-              {group?.status && <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">{group.status.replace(/_/g, ' ')}</span>}
+              {group?.status && <GroupStatusBadge status={group.status} />}
+              {group?.assigned_vendor_id && <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">Vendor assigned</span>}
+            </div>
+            <div className="mt-4 space-y-3">
+              <GroupStatusStepper status={group?.status} />
+              <GroupStatusUpdater group={group} passports={passports} onUpdate={fetchData} />
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap justify-end">
             <Button
               variant="outline"
               onClick={openPdfExportDialog}
@@ -1005,10 +1027,11 @@ export const GroupDetail = () => {
       <Tabs defaultValue="passengers" className="mb-8">
         <TabsList className="mb-6">
           <TabsTrigger value="passengers">Passengers</TabsTrigger>
-          <TabsTrigger value="status">Status</TabsTrigger>
+          {canAssignVendor() && <TabsTrigger value="vendor">Vendor</TabsTrigger>}
           <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="financial">Financial</TabsTrigger>
-          <TabsTrigger value="submission">Submission</TabsTrigger>
+          {canViewGlobalAccounting() && <TabsTrigger value="financial">Financial</TabsTrigger>}
+          {canSplitGroups() && <TabsTrigger value="split">Split</TabsTrigger>}
+          {canManageSubmissionDetails() && <TabsTrigger value="submission">Submission</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="passengers">
@@ -1100,11 +1123,12 @@ export const GroupDetail = () => {
               Visa Status
             </div>
             <div className="flex items-center gap-2">
-              {selectedPassports.length > 0 && (
+              {canUpdatePassportStatus() && selectedPassports.length > 0 && (
                 <span className="text-sm font-normal text-slate-500">
                   {selectedPassports.length} selected
                 </span>
               )}
+              {canUpdatePassportStatus() && (
               <Button
                 size="sm"
                 variant="outline"
@@ -1115,6 +1139,7 @@ export const GroupDetail = () => {
                 {updatingVisaStatus ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <BadgeCheck className="w-4 h-4 mr-1" />}
                 Mark All Visa Issued
               </Button>
+              )}
             </div>
           </CardTitle>
         </CardHeader>
@@ -1144,7 +1169,7 @@ export const GroupDetail = () => {
           </div>
           
           {/* Bulk actions */}
-          {selectedPassports.length > 0 && (
+          {canUpdatePassportStatus() && selectedPassports.length > 0 && (
             <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
               <span className="text-sm text-slate-600 mr-2">Change status to:</span>
               {Object.entries(VISA_STATUS_CONFIG).map(([status, config]) => (
@@ -1227,6 +1252,7 @@ export const GroupDetail = () => {
           ) : (
             <div className="divide-y divide-slate-100" data-testid="passports-list">
               {/* Select All Header */}
+              {canUpdatePassportStatus() && (
               <div className="flex items-center gap-4 px-6 py-2 bg-slate-50 border-b">
                 <input
                   type="checkbox"
@@ -1240,6 +1266,7 @@ export const GroupDetail = () => {
                     : 'Select all'}
                 </span>
               </div>
+              )}
               
               {filteredPassports.map((passport) => {
                 const visaConfig = VISA_STATUS_CONFIG[passport.visa_status || 'pending'];
@@ -1254,12 +1281,14 @@ export const GroupDetail = () => {
                   data-testid={`passport-row-${passport.id}`}
                 >
                   {/* Checkbox */}
+                  {canUpdatePassportStatus() && (
                   <input
                     type="checkbox"
                     checked={selectedPassports.includes(passport.id)}
                     onChange={() => togglePassportSelection(passport.id)}
                     className="w-4 h-4 rounded border-slate-300"
                   />
+                  )}
                   
                   {/* Profile Image */}
                   <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden flex-shrink-0">
@@ -1323,26 +1352,28 @@ export const GroupDetail = () => {
                   {/* Status Toggle & Image Status & Actions */}
                   <div className="flex items-center gap-3">
                     {/* Mark Done/Pending Button */}
-                    {passport.status === 'done' ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-amber-600 border-amber-300 hover:bg-amber-50"
-                        onClick={() => handleStatusUpdate(passport.id, 'pending')}
-                        data-testid={`mark-pending-${passport.id}`}
-                      >
-                        Mark Pending
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-green-600 border-green-300 hover:bg-green-50"
-                        onClick={() => handleStatusUpdate(passport.id, 'done')}
-                        data-testid={`mark-done-${passport.id}`}
-                      >
-                        ✓ Mark Done
-                      </Button>
+                    {canUpdatePassportStatus() && (
+                      passport.status === 'done' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                          onClick={() => handleStatusUpdate(passport.id, 'pending')}
+                          data-testid={`mark-pending-${passport.id}`}
+                        >
+                          Mark Pending
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-green-600 border-green-300 hover:bg-green-50"
+                          onClick={() => handleStatusUpdate(passport.id, 'done')}
+                          data-testid={`mark-done-${passport.id}`}
+                        >
+                          ✓ Mark Done
+                        </Button>
+                      )
                     )}
                     <div className="flex gap-2">
                       <span className={`status-badge ${passport.passport_image ? 'success' : 'neutral'}`}>
@@ -1389,6 +1420,7 @@ export const GroupDetail = () => {
                     </Button>
                     
                     {/* Visa Status Quick Change */}
+                    {canUpdatePassportStatus() && (
                     <Select 
                       value={passport.visa_status || 'pending'} 
                       onValueChange={(value) => handleUpdateVisaStatus(passport.id, value)}
@@ -1407,6 +1439,7 @@ export const GroupDetail = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    )}
                   </div>
                 </div>
               )})}
@@ -1416,18 +1449,29 @@ export const GroupDetail = () => {
       </Card>
         </TabsContent>
 
-        <TabsContent value="status">
-          <GroupStatusTab group={group} onUpdate={fetchData} />
-        </TabsContent>
+        {canAssignVendor() && (
+          <TabsContent value="vendor">
+            <GroupVendorTab group={group} onUpdate={fetchData} />
+          </TabsContent>
+        )}
 
         <TabsContent value="history">
           <GroupHistoryTab groupId={groupId} />
         </TabsContent>
 
-        <TabsContent value="financial">
-          <GroupFinancialTab groupId={groupId} />
-        </TabsContent>
+        {canViewGlobalAccounting() && (
+          <TabsContent value="financial">
+            <GroupFinancialTab groupId={groupId} group={group} />
+          </TabsContent>
+        )}
 
+        {canSplitGroups() && (
+          <TabsContent value="split">
+            <GroupSplitTab group={group} passportCount={passports.length} onUpdate={fetchData} />
+          </TabsContent>
+        )}
+
+        {canManageSubmissionDetails() && (
         <TabsContent value="submission">
       <Card className="mb-6" data-testid="submission-details-card">
         <CardHeader className="border-b border-slate-100">
@@ -1483,8 +1527,9 @@ export const GroupDetail = () => {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
         </TabsContent>
+        )}
       </Tabs>
 
       {/* Add Passport Dialog */}

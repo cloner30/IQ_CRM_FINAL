@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException, Form, Depends, Query, Body
+from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException, Form, Depends, Query, Body, Header
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
@@ -6,6 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
@@ -19,15 +20,16 @@ import boto3
 from botocore.exceptions import ClientError
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-import httpx
-import base64
 import re
+from pymongo import UpdateOne
 
 # Jinja2 for PDF template
 from jinja2 import Environment, FileSystemLoader
 from permissions import (
     check_permission,
     require_permission,
+    require_passport_status_update,
+    require_submission_details,
     can_access_client,
     can_access_group,
     get_user_client_filter,
@@ -39,6 +41,15 @@ from permissions import (
 from group_id import generate_group_id, preview_group_id
 from migrations import run_migrations
 from enterprise_routes import register_enterprise_routes
+from accounting_routes import register_accounting_routes
+from ocr_service import extract_all_text_from_image, warmup_reader
+from passport_parsing import parse_passport_text, map_extracted_fields
+from arabic_name_generator import ArabicNameGenerator
+from status_sync import (
+    build_passport_status_update,
+    build_passport_visa_update,
+    sync_after_passenger_change,
+)
 
 # Setup Jinja2 template environment
 TEMPLATE_DIR = Path(__file__).parent / 'templates'
@@ -100,16 +111,19 @@ NATIONALITY_TO_ARABIC = {
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# OCR.space API Key
-OCR_SPACE_API_KEY = os.environ.get('OCR_SPACE_API_KEY', '')
-
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # JWT Configuration
-SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'passport-control-secret-key-change-in-production')
+_env = os.environ.get('ENV', 'development').lower()
+_jwt_secret = os.environ.get('JWT_SECRET_KEY')
+if _env == 'production' and not _jwt_secret:
+    raise RuntimeError('JWT_SECRET_KEY must be set in production')
+SECRET_KEY = _jwt_secret or 'passport-control-secret-key-change-in-production'
+if _env != 'production' and not _jwt_secret:
+    logging.warning('JWT_SECRET_KEY not set — using insecure default (development only)')
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
@@ -313,13 +327,15 @@ class Group(BaseModel):
     passport_count: int = 0
     passenger_count: Optional[int] = None
     departure_date: Optional[str] = None
-    status: str = "DATA_ENTRY"
+    status: str = "DATA_PROCESSING"
     assigned_vendor_id: Optional[str] = None
     assigned_at: Optional[str] = None
     split_from_group_id: Optional[str] = None
     is_archived: bool = False
     approval_number: Optional[str] = None
     date_of_payment: Optional[str] = None
+    base_price_per_passport: Optional[float] = None
+    rush_fee: Optional[float] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 class PassportCreate(BaseModel):
@@ -383,7 +399,7 @@ class Passport(BaseModel):
     insurance_pdf: Optional[str] = None  # S3 URL for insurance PDF
     visa_pdf: Optional[str] = None  # S3 URL for visa copy
     status: str = "pending"  # pending, done (form filling status)
-    visa_status: str = "pending"  # pending, form_submitted, payment_done, visa_issued
+    visa_status: str = "pending"  # pending, form_submitted, payment_done, visa_issued, visa_rejected
     visa_status_updated_at: Optional[str] = None
     status_updated_at: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -601,15 +617,19 @@ async def create_group(group_data: GroupCreate, current_user: dict = Depends(get
     elif group_data.client_id and not can_access_client(current_user, group_data.client_id):
         raise HTTPException(status_code=403, detail="Cannot create group for other client")
 
+    client_doc = None
     if group_data.client_id:
-        client = await db.clients.find_one({"id": group_data.client_id})
-        if not client:
+        client_doc = await db.clients.find_one({"id": group_data.client_id}, {"_id": 0})
+        if not client_doc:
             raise HTTPException(status_code=400, detail="Client not found")
 
     group_dict = group_data.model_dump()
+    if client_doc:
+        group_dict["base_price_per_passport"] = client_doc.get("base_price_per_passport", 20.0)
+        group_dict["rush_fee"] = client_doc.get("rush_fee", 0.0)
     if group_data.departure_date:
         group_dict["id"] = await generate_group_id(db, group_data.departure_date)
-    group_dict["status"] = "DATA_ENTRY"
+    group_dict["status"] = "DATA_PROCESSING"
     group_dict["is_archived"] = False
     group = Group(**group_dict)
     doc = group.model_dump()
@@ -689,6 +709,7 @@ async def update_group_submission_details(
 ):
     """Update approval number and date of payment for a group.
     When date_of_payment is set, all passports with visa_status='form_submitted' are updated to 'payment_done'."""
+    require_submission_details(current_user)
     # Check if group exists
     group = await db.groups.find_one({"id": group_id})
     if not group:
@@ -721,6 +742,7 @@ async def update_group_submission_details(
                 "visa_status_updated_at": now
             }}
         )
+        await sync_after_passenger_change(db, group_id, current_user["id"])
     
     # Fetch and return updated group
     group = await db.groups.find_one({"id": group_id}, {"_id": 0})
@@ -762,6 +784,11 @@ async def verify_group_access(group_id: str, current_user: dict) -> dict:
     
     return group
 
+
+def require_edit_passports(user: dict) -> None:
+    require_permission(user, "can_edit_passports")
+
+
 # Helper function to process passport images (convert S3 keys to presigned URLs)
 def process_passport_images(passport: dict) -> dict:
     """Convert S3 keys to presigned URLs for passport images"""
@@ -790,7 +817,7 @@ async def get_passports(group_id: str, current_user: dict = Depends(get_current_
 
 @api_router.post("/groups/{group_id}/passports", response_model=Passport)
 async def create_passport(group_id: str, passport_data: PassportCreate, current_user: dict = Depends(get_current_user)):
-    # Verify group access
+    require_edit_passports(current_user)
     group = await verify_group_access(group_id, current_user)
     
     existing = await db.passports.find_one({
@@ -825,6 +852,7 @@ async def create_passport(group_id: str, passport_data: PassportCreate, current_
 
 @api_router.get("/groups/{group_id}/passports/{passport_id}", response_model=Passport)
 async def get_passport(group_id: str, passport_id: str, current_user: dict = Depends(get_current_user)):
+    await verify_group_access(group_id, current_user)
     passport = await db.passports.find_one({"id": passport_id, "group_id": group_id}, {"_id": 0})
     if not passport:
         raise HTTPException(status_code=404, detail="Passport not found")
@@ -833,6 +861,8 @@ async def get_passport(group_id: str, passport_id: str, current_user: dict = Dep
 
 @api_router.put("/groups/{group_id}/passports/{passport_id}", response_model=Passport)
 async def update_passport(group_id: str, passport_id: str, passport_data: PassportUpdate, current_user: dict = Depends(get_current_user)):
+    require_edit_passports(current_user)
+    await verify_group_access(group_id, current_user)
     update_data = {k: v for k, v in passport_data.model_dump().items() if v is not None}
     if "passport_no" in update_data:
         update_data["passport_no"] = update_data["passport_no"].upper()
@@ -852,6 +882,8 @@ async def update_passport(group_id: str, passport_id: str, passport_data: Passpo
 
 @api_router.delete("/groups/{group_id}/passports/{passport_id}")
 async def delete_passport(group_id: str, passport_id: str, current_user: dict = Depends(get_current_user)):
+    require_edit_passports(current_user)
+    await verify_group_access(group_id, current_user)
     result = await db.passports.delete_one({"id": passport_id, "group_id": group_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Passport not found")
@@ -867,19 +899,17 @@ async def delete_passport(group_id: str, passport_id: str, current_user: dict = 
 @api_router.put("/passports/{passport_id}/status")
 async def update_passport_status(passport_id: str, status: str, current_user: dict = Depends(get_current_user)):
     """Update passport processing status (pending/done). When done, visa_status becomes form_submitted."""
+    require_passport_status_update(current_user)
+    passport = await db.passports.find_one({"id": passport_id})
+    if not passport:
+        raise HTTPException(status_code=404, detail="Passport not found")
+    await verify_group_access(passport["group_id"], current_user)
     if status not in ["pending", "done"]:
         raise HTTPException(status_code=400, detail="Invalid status. Use 'pending' or 'done'")
     
     now = datetime.now(timezone.utc).isoformat()
-    update_data = {
-        "status": status,
-        "status_updated_at": now if status == "done" else None
-    }
-    
-    # When marking as done, also update visa_status to form_submitted
-    if status == "done":
-        update_data["visa_status"] = "form_submitted"
-        update_data["visa_status_updated_at"] = now
+    current_visa = passport.get("visa_status", "pending")
+    update_data = build_passport_status_update(status, current_visa, now)
     
     result = await db.passports.update_one(
         {"id": passport_id},
@@ -888,6 +918,8 @@ async def update_passport_status(passport_id: str, status: str, current_user: di
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Passport not found")
+    
+    await sync_after_passenger_change(db, passport["group_id"], current_user["id"])
     
     passport = await db.passports.find_one({"id": passport_id}, {"_id": 0})
     return process_passport_images(passport)
@@ -896,52 +928,54 @@ async def update_passport_status(passport_id: str, status: str, current_user: di
 @api_router.put("/groups/{group_id}/passports/bulk-status")
 async def bulk_update_passport_status(group_id: str, passport_ids: List[str], status: str, current_user: dict = Depends(get_current_user)):
     """Bulk update passport processing status. When done, visa_status becomes form_submitted."""
+    require_passport_status_update(current_user)
+    await verify_group_access(group_id, current_user)
     if status not in ["pending", "done"]:
         raise HTTPException(status_code=400, detail="Invalid status. Use 'pending' or 'done'")
     
     now = datetime.now(timezone.utc).isoformat()
-    update_data = {
-        "status": status,
-        "status_updated_at": now if status == "done" else None
-    }
     
-    # When marking as done, also update visa_status to form_submitted
     if status == "done":
-        update_data["visa_status"] = "form_submitted"
-        update_data["visa_status_updated_at"] = now
+        passports = await db.passports.find(
+            {"id": {"$in": passport_ids}, "group_id": group_id},
+            {"_id": 0, "id": 1, "visa_status": 1},
+        ).to_list(10000)
+        bulk_ops = []
+        for p in passports:
+            update_data = build_passport_status_update(status, p.get("visa_status", "pending"), now)
+            bulk_ops.append(UpdateOne({"id": p["id"]}, {"$set": update_data}))
+        if bulk_ops:
+            await db.passports.bulk_write(bulk_ops)
+        modified = len(bulk_ops)
+    else:
+        update_data = build_passport_status_update(status, "pending", now)
+        result = await db.passports.update_many(
+            {"id": {"$in": passport_ids}, "group_id": group_id},
+            {"$set": update_data}
+        )
+        modified = result.modified_count
     
-    result = await db.passports.update_many(
-        {"id": {"$in": passport_ids}, "group_id": group_id},
-        {"$set": update_data}
-    )
+    await sync_after_passenger_change(db, group_id, current_user["id"])
     
-    return {"updated": result.modified_count}
+    return {"updated": modified}
 
 # Visa status constants
-VALID_VISA_STATUSES = ["pending", "form_submitted", "payment_done", "visa_issued"]
+VALID_VISA_STATUSES = ["pending", "form_submitted", "payment_done", "visa_issued", "visa_rejected"]
 
 # Visa status update endpoint
 @api_router.put("/passports/{passport_id}/visa-status")
 async def update_passport_visa_status(passport_id: str, visa_status: str, current_user: dict = Depends(get_current_user)):
     """Update passport visa status"""
-    if visa_status not in VALID_VISA_STATUSES:
-        raise HTTPException(status_code=400, detail=f"Invalid visa status. Use one of: {VALID_VISA_STATUSES}")
-    
-    # Get passport to verify access
+    require_passport_status_update(current_user)
     passport = await db.passports.find_one({"id": passport_id})
     if not passport:
         raise HTTPException(status_code=404, detail="Passport not found")
-    
-    # Get group to check client access
-    group = await db.groups.find_one({"id": passport["group_id"]})
-    if group and not can_access_group(current_user, group):
-        raise HTTPException(status_code=403, detail="Access denied")
-    
+    await verify_group_access(passport["group_id"], current_user)
+    if visa_status not in VALID_VISA_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid visa status. Use one of: {VALID_VISA_STATUSES}")
+
     now = datetime.now(timezone.utc).isoformat()
-    update_data = {
-        "visa_status": visa_status,
-        "visa_status_updated_at": now
-    }
+    update_data = build_passport_visa_update(visa_status, now)
     
     result = await db.passports.update_one(
         {"id": passport_id},
@@ -951,6 +985,8 @@ async def update_passport_visa_status(passport_id: str, visa_status: str, curren
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Passport not found")
     
+    await sync_after_passenger_change(db, passport["group_id"], current_user["id"])
+    
     passport = await db.passports.find_one({"id": passport_id}, {"_id": 0})
     return process_passport_images(passport)
 
@@ -958,22 +994,20 @@ async def update_passport_visa_status(passport_id: str, visa_status: str, curren
 @api_router.put("/groups/{group_id}/passports/bulk-visa-status")
 async def bulk_update_passport_visa_status(group_id: str, passport_ids: List[str] = Body(...), visa_status: str = Query(...), current_user: dict = Depends(get_current_user)):
     """Bulk update passport visa status"""
+    require_passport_status_update(current_user)
+    await verify_group_access(group_id, current_user)
     if visa_status not in VALID_VISA_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid visa status. Use one of: {VALID_VISA_STATUSES}")
     
-    # Verify group access
-    await verify_group_access(group_id, current_user)
-    
     now = datetime.now(timezone.utc).isoformat()
-    update_data = {
-        "visa_status": visa_status,
-        "visa_status_updated_at": now
-    }
+    update_data = build_passport_visa_update(visa_status, now)
     
     result = await db.passports.update_many(
         {"id": {"$in": passport_ids}, "group_id": group_id},
         {"$set": update_data}
     )
+    
+    await sync_after_passenger_change(db, group_id, current_user["id"])
     
     return {"updated": result.modified_count}
 
@@ -981,7 +1015,7 @@ async def bulk_update_passport_visa_status(group_id: str, passport_ids: List[str
 @api_router.post("/groups/{group_id}/passports/mark-all-visa-issued")
 async def mark_all_passports_visa_issued(group_id: str, current_user: dict = Depends(get_current_user)):
     """Mark all passports in a group as visa_issued (only those with payment_done status)"""
-    # Verify group access
+    require_passport_status_update(current_user)
     await verify_group_access(group_id, current_user)
     
     now = datetime.now(timezone.utc).isoformat()
@@ -991,9 +1025,13 @@ async def mark_all_passports_visa_issued(group_id: str, current_user: dict = Dep
         {"group_id": group_id, "visa_status": "payment_done"},
         {"$set": {
             "visa_status": "visa_issued",
-            "visa_status_updated_at": now
+            "visa_status_updated_at": now,
+            "status": "done",
+            "status_updated_at": now,
         }}
     )
+    
+    await sync_after_passenger_change(db, group_id, current_user["id"])
     
     return {"updated": result.modified_count}
 
@@ -1014,6 +1052,7 @@ async def get_group_stats(group_id: str, current_user: dict = Depends(get_curren
     visa_form_submitted = await db.passports.count_documents({"group_id": group_id, "visa_status": "form_submitted"})
     visa_payment_done = await db.passports.count_documents({"group_id": group_id, "visa_status": "payment_done"})
     visa_issued = await db.passports.count_documents({"group_id": group_id, "visa_status": "visa_issued"})
+    visa_rejected = await db.passports.count_documents({"group_id": group_id, "visa_status": "visa_rejected"})
     
     return {
         "total": total,
@@ -1024,7 +1063,8 @@ async def get_group_stats(group_id: str, current_user: dict = Depends(get_curren
             "pending": visa_pending,
             "form_submitted": visa_form_submitted,
             "payment_done": visa_payment_done,
-            "visa_issued": visa_issued
+            "visa_issued": visa_issued,
+            "visa_rejected": visa_rejected,
         }
     }
 
@@ -1485,12 +1525,9 @@ async def upload_relationship_proof(
     current_user: dict = Depends(get_current_user)
 ):
     """Upload relationship proof document for minors"""
-    # Verify group exists
-    group = await db.groups.find_one({"id": group_id})
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+    require_permission(current_user, "can_upload_files")
+    await verify_group_access(group_id, current_user)
     
-    # Verify passport exists
     passport = await db.passports.find_one({"id": passport_id, "group_id": group_id})
     if not passport:
         raise HTTPException(status_code=404, detail="Passport not found")
@@ -1541,12 +1578,9 @@ async def upload_insurance_pdf(
     current_user: dict = Depends(get_current_user)
 ):
     """Upload insurance PDF for a passport"""
-    # Verify group exists
-    group = await db.groups.find_one({"id": group_id})
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+    require_permission(current_user, "can_upload_files")
+    await verify_group_access(group_id, current_user)
     
-    # Verify passport exists
     passport = await db.passports.find_one({"id": passport_id, "group_id": group_id})
     if not passport:
         raise HTTPException(status_code=404, detail="Passport not found")
@@ -1602,12 +1636,9 @@ async def upload_insurance_pdf_by_passport_no(
 ):
     """Upload insurance PDF for a passport by passport number (used by Chrome extension).
     If passport doesn't exist in the group, it will be created automatically."""
-    # Verify group exists
-    group = await db.groups.find_one({"id": group_id})
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
+    require_permission(current_user, "can_upload_files")
+    group = await verify_group_access(group_id, current_user)
     
-    # Find passport by passport_no and group_id
     passport = await db.passports.find_one({"passport_no": passport_no, "group_id": group_id})
     
     # If passport doesn't exist, create it automatically
@@ -1701,6 +1732,7 @@ async def upload_insurance_pdf_by_passport_no(
 @api_router.get("/groups/{group_id}/passports/{passport_id}/minor-status")
 async def check_minor_status(group_id: str, passport_id: str, current_user: dict = Depends(get_current_user)):
     """Check if passport holder is a minor and return applicant type"""
+    await verify_group_access(group_id, current_user)
     passport = await db.passports.find_one({"id": passport_id, "group_id": group_id}, {"_id": 0})
     if not passport:
         raise HTTPException(status_code=404, detail="Passport not found")
@@ -1774,10 +1806,20 @@ async def download_chrome_extension():
 
 # ============ AUTHENTICATION ENDPOINTS ============
 
+def normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def email_case_insensitive_filter(email: str) -> dict:
+    """Match stored email regardless of casing."""
+    escaped = re.escape(email.strip())
+    return {"email": {"$regex": f"^{escaped}$", "$options": "i"}}
+
+
 @api_router.post("/auth/login", response_model=Token)
 async def login(credentials: UserLogin):
     """Authenticate user and return JWT token"""
-    user = await db.users.find_one({"email": credentials.email})
+    user = await db.users.find_one(email_case_insensitive_filter(credentials.email))
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
@@ -1805,16 +1847,21 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     return current_user
 
 @api_router.post("/auth/init-admin")
-async def init_admin():
+async def init_admin(x_init_token: Optional[str] = Header(None, alias="X-Init-Token")):
     """Initialize default admin user if no users exist"""
     user_count = await db.users.count_documents({})
+    init_token = os.environ.get("INIT_ADMIN_TOKEN")
     if user_count > 0:
-        # Upgrade existing admin to super_admin if needed
+        if not init_token or x_init_token != init_token:
+            raise HTTPException(status_code=403, detail="Init admin disabled — set INIT_ADMIN_TOKEN header")
         await db.users.update_many(
             {"role": {"$in": ["admin", "super_admin"]}},
             {"$set": {"role": "system_admin"}},
         )
-        return {"message": "Users already exist, upgraded legacy admins to system_admin", "created": False}
+        return {"message": "Upgraded legacy admins to system_admin", "created": False}
+
+    if init_token and x_init_token != init_token:
+        raise HTTPException(status_code=403, detail="Invalid init token")
 
     admin_user = {
         "id": str(uuid.uuid4()),
@@ -1864,7 +1911,8 @@ async def get_users(current_user: dict = Depends(get_current_user)):
 @api_router.post("/users", response_model=User)
 async def create_user(user_data: UserCreate, current_user: dict = Depends(get_client_admin_or_above)):
     """Create a new user"""
-    existing = await db.users.find_one({"email": user_data.email})
+    normalized_email = normalize_email(user_data.email)
+    existing = await db.users.find_one(email_case_insensitive_filter(normalized_email))
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -1873,6 +1921,10 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cl
 
     creator_role = normalize_role(current_user.get("role"))
     if creator_role in ("system_admin", "system_staff"):
+        if user_data.role == "system_admin" and creator_role != "system_admin":
+            raise HTTPException(status_code=403, detail="Only system_admin can create system_admin users")
+        if user_data.role in ("system_admin", "system_staff", "system_accounts") and creator_role != "system_admin":
+            raise HTTPException(status_code=403, detail="Only system_admin can create system roles")
         if user_data.role in ("client_admin", "client_staff", "client_accounts") and not user_data.client_id:
             raise HTTPException(status_code=400, detail="client_id required for client roles")
         if user_data.role in ("vendor_admin", "vendor_staff", "vendor_accounts") and not user_data.vendor_id:
@@ -1900,7 +1952,7 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cl
 
     user = {
         "id": str(uuid.uuid4()),
-        "email": user_data.email,
+        "email": normalized_email,
         "password_hash": get_password_hash(user_data.password),
         "name": user_data.name,
         "role": user_data.role,
@@ -1972,7 +2024,11 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
     
     # If email is being updated, check for duplicates
     if "email" in update_data:
-        existing = await db.users.find_one({"email": update_data["email"], "id": {"$ne": user_id}})
+        update_data["email"] = normalize_email(update_data["email"])
+        existing = await db.users.find_one({
+            **email_case_insensitive_filter(update_data["email"]),
+            "id": {"$ne": user_id},
+        })
         if existing:
             raise HTTPException(status_code=400, detail="Email already registered")
     
@@ -2122,245 +2178,85 @@ class OCRResult(BaseModel):
     raw_text: Optional[str] = None
     error: Optional[str] = None
 
-# Country code to nationality mapping
-COUNTRY_TO_NATIONALITY = {
-    'AFG': 'Afghan', 'ALB': 'Albanian', 'DZA': 'Algerian', 'AND': 'Andorran', 'AGO': 'Angolan',
-    'ARG': 'Argentine', 'ARM': 'Armenian', 'AUS': 'Australian', 'AUT': 'Austrian', 'AZE': 'Azerbaijani',
-    'BHR': 'Bahraini', 'BGD': 'Bangladeshi', 'BLR': 'Belarusian', 'BEL': 'Belgian', 'BTN': 'Bhutanese',
-    'BOL': 'Bolivian', 'BIH': 'Bosnian', 'BRA': 'Brazilian', 'BRN': 'Bruneian', 'BGR': 'Bulgarian',
-    'KHM': 'Cambodian', 'CMR': 'Cameroonian', 'CAN': 'Canadian', 'TCD': 'Chadian', 'CHL': 'Chilean',
-    'CHN': 'Chinese', 'COL': 'Colombian', 'CRI': 'Costa Rican', 'HRV': 'Croatian', 'CUB': 'Cuban',
-    'CYP': 'Cypriot', 'CZE': 'Czech', 'DNK': 'Danish', 'ECU': 'Ecuadorian', 'EGY': 'Egyptian',
-    'EST': 'Estonian', 'ETH': 'Ethiopian', 'FIN': 'Finnish', 'FRA': 'French', 'GEO': 'Georgian',
-    'DEU': 'German', 'GHA': 'Ghanaian', 'GRC': 'Greek', 'GTM': 'Guatemalan', 'HND': 'Honduran',
-    'HKG': 'Hong Konger', 'HUN': 'Hungarian', 'ISL': 'Icelandic', 'IND': 'Indian', 'IDN': 'Indonesian',
-    'IRN': 'Iranian', 'IRQ': 'Iraqi', 'IRL': 'Irish', 'ISR': 'Israeli', 'ITA': 'Italian',
-    'JPN': 'Japanese', 'JOR': 'Jordanian', 'KAZ': 'Kazakhstani', 'KEN': 'Kenyan', 'KWT': 'Kuwaiti',
-    'KGZ': 'Kyrgyzstani', 'LVA': 'Latvian', 'LBN': 'Lebanese', 'LBY': 'Libyan', 'LTU': 'Lithuanian',
-    'LUX': 'Luxembourger', 'MYS': 'Malaysian', 'MDV': 'Maldivian', 'MLT': 'Maltese', 'MEX': 'Mexican',
-    'MDA': 'Moldovan', 'MCO': 'Monacan', 'MNG': 'Mongolian', 'MAR': 'Moroccan', 'MMR': 'Myanmar',
-    'NPL': 'Nepalese', 'NLD': 'Dutch', 'NZL': 'New Zealander', 'NGA': 'Nigerian', 'PRK': 'North Korean',
-    'NOR': 'Norwegian', 'OMN': 'Omani', 'PAK': 'Pakistani', 'PSE': 'Palestinian', 'PAN': 'Panamanian',
-    'PER': 'Peruvian', 'PHL': 'Filipino', 'POL': 'Polish', 'PRT': 'Portuguese', 'QAT': 'Qatari',
-    'ROU': 'Romanian', 'RUS': 'Russian', 'SAU': 'Saudi', 'SRB': 'Serbian', 'SGP': 'Singaporean',
-    'SVK': 'Slovak', 'SVN': 'Slovenian', 'SOM': 'Somali', 'ZAF': 'South African', 'KOR': 'South Korean',
-    'ESP': 'Spanish', 'LKA': 'Sri Lankan', 'SDN': 'Sudanese', 'SWE': 'Swedish', 'CHE': 'Swiss',
-    'SYR': 'Syrian', 'TWN': 'Taiwanese', 'TJK': 'Tajikistani', 'TZA': 'Tanzanian', 'THA': 'Thai',
-    'TUN': 'Tunisian', 'TUR': 'Turkish', 'TKM': 'Turkmen', 'ARE': 'Emirati', 'UGA': 'Ugandan',
-    'UKR': 'Ukrainian', 'GBR': 'British', 'USA': 'American', 'URY': 'Uruguayan', 'UZB': 'Uzbekistani',
-    'VEN': 'Venezuelan', 'VNM': 'Vietnamese', 'YEM': 'Yemeni', 'ZMB': 'Zambian', 'ZWE': 'Zimbabwean'
-}
 
-def parse_mrz(text: str) -> dict:
-    """Parse Machine Readable Zone (MRZ) from passport"""
-    data = {}
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
-    
-    # Find MRZ lines (usually start with P< for passport)
-    mrz_lines = []
-    for line in lines:
-        # MRZ lines contain < characters and are typically 44 chars for passport
-        if '<' in line and len(line) >= 30:
-            # Clean the line - remove spaces
-            clean_line = line.replace(' ', '')
-            mrz_lines.append(clean_line)
-    
-    if len(mrz_lines) >= 2:
-        line1 = mrz_lines[0]
-        line2 = mrz_lines[1] if len(mrz_lines) > 1 else ""
-        
-        # Parse Line 1: Type, Country, Name
-        if line1.startswith('P'):
-            # Extract names from line 1
-            # MRZ format: P<COUNTRY<<SURNAME<<GIVEN<NAMES
-            # Given names section contains first name and middle names, NOT father's name
-            name_part = line1[5:] if len(line1) > 5 else ""
-            if '<<' in name_part:
-                parts = name_part.split('<<')
-                surname = parts[0].replace('<', ' ').strip()
-                given_names = parts[1].replace('<', ' ').strip() if len(parts) > 1 else ""
-                data['surname_en'] = surname.title()
-                # Store all given names as first_name_en (user can split manually if needed)
-                # Do NOT auto-fill father_name - it's not in MRZ and requires manual entry
-                data['first_name_en'] = given_names.title() if given_names else ""
-        
-        # Parse Line 2: Passport No, Nationality, DOB, Gender, Expiry
-        if len(line2) >= 28:
-            # Passport number (positions 0-9)
-            passport_no = line2[0:9].replace('<', '')
-            data['passport_no'] = passport_no
-            
-            # Nationality (positions 10-12)
-            nationality_code = line2[10:13].replace('<', '')
-            data['nationality_code'] = nationality_code
-            
-            # Date of birth (positions 13-19) - YYMMDD
-            dob = line2[13:19]
-            if dob and len(dob) == 6 and dob.isdigit():
-                year = int(dob[0:2])
-                # Assume 19xx for years > 30, 20xx for years <= 30
-                year = 1900 + year if year > 30 else 2000 + year
-                month = dob[2:4]
-                day = dob[4:6]
-                data['birth_date'] = f"{year}-{month}-{day}"
-            
-            # Gender (position 20)
-            gender = line2[20:21]
-            if gender == 'M':
-                data['gender'] = 'Male'
-            elif gender == 'F':
-                data['gender'] = 'Female'
-            
-            # Expiry date (positions 21-27) - YYMMDD
-            exp = line2[21:27]
-            if exp and len(exp) == 6 and exp.isdigit():
-                year = int(exp[0:2])
-                year = 2000 + year  # Expiry is always in 2000s
-                month = exp[2:4]
-                day = exp[4:6]
-                data['expiry_date'] = f"{year}-{month}-{day}"
-    
-    return data
+class ArabicNameRequest(BaseModel):
+    first_name_en: str
+    father_name_en: Optional[str] = None
+    grandfather_name_en: Optional[str] = None
+    surname_en: Optional[str] = None
+    mother_name_en: Optional[str] = None
 
-def parse_passport_text(text: str) -> dict:
-    """Parse passport data from OCR text using various patterns"""
-    data = {}
-    text_upper = text.upper()
-    
-    # Try MRZ parsing first
-    mrz_data = parse_mrz(text)
-    if mrz_data:
-        data.update(mrz_data)
-    
-    # Pattern matching for common passport fields
-    patterns = {
-        'passport_no': [
-            r'PASSPORT\s*(?:NO|NUMBER|#)[:\s]*([A-Z0-9]{6,12})',
-            r'(?:NO|NUMBER)[:\s]*([A-Z][0-9]{7,8})',
-            r'\b([A-Z]{1,2}[0-9]{6,8})\b'
-        ],
-        'surname_en': [
-            r'SURNAME[:\s]*([A-Z]+)',
-            r'FAMILY\s*NAME[:\s]*([A-Z]+)'
-        ],
-        'first_name_en': [
-            r'GIVEN\s*NAME[S]?[:\s]*([A-Z]+)',
-            r'FIRST\s*NAME[:\s]*([A-Z]+)',
-            r'NAME[:\s]*([A-Z]+)'
-        ],
-        'nationality': [
-            r'NATIONALITY[:\s]*([A-Z]+)',
-            r'CITIZEN(?:SHIP)?[:\s]*([A-Z]+)'
-        ],
-        'birth_date': [
-            r'(?:DATE\s*OF\s*BIRTH|DOB|BIRTH)[:\s]*(\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4})',
-            r'(\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{4})'
-        ],
-        'expiry_date': [
-            r'(?:DATE\s*OF\s*EXPIRY|EXPIRY|EXPIRES?|VALID\s*UNTIL)[:\s]*(\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4})',
-        ],
-        'place_of_issue': [
-            r'PLACE\s*OF\s*ISSUE[:\s]*([A-Z]+)',
-        ],
-        'gender': [
-            r'SEX[:\s]*(M|F|MALE|FEMALE)',
-            r'GENDER[:\s]*(M|F|MALE|FEMALE)'
-        ]
-    }
-    
-    for field, field_patterns in patterns.items():
-        if field not in data or not data[field]:
-            for pattern in field_patterns:
-                match = re.search(pattern, text_upper)
-                if match:
-                    value = match.group(1).strip()
-                    if field == 'gender':
-                        value = 'Male' if value in ['M', 'MALE'] else 'Female'
-                    elif field in ['surname_en', 'first_name_en', 'nationality', 'place_of_issue']:
-                        value = value.title()
-                    data[field] = value
-                    break
-    
-    return data
+
+class ArabicNameResponse(BaseModel):
+    first_name_ar: Optional[str] = None
+    father_name_ar: Optional[str] = None
+    grandfather_name_ar: Optional[str] = None
+    surname_ar: Optional[str] = None
+    mother_name_ar: Optional[str] = None
+    arabic_names_suggested: bool = True
+
+
+@api_router.post("/utilities/generate-arabic-names", response_model=ArabicNameResponse)
+async def generate_arabic_names(
+    data: ArabicNameRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Convert English names to Arabic script (transliteration, not translation)."""
+    arabic_names = ArabicNameGenerator.transliterate_full_name(
+        first_name_en=data.first_name_en,
+        father_name_en=data.father_name_en,
+        grandfather_name_en=data.grandfather_name_en,
+        surname_en=data.surname_en,
+        mother_name_en=data.mother_name_en,
+    )
+    return ArabicNameResponse(**arabic_names)
+
+
+@api_router.post("/utilities/generate-arabic-names/bulk", response_model=List[ArabicNameResponse])
+async def generate_arabic_names_bulk(
+    names: List[ArabicNameRequest],
+    current_user: dict = Depends(get_current_user),
+):
+    results = []
+    for name in names:
+        arabic_names = ArabicNameGenerator.transliterate_full_name(
+            first_name_en=name.first_name_en,
+            father_name_en=name.father_name_en,
+            grandfather_name_en=name.grandfather_name_en,
+            surname_en=name.surname_en,
+            mother_name_en=name.mother_name_en,
+        )
+        results.append(ArabicNameResponse(**arabic_names))
+    return results
+
 
 @api_router.post("/ocr/scan-passport", response_model=OCRResult)
 async def scan_passport(
     image: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Scan passport image and extract data using OCR.space API"""
-    
-    if not OCR_SPACE_API_KEY:
-        raise HTTPException(status_code=500, detail="OCR API key not configured")
-    
-    # Read the uploaded image
+    """Scan passport image and extract data using EasyOCR"""
     image_data = await image.read()
-    
-    # Convert to base64
-    base64_image = base64.b64encode(image_data).decode('utf-8')
-    
-    # Determine file type
-    content_type = image.content_type or 'image/jpeg'
-    if 'png' in content_type:
-        file_type = 'PNG'
-    elif 'gif' in content_type:
-        file_type = 'GIF'
-    else:
-        file_type = 'JPG'
-    
+
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                'https://api.ocr.space/parse/image',
-                data={
-                    'apikey': OCR_SPACE_API_KEY,
-                    'base64Image': f'data:{content_type};base64,{base64_image}',
-                    'language': 'eng',
-                    'isOverlayRequired': False,
-                    'detectOrientation': True,
-                    'scale': True,
-                    'OCREngine': 2  # Engine 2 is better for passports
-                }
-            )
-            
-            result = response.json()
-            
-            if result.get('IsErroredOnProcessing'):
-                error_msg = result.get('ErrorMessage', ['Unknown error'])
-                return OCRResult(
-                    success=False,
-                    error=error_msg[0] if isinstance(error_msg, list) else str(error_msg)
-                )
-            
-            # Extract text from result
-            parsed_results = result.get('ParsedResults', [])
-            if not parsed_results:
-                return OCRResult(
-                    success=False,
-                    error="No text detected in image"
-                )
-            
-            raw_text = parsed_results[0].get('ParsedText', '')
-            
-            if not raw_text.strip():
-                return OCRResult(
-                    success=False,
-                    error="No text could be extracted from image"
-                )
-            
-            # Parse the extracted text
-            extracted_data = parse_passport_text(raw_text)
-            
+        def process_image():
+            mrz_text, visual_text = extract_all_text_from_image(image_data)
+            combined = "\n".join(part for part in (mrz_text, visual_text) if part)
+            parsed = parse_passport_text(combined)
+            return combined, map_extracted_fields(parsed)
+
+        raw_text, extracted_data = await asyncio.to_thread(process_image)
+
+        if not raw_text.strip():
             return OCRResult(
-                success=True,
-                extracted_data=extracted_data,
-                raw_text=raw_text
+                success=False,
+                error="No text detected in image"
             )
-            
-    except httpx.TimeoutException:
+
         return OCRResult(
-            success=False,
-            error="OCR request timed out. Please try again."
+            success=True,
+            extracted_data=extracted_data,
+            raw_text=raw_text
         )
     except Exception as e:
         logging.error(f"OCR error: {str(e)}")
@@ -2374,6 +2270,7 @@ async def root():
     return {"message": "Passport Control Admin API"}
 
 register_enterprise_routes(api_router, db, get_current_user, verify_group_access, get_user_group_filter)
+register_accounting_routes(api_router, db, get_current_user)
 
 app.include_router(api_router)
 
@@ -2381,6 +2278,8 @@ app.include_router(api_router)
 async def startup_event():
     await run_migrations(db)
     logging.info("Enterprise migrations completed")
+    await asyncio.to_thread(warmup_reader)
+    logging.info("EasyOCR reader warmed up")
 
 app.add_middleware(
     CORSMiddleware,

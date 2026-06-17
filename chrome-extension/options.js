@@ -74,7 +74,7 @@ async function login() {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password })
     });
     
     if (!response.ok) {

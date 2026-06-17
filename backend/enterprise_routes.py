@@ -5,30 +5,59 @@ import logging
 import aiofiles
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from fastapi import HTTPException, Depends, Query, UploadFile, File
 from pydantic import BaseModel, Field, ConfigDict
+from pymongo import UpdateOne
 
 from permissions import (
     require_permission,
+    require_submit_group,
     check_permission,
     is_system_role,
     is_vendor_role,
     can_access_group,
     normalize_role,
+    VALID_ROLES,
+)
+from group_status import (
     GROUP_STATUSES,
     VALID_STATUS_TRANSITIONS,
-    VALID_ROLES,
+    DEFAULT_STATUS,
+    SUBMITTED_STATUS,
+    VENDOR_ASSIGNED_STATUS,
+    REASON_REQUIRED_FOR,
+    get_status_definitions,
+    normalize_status,
 )
 from group_id import generate_group_id, preview_group_id
 from notifications import send_notification, render_template, notify_users_by_role
+import accounting as acct_module
+from visa_outcome import validate_visa_outcomes, derive_group_visa_status
+from status_sync import (
+    log_status_change,
+    get_passenger_aggregate,
+    validate_group_transition_aggregate,
+    apply_group_status_to_passengers,
+    reconcile_group_status,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class GroupStatusUpdate(BaseModel):
     new_status: str
+    reason: Optional[str] = ""
+
+
+class VisaOutcomeItem(BaseModel):
+    passport_id: str
+    visa_status: Literal["visa_issued", "visa_rejected"]
+
+
+class CompleteVisaOutcomeRequest(BaseModel):
+    outcomes: List[VisaOutcomeItem]
     reason: Optional[str] = ""
 
 
@@ -73,77 +102,16 @@ class AssignVendorRequest(BaseModel):
     vendor_id: str
 
 
-class InvoiceCreate(BaseModel):
-    group_id: str
-    discount_percent: float = 0.0
-
-
-class PaymentCreate(BaseModel):
-    invoice_id: str
-    amount: float
-    payment_method: str = "bank_transfer"
+class UnassignVendorRequest(BaseModel):
+    reason: Optional[str] = ""
 
 
 def register_enterprise_routes(api_router, db, get_current_user, verify_group_access, get_user_group_filter):
     """Register all enterprise endpoints on the main API router."""
 
-    async def log_status_change(group_id, old_status, new_status, user_id, reason=""):
-        entry = {
-            "id": str(uuid.uuid4()),
-            "group_id": group_id,
-            "old_status": old_status,
-            "new_status": new_status,
-            "changed_by_user_id": user_id,
-            "reason": reason,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        await db.status_history.insert_one(entry)
-        return entry
-
-    async def create_invoice_for_group(group_id: str, discount_percent: float = 0.0):
-        group = await db.groups.find_one({"id": group_id})
-        if not group:
-            return None
-        existing = await db.invoices.find_one({"group_id": group_id})
-        if existing:
-            return existing
-
-        client = await db.clients.find_one({"id": group.get("client_id")}) or {}
-        passport_count = await db.passports.count_documents({"group_id": group_id})
-        passenger_count = group.get("passenger_count") or passport_count or 0
-        base_rate = client.get("base_price_per_passport", 20.0)
-        rush_fee = client.get("rush_fee", 0.0)
-        subtotal = passenger_count * base_rate
-        total = (subtotal + rush_fee) * (1 - discount_percent / 100)
-
-        invoice = {
-            "id": str(uuid.uuid4()),
-            "group_id": group_id,
-            "client_id": group.get("client_id"),
-            "invoice_number": f"INV-{datetime.now().year}-{str(uuid.uuid4())[:8].upper()}",
-            "issued_date": datetime.now(timezone.utc).isoformat(),
-            "due_date": (datetime.now(timezone.utc) + timedelta(days=15)).isoformat(),
-            "total_amount": round(total, 2),
-            "currency": "USD",
-            "status": "sent",
-            "discount_percent": discount_percent,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-        await db.invoices.insert_one(invoice)
-
-        title, body = render_template("group_submitted", {
-            "group_id": group_id,
-            "passenger_count": passenger_count,
-            "amount": f"{total:.2f}",
-            "due_date": invoice["due_date"][:10],
-        })
-        await notify_users_by_role(
-            db, ["client_admin", "client_accounts", "system_admin", "super_admin"],
-            "group_submitted",
-            {"group_id": group_id, "passenger_count": passenger_count, "amount": f"{total:.2f}", "due_date": invoice["due_date"][:10]},
-            group_id,
-        )
-        return invoice
+    @api_router.get("/group-status-definitions")
+    async def get_group_status_definitions(current_user: dict = Depends(get_current_user)):
+        return get_status_definitions()
 
     # --- Group status ---
     @api_router.patch("/groups/{group_id}/status")
@@ -159,22 +127,64 @@ def register_enterprise_routes(api_router, db, get_current_user, verify_group_ac
         if not can_access_group(current_user, group):
             raise HTTPException(status_code=403, detail="Access denied")
 
-        old_status = group.get("status", "DATA_ENTRY")
+        old_status = normalize_status(group.get("status", DEFAULT_STATUS))
         new_status = status_data.new_status
+
+        # Keep vendor assignment consistent:
+        # If a vendor is still assigned, system users must unassign first
+        # before moving the group back to Data Processing / Submitted for Process.
+        assigned_vendor_id = group.get("assigned_vendor_id")
+        if assigned_vendor_id and new_status in {DEFAULT_STATUS, SUBMITTED_STATUS}:
+            raise HTTPException(
+                status_code=400,
+                detail="Please unassign the vendor before moving the group back",
+            )
+
         if new_status not in GROUP_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status. Use: {GROUP_STATUSES}")
+        if new_status in REASON_REQUIRED_FOR and not (status_data.reason or "").strip():
+            raise HTTPException(status_code=400, detail=f"Reason is required for status {new_status}")
         allowed = VALID_STATUS_TRANSITIONS.get(old_status, [])
         if new_status != old_status and new_status not in allowed:
             raise HTTPException(status_code=400, detail=f"Cannot transition from {old_status} to {new_status}")
 
-        await db.groups.update_one({"id": group_id}, {"$set": {"status": new_status}})
-        await log_status_change(group_id, old_status, new_status, current_user["id"], status_data.reason or "")
+        if old_status == "VISA_IN_PROCESS" and new_status in {"VISA_ISSUED", "VISA_REJECTED"}:
+            raise HTTPException(
+                status_code=400,
+                detail="Use POST /groups/{group_id}/complete-visa-outcome to record passenger visa outcomes",
+            )
 
-        if new_status == "SUBMITTED":
-            await create_invoice_for_group(group_id)
+        agg = await get_passenger_aggregate(db, group_id)
+        validate_group_transition_aggregate(
+            old_status, new_status, agg, bool(assigned_vendor_id)
+        )
+
+        await db.groups.update_one({"id": group_id}, {"$set": {"status": new_status}})
+        await log_status_change(
+            db, group_id, old_status, new_status, current_user["id"], status_data.reason or ""
+        )
+        await apply_group_status_to_passengers(db, group_id, old_status, new_status)
+
+        if new_status == SUBMITTED_STATUS:
+            group = await db.groups.find_one({"id": group_id}, {"_id": 0})
+            client = await db.clients.find_one({"id": group.get("client_id")}) or {}
+            passport_count = await db.passports.count_documents({"group_id": group_id})
+            passenger_count = group.get("passenger_count") or passport_count or 0
+            suggested = acct_module.compute_suggested_revenue(passenger_count, group, client)
+            await notify_users_by_role(
+                db, ["client_admin", "client_accounts", "system_admin", "system_accounts"],
+                "group_submitted",
+                {
+                    "group_id": group_id,
+                    "passenger_count": passenger_count,
+                    "amount": f"{suggested:.2f}",
+                    "due_date": "Record client receipt",
+                },
+                group_id,
+            )
 
         notif_map = {
-            "VISA_SUBMITTED": "visa_submitted",
+            "VISA_IN_PROCESS": "visa_submitted",
             "VISA_ISSUED": "visa_approved",
             "VISA_REJECTED": "visa_rejected",
         }
@@ -188,6 +198,141 @@ def register_enterprise_routes(api_router, db, get_current_user, verify_group_ac
 
         updated = await db.groups.find_one({"id": group_id}, {"_id": 0})
         return updated
+
+    @api_router.post("/groups/{group_id}/complete-visa-outcome")
+    async def complete_visa_outcome(
+        group_id: str,
+        body: CompleteVisaOutcomeRequest,
+        current_user: dict = Depends(get_current_user),
+    ):
+        require_permission(current_user, "can_update_group_status")
+        group = await db.groups.find_one({"id": group_id})
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        if not can_access_group(current_user, group):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        old_status = normalize_status(group.get("status", DEFAULT_STATUS))
+        if old_status != "VISA_IN_PROCESS":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Visa outcomes can only be completed from VISA_IN_PROCESS (current: {old_status})",
+            )
+
+        passports = await db.passports.find({"group_id": group_id}, {"_id": 0, "id": 1}).to_list(10000)
+        passport_ids = [p["id"] for p in passports]
+        issued_count, rejected_count = validate_visa_outcomes(passport_ids, body.outcomes)
+
+        if rejected_count > 0 and not (body.reason or "").strip():
+            raise HTTPException(status_code=400, detail="Reason is required when any passenger is visa rejected")
+
+        new_status = derive_group_visa_status(rejected_count)
+        now = datetime.now(timezone.utc).isoformat()
+        reason = (body.reason or "").strip()
+
+        bulk_ops = [
+            UpdateOne(
+                {"id": item.passport_id, "group_id": group_id},
+                {"$set": {
+                    "visa_status": item.visa_status,
+                    "visa_status_updated_at": now,
+                    "status": "done",
+                    "status_updated_at": now,
+                }},
+            )
+            for item in body.outcomes
+        ]
+        if bulk_ops:
+            await db.passports.bulk_write(bulk_ops)
+
+        await db.groups.update_one({"id": group_id}, {"$set": {"status": new_status}})
+        await log_status_change(db, group_id, old_status, new_status, current_user["id"], reason)
+
+        notif_type = "visa_rejected" if rejected_count > 0 else "visa_approved"
+        ctx = {
+            "group_id": group_id,
+            "rejection_reason": reason or "See group details",
+            "issued_count": issued_count,
+            "rejected_count": rejected_count,
+        }
+        await notify_users_by_role(
+            db, ["client_admin", "system_admin", "system_staff"],
+            notif_type, ctx, group_id,
+        )
+
+        updated_group = await db.groups.find_one({"id": group_id}, {"_id": 0})
+        updated_passports = await db.passports.find({"group_id": group_id}, {"_id": 0}).to_list(10000)
+        return {
+            "group": updated_group,
+            "updated_passports": updated_passports,
+            "summary": {"issued": issued_count, "rejected": rejected_count},
+        }
+
+    @api_router.post("/groups/{group_id}/sync-from-passengers")
+    async def sync_from_passengers(
+        group_id: str,
+        current_user: dict = Depends(get_current_user),
+    ):
+        group = await db.groups.find_one({"id": group_id})
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        if not can_access_group(current_user, group):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        new_status = await reconcile_group_status(
+            db, group_id, user_id=current_user["id"]
+        )
+        updated = await db.groups.find_one({"id": group_id}, {"_id": 0})
+        agg = await get_passenger_aggregate(db, group_id)
+        return {
+            "group": updated,
+            "status": new_status or normalize_status(group.get("status", DEFAULT_STATUS)),
+            "passenger_summary": agg,
+        }
+
+    @api_router.post("/groups/{group_id}/submit")
+    async def submit_group(group_id: str, current_user: dict = Depends(get_current_user)):
+        require_submit_group(current_user)
+        group = await db.groups.find_one({"id": group_id})
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        if not can_access_group(current_user, group):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        old_status = normalize_status(group.get("status", DEFAULT_STATUS))
+        if old_status != DEFAULT_STATUS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Group can only be submitted from {DEFAULT_STATUS} (current: {old_status})",
+            )
+
+        passport_count = await db.passports.count_documents({"group_id": group_id})
+        if passport_count < 1:
+            raise HTTPException(status_code=400, detail="Add at least one passport before submitting")
+
+        new_status = SUBMITTED_STATUS
+        await db.groups.update_one({"id": group_id}, {"$set": {"status": new_status}})
+        await log_status_change(
+            db, group_id, old_status, new_status, current_user["id"], "Group submitted by client"
+        )
+
+        group = await db.groups.find_one({"id": group_id}, {"_id": 0})
+        client = await db.clients.find_one({"id": group.get("client_id")}) or {}
+        passenger_count = group.get("passenger_count") or passport_count or 0
+        suggested = acct_module.compute_suggested_revenue(passenger_count, group, client)
+        await notify_users_by_role(
+            db, ["client_admin", "client_accounts", "system_admin", "system_accounts"],
+            "group_submitted",
+            {
+                "group_id": group_id,
+                "passenger_count": passenger_count,
+                "amount": f"{suggested:.2f}",
+                "due_date": "Record client receipt",
+            },
+            group_id,
+        )
+
+        return await db.groups.find_one({"id": group_id}, {"_id": 0})
 
     @api_router.get("/groups/{group_id}/status-history")
     async def get_status_history(group_id: str, current_user: dict = Depends(get_current_user)):
@@ -235,7 +380,7 @@ def register_enterprise_routes(api_router, db, get_current_user, verify_group_ac
                 "name": f"{group['name']} - Batch {i + 1}",
                 "split_from_group_id": group_id,
                 "passport_count": len(batch),
-                "status": group.get("status", "DATA_ENTRY"),
+                "status": normalize_status(group.get("status", DEFAULT_STATUS)),
                 "is_archived": False,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
@@ -244,8 +389,17 @@ def register_enterprise_routes(api_router, db, get_current_user, verify_group_ac
                 await db.passports.update_one({"id": p["id"]}, {"$set": {"group_id": new_id}})
             new_groups.append(new_group)
 
+        parent_status = normalize_status(group.get("status", DEFAULT_STATUS))
         await db.groups.update_one({"id": group_id}, {"$set": {"is_archived": True}})
-        await log_status_change(group_id, group.get("status"), "COMPLETED", current_user["id"], split_data.reason or "Group split")
+        await log_status_change(
+            db,
+            group_id,
+            parent_status,
+            parent_status,
+            current_user["id"],
+            split_data.reason or "Group split (archived)",
+            action="split",
+        )
 
         title, body = render_template("group_split", {"group_id": group_id, "count": len(new_groups)})
         await notify_users_by_role(db, ["client_admin", "system_admin"], "group_split", {"group_id": group_id, "count": len(new_groups)}, group_id)
@@ -309,27 +463,37 @@ def register_enterprise_routes(api_router, db, get_current_user, verify_group_ac
         if not vendor:
             raise HTTPException(status_code=404, detail="Vendor not found")
 
-        old_status = group.get("status", "DATA_ENTRY")
+        old_status = normalize_status(group.get("status", DEFAULT_STATUS))
+        if old_status != SUBMITTED_STATUS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Vendor can only be assigned when status is {SUBMITTED_STATUS} (current: {old_status})",
+            )
+
         await db.groups.update_one(
             {"id": group_id},
             {"$set": {
                 "assigned_vendor_id": body.vendor_id,
-                "status": "PENDING_PROCESS",
+                "status": VENDOR_ASSIGNED_STATUS,
                 "assigned_at": datetime.now(timezone.utc).isoformat(),
             }},
         )
-        await log_status_change(group_id, old_status, "PENDING_PROCESS", current_user["id"], f"Assigned to {vendor['name']}")
+        await log_status_change(
+            db, group_id, old_status, VENDOR_ASSIGNED_STATUS, current_user["id"],
+            f"Assigned to {vendor['name']}",
+        )
+        await reconcile_group_status(db, group_id, user_id=current_user["id"])
 
         passport_count = await db.passports.count_documents({"group_id": group_id})
-        amount = passport_count * vendor.get("base_cost_per_passport", 0)
-        await db.vendor_payments.insert_one({
-            "id": str(uuid.uuid4()),
-            "vendor_id": body.vendor_id,
-            "group_id": group_id,
-            "amount": amount,
-            "status": "payable",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
+        unit_cost = vendor.get("base_cost_per_passport", 0)
+        await acct_module.create_payable_for_vendor_assignment(
+            db,
+            vendor_id=body.vendor_id,
+            group_id=group_id,
+            unit_cost=unit_cost,
+            quantity=passport_count,
+            created_by_user_id=current_user["id"],
+        )
 
         vendor_users = await db.users.find({"vendor_id": body.vendor_id, "status": {"$ne": "inactive"}}).to_list(100)
         client = await db.clients.find_one({"id": group.get("client_id")}) or {}
@@ -343,6 +507,49 @@ def register_enterprise_routes(api_router, db, get_current_user, verify_group_ac
             await send_notification(db, vu["id"], "vendor_assigned", title, body_text, group_id)
 
         return {"status": "success", "group_id": group_id, "vendor_id": body.vendor_id}
+
+    @api_router.post("/groups/{group_id}/unassign-vendor")
+    async def unassign_vendor(
+        group_id: str,
+        body: UnassignVendorRequest,
+        current_user: dict = Depends(get_current_user),
+    ):
+        require_permission(current_user, "can_assign_vendor")
+        group = await db.groups.find_one({"id": group_id})
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        if not can_access_group(current_user, group):
+            raise HTTPException(status_code=403, detail="Access denied")
+        if not group.get("assigned_vendor_id"):
+            raise HTTPException(status_code=400, detail="No vendor is assigned to this group")
+
+        old_status = normalize_status(group.get("status", DEFAULT_STATUS))
+        # Allow unassign even if the group has inconsistent status,
+        # as long as `assigned_vendor_id` is present.
+
+        vendor = await db.vendors.find_one({"id": group["assigned_vendor_id"]})
+        vendor_name = vendor.get("name", "Unknown") if vendor else "Unknown"
+
+        await db.groups.update_one(
+            {"id": group_id},
+            {
+                "$set": {"status": SUBMITTED_STATUS},
+                "$unset": {"assigned_vendor_id": "", "assigned_at": ""},
+            },
+        )
+        await log_status_change(
+            db,
+            group_id,
+            old_status,
+            SUBMITTED_STATUS,
+            current_user["id"],
+            body.reason or f"Unassigned vendor {vendor_name}",
+            action="unassign_vendor",
+        )
+        await apply_group_status_to_passengers(db, group_id, old_status, SUBMITTED_STATUS)
+
+        updated = await db.groups.find_one({"id": group_id}, {"_id": 0})
+        return {"status": "success", "group_id": group_id, "group": updated}
 
     @api_router.get("/vendors/{vendor_id}/groups")
     async def get_vendor_groups(vendor_id: str, current_user: dict = Depends(get_current_user)):
@@ -379,116 +586,22 @@ def register_enterprise_routes(api_router, db, get_current_user, verify_group_ac
                 upload_dir.mkdir(parents=True, exist_ok=True)
                 async with aiofiles.open(upload_dir / file.filename, "wb") as f:
                     await f.write(content)
+                now = datetime.now(timezone.utc).isoformat()
                 await db.passports.update_one(
                     {"id": passport["id"]},
-                    {"$set": {"visa_pdf": url, "visa_status": "visa_issued"}},
+                    {"$set": {
+                        "visa_pdf": url,
+                        "visa_status": "visa_issued",
+                        "visa_status_updated_at": now,
+                        "status": "done",
+                        "status_updated_at": now,
+                    }},
                 )
                 results.append({"filename": file.filename, "matched": True, "passport_no": passport_no})
             else:
                 results.append({"filename": file.filename, "matched": False, "passport_no": passport_no})
+        await reconcile_group_status(db, group_id, user_id=current_user["id"])
         return {"uploaded": len(results), "results": results}
-
-    # --- Financial ---
-    @api_router.post("/invoices")
-    async def create_invoice(body: InvoiceCreate, current_user: dict = Depends(get_current_user)):
-        require_permission(current_user, "can_manage_financial")
-        invoice = await create_invoice_for_group(body.group_id, body.discount_percent)
-        if not invoice:
-            raise HTTPException(status_code=404, detail="Group not found")
-        return invoice
-
-    @api_router.get("/invoices")
-    async def list_invoices(
-        group_id: Optional[str] = None,
-        client_id: Optional[str] = None,
-        current_user: dict = Depends(get_current_user),
-    ):
-        require_permission(current_user, "can_access_financial")
-        query = {}
-        if group_id:
-            query["group_id"] = group_id
-        if client_id:
-            query["client_id"] = client_id
-        if normalize_role(current_user.get("role")) == "client_accounts":
-            query["client_id"] = current_user.get("client_id")
-        invoices = await db.invoices.find(query, {"_id": 0}).to_list(1000)
-        return invoices
-
-    @api_router.patch("/invoices/{invoice_id}/mark-paid")
-    async def mark_invoice_paid(invoice_id: str, current_user: dict = Depends(get_current_user)):
-        require_permission(current_user, "can_manage_financial")
-        result = await db.invoices.update_one(
-            {"id": invoice_id},
-            {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}},
-        )
-        if result.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Invoice not found")
-        return {"status": "success"}
-
-    @api_router.post("/payments")
-    async def create_payment(body: PaymentCreate, current_user: dict = Depends(get_current_user)):
-        require_permission(current_user, "can_manage_financial")
-        invoice = await db.invoices.find_one({"id": body.invoice_id})
-        if not invoice:
-            raise HTTPException(status_code=404, detail="Invoice not found")
-        payment = {
-            "id": str(uuid.uuid4()),
-            "invoice_id": body.invoice_id,
-            "amount": body.amount,
-            "payment_method": body.payment_method,
-            "status": "completed",
-            "date": datetime.now(timezone.utc).isoformat(),
-        }
-        await db.payments.insert_one(payment)
-        if body.amount >= invoice.get("total_amount", 0):
-            await db.invoices.update_one({"id": body.invoice_id}, {"$set": {"status": "paid"}})
-        return payment
-
-    @api_router.get("/financial/dashboard")
-    async def financial_dashboard(current_user: dict = Depends(get_current_user)):
-        require_permission(current_user, "can_access_financial")
-        since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-        pipeline = [
-            {"$match": {"created_at": {"$gte": since}}},
-            {"$group": {
-                "_id": None,
-                "total_revenue": {"$sum": "$total_amount"},
-                "invoices_paid": {"$sum": {"$cond": [{"$eq": ["$status", "paid"]}, "$total_amount", 0]}},
-                "invoices_pending": {"$sum": {"$cond": [{"$ne": ["$status", "paid"]}, "$total_amount", 0]}},
-            }},
-        ]
-        stats = await db.invoices.aggregate(pipeline).to_list(1)
-        vendor_costs = await db.vendor_payments.find({"created_at": {"$gte": since}}).to_list(10000)
-        total_cost = sum(p.get("amount", 0) for p in vendor_costs)
-        total_revenue = stats[0].get("total_revenue", 0) if stats else 0
-        profit = total_revenue - total_cost
-        margin = (profit / total_revenue * 100) if total_revenue > 0 else 0
-        return {
-            "revenue": total_revenue,
-            "cost": total_cost,
-            "profit": profit,
-            "margin_percent": round(margin, 2),
-            "invoices_paid": stats[0].get("invoices_paid", 0) if stats else 0,
-            "invoices_pending": stats[0].get("invoices_pending", 0) if stats else 0,
-        }
-
-    @api_router.get("/groups/{group_id}/financial")
-    async def group_financial(group_id: str, current_user: dict = Depends(get_current_user)):
-        require_permission(current_user, "can_access_financial")
-        group = await db.groups.find_one({"id": group_id})
-        if not group:
-            raise HTTPException(status_code=404, detail="Group not found")
-        invoice = await db.invoices.find_one({"group_id": group_id}, {"_id": 0})
-        vendor_payment = await db.vendor_payments.find_one({"group_id": group_id}, {"_id": 0})
-        revenue = invoice.get("total_amount", 0) if invoice else 0
-        cost = vendor_payment.get("amount", 0) if vendor_payment else 0
-        return {
-            "invoice": invoice,
-            "vendor_payment": vendor_payment,
-            "revenue": revenue,
-            "cost": cost,
-            "profit": revenue - cost,
-        }
 
     # --- Notifications ---
     @api_router.get("/notifications")

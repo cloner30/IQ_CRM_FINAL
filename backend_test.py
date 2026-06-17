@@ -123,6 +123,23 @@ class PassportAPITester:
         )
         return success
 
+    def test_login_case_insensitive_email(self):
+        """Test login accepts email regardless of casing"""
+        login_data = {
+            "email": "Admin@Admin.COM",
+            "password": "admin123"
+        }
+        success, response = self.run_test(
+            "Login with Mixed-Case Email",
+            "POST",
+            "auth/login",
+            200,
+            data=login_data
+        )
+        if success and 'access_token' in response:
+            print(f"   Mixed-case email login succeeded")
+        return success
+
     def test_get_current_user_with_token(self):
         """Test getting current user info with valid token"""
         if not self.auth_token:
@@ -1693,6 +1710,7 @@ def run_authentication_tests():
         tester.test_init_admin,
         tester.test_login_valid_credentials,
         tester.test_login_invalid_credentials,
+        tester.test_login_case_insensitive_email,
         tester.test_get_current_user_with_token,
         tester.test_get_current_user_without_token,
         
@@ -1743,7 +1761,7 @@ def run_enterprise_tests():
     print("=" * 60)
 
     tester.test_init_admin()
-    tester.test_login_admin()
+    tester.test_login_valid_credentials()
 
     success, _ = tester.run_test(
         "Preview Group ID",
@@ -1777,7 +1795,7 @@ def run_enterprise_tests():
             "PATCH",
             f"groups/{tester.group_id}/status",
             200,
-            data={"new_status": "SUBMITTED", "reason": "Test submission"},
+            data={"new_status": "SUBMITTED_FOR_PROCESS", "reason": "Test submission"},
             auth_required=True,
         )
         tester.run_test(
@@ -1789,9 +1807,17 @@ def run_enterprise_tests():
         )
 
     tester.run_test(
-        "Financial Dashboard",
+        "Accounting Dashboard",
         "GET",
-        "financial/dashboard",
+        "accounting/dashboard",
+        200,
+        auth_required=True,
+    )
+
+    tester.run_test(
+        "Accounting Initialize (may already exist)",
+        "POST",
+        "accounting/initialize",
         200,
         auth_required=True,
     )

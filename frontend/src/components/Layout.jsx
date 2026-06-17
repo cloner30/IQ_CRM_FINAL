@@ -25,7 +25,7 @@ const ROLE_LABELS = {
 export const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAdmin, isSuperAdmin, canManageUsers, isVendor, canManageVendors, canAccessFinancial, canViewOperational } = useAuth();
+  const { user, logout, isAdmin, isSuperAdmin, canManageUsers, isVendor, canManageVendors, canViewGlobalAccounting, canViewClientLedger, canViewVendorLedger, canViewOperational } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -66,7 +66,9 @@ export const Layout = ({ children }) => {
     { name: 'Groups', href: '/groups', icon: Users, show: canViewOperational() && !isVendor() },
     { name: 'Vendor Portal', href: '/vendor', icon: Truck, show: isVendor() },
     { name: 'Scanner', href: '/scanner', icon: ScanLine, show: canViewOperational() && !isVendor() },
-    { name: 'Financial', href: '/financial', icon: DollarSign, show: canAccessFinancial() },
+    { name: 'Accounting', href: '/accounting', icon: DollarSign, show: canViewGlobalAccounting() },
+    { name: 'Ledger', href: '/accounting/client-ledger', icon: DollarSign, show: canViewClientLedger() },
+    { name: 'Ledger', href: '/accounting/vendor-ledger', icon: DollarSign, show: canViewVendorLedger() && !canViewGlobalAccounting() },
     { name: 'Clients', href: '/clients', icon: Building2, show: isSuperAdmin() },
     { name: 'Vendors', href: '/vendors', icon: Truck, show: canManageVendors() },
     { name: 'Users', href: '/users', icon: UserCog, show: canManageUsers() },
@@ -131,15 +133,23 @@ export const Layout = ({ children }) => {
             </button>
           </div>
           {showNotifs && notifications.length > 0 && (
-            <div className="mb-3 max-h-40 overflow-y-auto bg-sidebar-accent rounded-lg p-2 text-xs">
+            <div className="mb-3 max-h-52 overflow-y-auto bg-sidebar-accent rounded-lg p-2 text-xs text-sidebar-accent-foreground">
               {notifications.slice(0, 5).map((n) => (
                 <div
                   key={n.id}
-                  className={`p-2 mb-1 rounded cursor-pointer ${n.read_at ? 'opacity-60' : ''}`}
+                  className={`p-2 mb-1 rounded cursor-pointer transition-colors hover:bg-sidebar/40 ${
+                    n.read_at ? '' : 'bg-sidebar/25'
+                  }`}
                   onClick={() => !n.read_at && markRead(n.id)}
                 >
-                  <p className="font-medium">{n.title}</p>
-                  <p className="text-sidebar-foreground/60">{n.body?.slice(0, 60)}</p>
+                  <p className={`font-medium leading-snug ${n.read_at ? 'text-sidebar-accent-foreground/70' : 'text-sidebar-accent-foreground'}`}>
+                    {n.title}
+                  </p>
+                  {n.body && (
+                    <p className={`mt-1 leading-relaxed break-words line-clamp-2 ${n.read_at ? 'text-sidebar-accent-foreground/55' : 'text-sidebar-accent-foreground/85'}`}>
+                      {n.body}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

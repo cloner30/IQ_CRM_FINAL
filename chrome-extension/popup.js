@@ -155,7 +155,7 @@ function setupEventListeners() {
     document.getElementById('preview-images').textContent = imageStatus.length > 0 ? imageStatus.join(', ') : 'None';
     
     // Show visa status in preview - check both fields
-    const isDone = selectedPassport.status === 'done' || selectedPassport.visa_status === 'Done';
+    const isDone = isPassportFormDone(selectedPassport);
     const statusBadge = isDone ? '✅ Done' : '⏳ Pending';
     document.getElementById('preview-status').textContent = statusBadge;
     
@@ -300,14 +300,19 @@ async function loadPassports(groupId) {
   }
 }
 
+function isPassportFormDone(passport) {
+  if (passport.status === 'done') return true;
+  const visa = passport.visa_status || 'pending';
+  return ['form_submitted', 'payment_done', 'visa_issued', 'visa_rejected'].includes(visa);
+}
+
 function updateProgressBar() {
   const progressBar = document.getElementById('group-progress');
   const progressFill = document.getElementById('progress-fill');
   const progressText = document.getElementById('progress-text');
   
   const total = allPassports.length;
-  // Check both 'status' and 'visa_status' fields for compatibility
-  const done = allPassports.filter(p => p.status === 'done' || p.visa_status === 'Done').length;
+  const done = allPassports.filter(p => isPassportFormDone(p)).length;
   const percentage = total > 0 ? (done / total) * 100 : 0;
   
   progressText.textContent = `${done}/${total} Done`;
@@ -317,7 +322,7 @@ function updateProgressBar() {
 
 // Helper function to check if passport is done
 function isPassportDone(passport) {
-  return passport.status === 'done' || passport.visa_status === 'Done';
+  return isPassportFormDone(passport);
 }
 
 function filterAndDisplayPassports() {
@@ -553,7 +558,7 @@ async function markAsDone() {
     return;
   }
   
-  if (selectedPassport.status === 'done' || selectedPassport.visa_status === 'Done') {
+  if (isPassportFormDone(selectedPassport)) {
     showStatus('This passenger is already marked as done.', 'error');
     return;
   }
@@ -575,14 +580,14 @@ async function markAsDone() {
     
     // Update local data
     selectedPassport.status = 'done';
-    selectedPassport.visa_status = 'Done';
+    selectedPassport.visa_status = 'form_submitted';
     selectedPassport.status_updated_at = new Date().toISOString();
     
     // Update in allPassports array
     const index = allPassports.findIndex(p => p.id === selectedPassport.id);
     if (index !== -1) {
       allPassports[index].status = 'done';
-      allPassports[index].visa_status = 'Done';
+      allPassports[index].visa_status = 'form_submitted';
       allPassports[index].status_updated_at = selectedPassport.status_updated_at;
     }
     
@@ -622,17 +627,18 @@ async function markAsDone() {
 
 async function maybeUpdateGroupVisaStatus() {
   if (!currentGroupId || !allPassports.length) return;
-  const allDone = allPassports.every(p => p.status === 'done' || p.visa_status === 'Done' || p.visa_status === 'form_submitted');
+  const allDone = allPassports.every(p => isPassportFormDone(p));
   if (!allDone) return;
   try {
-    await apiRequest(`/api/groups/${currentGroupId}/status`, {
-      method: 'PATCH',
+    const response = await apiRequest(`/api/groups/${currentGroupId}/sync-from-passengers`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ new_status: 'VISA_SUBMITTED', reason: 'All passengers processed via extension' }),
     });
-    showStatus('Group status updated to Visa Submitted', 'success');
+    if (response.ok) {
+      showStatus('Group status synced — Visa In Process', 'success');
+    }
   } catch (e) {
-    console.warn('Could not update group status:', e);
+    console.warn('Could not sync group status:', e);
   }
 }
 

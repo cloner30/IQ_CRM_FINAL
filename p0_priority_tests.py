@@ -6,6 +6,10 @@ from PIL import Image
 import io
 import os
 
+BACKEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend")
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
 class P0PriorityTester:
     def __init__(self, base_url="https://visa-track-1.preview.emergentagent.com/api"):
         self.base_url = base_url
@@ -348,41 +352,26 @@ class P0PriorityTester:
             print(f"❌ Failed - Error: {str(e)}")
             return False
 
-    def test_p0_ocr_api_key_configured(self):
-        """P0 Test: Verify OCR_SPACE_API_KEY is configured in backend"""
-        print(f"\n🔍 Testing P0 - OCR API Key Configuration...")
-        
-        # Check backend .env file for OCR_SPACE_API_KEY
+    def test_p0_easyocr_available(self):
+        """P0 Test: Verify EasyOCR is installed and importable"""
+        print(f"\n🔍 Testing P0 - EasyOCR Availability...")
+
         try:
-            with open('/app/backend/.env', 'r') as f:
-                env_content = f.read()
-                
-            if 'OCR_SPACE_API_KEY=' in env_content:
-                # Extract the API key value
-                for line in env_content.split('\n'):
-                    if line.startswith('OCR_SPACE_API_KEY='):
-                        api_key = line.split('=', 1)[1].strip()
-                        if api_key and api_key != '':
-                            print(f"✅ OCR_SPACE_API_KEY is configured in backend/.env")
-                            print(f"   API Key: {api_key[:10]}... (showing first 10 chars)")
-                            self.tests_run += 1
-                            self.tests_passed += 1
-                            return True
-                        else:
-                            print(f"❌ OCR_SPACE_API_KEY is present but empty in backend/.env")
-                            self.tests_run += 1
-                            return False
-                            
-                print(f"❌ OCR_SPACE_API_KEY line found but could not extract value")
+            import easyocr
+            from ocr_service import get_reader
+
+            reader = get_reader()
+            if reader is not None:
+                print(f"✅ EasyOCR is installed and reader initialized successfully")
                 self.tests_run += 1
-                return False
-            else:
-                print(f"❌ OCR_SPACE_API_KEY not found in backend/.env")
-                self.tests_run += 1
-                return False
-                
+                self.tests_passed += 1
+                return True
+
+            print(f"❌ EasyOCR reader failed to initialize")
+            self.tests_run += 1
+            return False
         except Exception as e:
-            print(f"❌ Failed to read backend/.env file: {str(e)}")
+            print(f"❌ EasyOCR not available: {str(e)}")
             self.tests_run += 1
             return False
 
@@ -404,7 +393,7 @@ class P0PriorityTester:
         try:
             # Add authorization header
             headers = {'Authorization': f'Bearer {self.auth_token}'}
-            response = requests.post(url, files=files, headers=headers, timeout=30)
+            response = requests.post(url, files=files, headers=headers, timeout=60)
             
             # Accept 200 (success), 500 (OCR error), or other OCR-related errors
             success = response.status_code in [200, 400, 500]
@@ -519,7 +508,7 @@ def run_p0_priority_tests():
         tester.test_p0_update_group_invalid_client_id,
         
         # P0 Item 2: OCR Passport Scanning API
-        tester.test_p0_ocr_api_key_configured,
+        tester.test_p0_easyocr_available,
         tester.test_p0_ocr_endpoint_exists,
         tester.test_p0_ocr_requires_authentication,
         tester.test_p0_ocr_with_sample_image,
@@ -545,7 +534,7 @@ def run_p0_priority_tests():
     print("  ✅ Edge case: Invalid client_id validation")
     
     print("\nP0 Item 2 - OCR Passport Scanning API:")
-    print("  ✅ OCR API key configuration check")
+    print("  ✅ EasyOCR availability check")
     print("  ✅ OCR endpoint existence verification")
     print("  ✅ Authentication requirement verification")
     print("  ✅ Sample image processing test")

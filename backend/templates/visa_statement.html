@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visa Details Statement — {{ party_name }}</title>
+    <style>
+        @page { size: A4 landscape; margin: 12mm; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10px; color: #111; margin: 0; }
+        h1 { font-size: 16px; margin: 0 0 4px 0; }
+        .meta { margin-bottom: 12px; color: #444; }
+        .meta p { margin: 2px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+        th { background: #f3f4f6; font-weight: 600; }
+        .num { text-align: right; }
+        .opening { background: #fffbeb; font-weight: 600; }
+        .footer { margin-top: 16px; }
+        .footer h2 { font-size: 12px; margin: 0 0 6px 0; }
+        .summary { margin-top: 12px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <h1>Visa Details Statement</h1>
+    <div class="meta">
+        <p><strong>{{ party_type_label }}:</strong> {{ party_name }}</p>
+        <p><strong>Period:</strong> {{ from_date }} to {{ to_date }}</p>
+        <p><strong>Opening Balance:</strong> ${{ opening_amount }} {{ opening_side }}</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Sr No</th>
+                <th>Date</th>
+                <th>Group ID</th>
+                <th>Pax Name</th>
+                <th>Passport No</th>
+                <th class="num">Rate</th>
+                <th class="num">Debit</th>
+                <th class="num">Credit</th>
+                <th class="num">Running Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in lines %}
+            <tr{% if line.line_type == 'opening' %} class="opening"{% endif %}>
+                <td>{{ line.sr_no }}</td>
+                <td>{{ line.date }}</td>
+                <td>{{ line.group_id }}</td>
+                <td>{{ line.pax_name or line.particulars }}</td>
+                <td>{{ line.passport_no }}</td>
+                <td class="num">{% if line.rate is not none %}${{ "%.2f"|format(line.rate) }}{% endif %}</td>
+                <td class="num">{% if line.debit is not none %}${{ "%.2f"|format(line.debit) }}{% endif %}</td>
+                <td class="num">{% if line.credit is not none %}${{ "%.2f"|format(line.credit) }}{% endif %}</td>
+                <td class="num">${{ "%.2f"|format(line.running_balance) }} {{ line.balance_side }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if period_payments %}
+    <div class="footer">
+        <h2>Payments in Period</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Reference</th>
+                    <th>Method</th>
+                    <th class="num">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in period_payments %}
+                <tr>
+                    <td>{{ p.date }}</td>
+                    <td>{{ p.particulars }} ({{ p.reference }})</td>
+                    <td>{{ p.payment_method }}</td>
+                    <td class="num">${{ "%.2f"|format(p.amount_usd) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <p class="summary">
+        Closing Balance: ${{ "%.2f"|format(summary.closing_balance) }} {{ summary.closing_side }}
+        &nbsp;|&nbsp; Visas in period: {{ summary.visas_in_period }}
+        &nbsp;|&nbsp; Total charges: ${{ "%.2f"|format(summary.total_charges) }}
+        &nbsp;|&nbsp; Total payments: ${{ "%.2f"|format(summary.total_payments) }}
+    </p>
+</body>
+</html>

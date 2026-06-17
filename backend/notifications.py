@@ -13,31 +13,35 @@ logger = logging.getLogger(__name__)
 NOTIFICATION_TEMPLATES = {
     "group_submitted": {
         "subject": "Group submitted for visa processing",
-        "body": "Group {group_id} ({passenger_count} passengers) has been submitted. Invoice: ${amount} due {due_date}",
+        "body": "Group {group_id} ({passenger_count} passengers) submitted. Expected payment: ${amount}. {due_date}",
     },
     "vendor_assigned": {
         "subject": "NEW GROUP ASSIGNMENT",
         "body": "Group {group_id} from {client} ({passenger_count} pax) assigned. Deadline: {deadline}",
     },
     "visa_submitted": {
-        "subject": "Form submitted to Iraq evisa",
-        "body": "Group {group_id} form submitted to Iraq. Awaiting approval (5-15 days)",
+        "subject": "Visa in process",
+        "body": "Group {group_id} is now visa in process. Awaiting Iraq e-visa approval (5-15 days)",
     },
     "visa_approved": {
         "subject": "VISAS APPROVED",
-        "body": "Iraq has approved all visas for group {group_id}. Visas ready for download",
+        "body": "Group {group_id}: {issued_count} visa(s) issued, {rejected_count} rejected. Visas ready for download",
     },
     "visa_rejected": {
         "subject": "VISA REJECTION - ACTION NEEDED",
-        "body": "Group {group_id}: {rejection_reason}. Please fix and resubmit",
+        "body": "Group {group_id}: {issued_count} visa(s) issued, {rejected_count} rejected. {rejection_reason}. Please fix and resubmit",
     },
     "payment_due": {
-        "subject": "Invoice due in 7 days",
-        "body": "Invoice {invoice_id}: ${amount} due {due_date}",
+        "subject": "Vendor payable due soon",
+        "body": "Payable {payable_number}: ${amount} due {due_date}",
     },
     "payment_overdue": {
-        "subject": "PAYMENT OVERDUE",
-        "body": "Invoice {invoice_id} overdue by {days} days. Please pay immediately",
+        "subject": "VENDOR PAYABLE OVERDUE",
+        "body": "Payable {payable_number} overdue by {days} days. Amount: ${amount}",
+    },
+    "receipt_recorded": {
+        "subject": "Client payment recorded",
+        "body": "Receipt {receipt_number}: ${amount} received for group(s) {group_ids}",
     },
     "group_split": {
         "subject": "Group split into batches",
