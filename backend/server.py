@@ -32,6 +32,7 @@ from permissions import (
     require_submission_details,
     can_access_client,
     can_access_group,
+    can_access_user_for_admin,
     get_user_client_filter,
     get_user_group_filter,
     normalize_role,
@@ -1984,10 +1985,9 @@ async def get_user(user_id: str, current_user: dict = Depends(get_client_admin_o
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Client admin can only see users in their client
-    if current_user.get("role") == "client_admin":
-        if user.get("client_id") != current_user.get("client_id"):
-            raise HTTPException(status_code=403, detail="Access denied")
+    # Client/vendor admin can only see users in their org
+    if not can_access_user_for_admin(current_user, user):
+        raise HTTPException(status_code=403, detail="Access denied")
     
     # Add client name
     if user.get("client_id"):
@@ -2006,16 +2006,21 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
     if not existing_user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Client admin can only update users in their client
-    if current_user.get("role") == "client_admin":
-        if existing_user.get("client_id") != current_user.get("client_id"):
-            raise HTTPException(status_code=403, detail="Access denied")
-        # Client admin cannot change role to super_admin
+    # Client/vendor admin can only update users in their org
+    if not can_access_user_for_admin(current_user, existing_user):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    actor_role = normalize_role(current_user.get("role"))
+    if actor_role == "client_admin":
         if user_data.role == "system_admin":
             raise HTTPException(status_code=403, detail="Cannot set system_admin role")
-        # Client admin cannot change client_id
         if user_data.client_id and user_data.client_id != current_user.get("client_id"):
             raise HTTPException(status_code=403, detail="Cannot change client assignment")
+    elif actor_role == "vendor_admin":
+        if user_data.role == "system_admin":
+            raise HTTPException(status_code=403, detail="Cannot set system_admin role")
+        if user_data.vendor_id and user_data.vendor_id != current_user.get("vendor_id"):
+            raise HTTPException(status_code=403, detail="Cannot change vendor assignment")
     
     update_data = {k: v for k, v in user_data.model_dump().items() if v is not None}
     
@@ -2067,12 +2072,13 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_client_admi
     if not user_to_delete:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Client admin can only delete users in their client
-    if current_user.get("role") == "client_admin":
-        if user_to_delete.get("client_id") != current_user.get("client_id"):
-            raise HTTPException(status_code=403, detail="Access denied")
-        # Cannot delete super_admin
-        if user_to_delete.get("role") in ("system_admin", "super_admin", "admin"):
+    # Client/vendor admin can only delete users in their org
+    if not can_access_user_for_admin(current_user, user_to_delete):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    actor_role = normalize_role(current_user.get("role"))
+    if actor_role in ("client_admin", "vendor_admin"):
+        if user_to_delete.get("role") in ("system_admin", "super_admin", "admin", "system_staff"):
             raise HTTPException(status_code=403, detail="Cannot delete system admin")
     
     result = await db.users.delete_one({"id": user_id})

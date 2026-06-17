@@ -357,6 +357,17 @@ def can_access_client(user: dict, client_id: Optional[str]) -> bool:
     return False
 
 
+def can_access_user_for_admin(actor: dict, target: dict) -> bool:
+    role = normalize_role(actor.get("role"))
+    if role in ("system_admin", "system_staff"):
+        return True
+    if role == "client_admin":
+        return target.get("client_id") == actor.get("client_id")
+    if role == "vendor_admin":
+        return target.get("vendor_id") == actor.get("vendor_id")
+    return False
+
+
 def can_access_group(user: dict, group: dict) -> bool:
     role = normalize_role(user.get("role"))
     if role in SYSTEM_ROLES:

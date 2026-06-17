@@ -77,8 +77,9 @@ export const Layout = ({ children }) => {
   return (
     <div className="min-h-screen flex" data-testid="main-layout">
       <aside className="w-64 bg-sidebar flex-shrink-0 flex flex-col" data-testid="sidebar">
-        <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
-          <h1 className="text-xl font-manrope font-bold text-sidebar-foreground">ACF CRM</h1>
+        <div className="h-16 flex flex-col justify-center px-6 border-b border-sidebar-border">
+          <h1 className="text-lg font-manrope font-bold text-sidebar-foreground leading-tight">ACF - VISA SYSTEM</h1>
+          <p className="text-xs text-sidebar-foreground/60 tracking-wide">PRODUCT OF ACF</p>
         </div>
         <nav className="mt-6 px-3 flex-1" data-testid="sidebar-nav">
           {navigation.map((item) => {
